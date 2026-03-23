@@ -439,22 +439,60 @@ ftp_watts:
   value: 307
   source: TrainerRoad - AI FTP Detection
 marathon_times:
+- date: '2011-11-12'
+  time_seconds: 12637
+  race: Richmond Marathon
+  strava_id: 705614710
 - date: '2017-09-10'
-  time_seconds: 10804
+  time_seconds: 10810
   race: Presque Isle Marathon
-  source: andyreagan.com — qualified for Boston with a 3:00:04
+  note: BQ qualifier — 3:00:10
+  strava_id: 1180631963
+- date: '2018-02-24'
+  time_seconds: 20619
+  race: Sycamore Canyon 50k
+  note: 9th overall
+  strava_id: 1426571876
 - date: '2018-04-16'
-  time_seconds: 10781
+  time_seconds: 10753
   race: Boston Marathon
-  source: andyreagan.com — got a PR in 2:59:41
+  note: Pouring rain, whipping wind, 30s temps
+  strava_id: 1512264672
 - date: '2019-04-15'
-  time_seconds: 12000
+  time_seconds: 12059
   race: Boston Marathon 2019
-  source: andyreagan.com — 3:20ish finish (approximate)
+  note: 6,944th/30,234
+  strava_id: 2292189157
+- date: '2019-09-08'
+  time_seconds: 10488
+  race: Erie Marathon
+  note: PR and BQ! 40th/1298 finishers
+  strava_id: 2691066468
 - date: '2020-04-20'
-  time_seconds: 10250
+  time_seconds: 10248
   race: Virtual Boston Marathon
-  source: andyreagan.com — finish time was 2:50:50
+  strava_id: 3327336697
+- date: '2020-09-13'
+  time_seconds: 11716
+  race: Virtual Boston Marathon (take 2)
+  strava_id: 4053907192
+- date: '2021-10-09'
+  time_seconds: 11187
+  race: Hartford Marathon
+  strava_id: 6087768988
+- date: '2022-04-18'
+  time_seconds: 11729
+  race: Boston Marathon 2022
+  strava_id: 7003274855
+- date: '2024-05-26'
+  time_seconds: 11515
+  race: VCM Marathon
+  strava_id: 11502678743
+- date: '2024-08-25'
+  time_seconds: 11159
+  race: New England Green River Marathon
+  note: 29th/550
+  strava_id: 12239501321
 5k_times:
 - date: '2025-10-28'
   time_seconds: 1170
