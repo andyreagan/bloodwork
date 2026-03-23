@@ -1,0 +1,39 @@
+vo2max:
+  - date: "2023-06-21"
+    value: 55.6
+    unit: "ml/kg/min"
+    source: "UVM Lab (indirect calorimetry, Connie Tompkins PhD)"
+  - date: "2025-02-15"
+    value: 60.6
+    unit: "ml/kg/min"
+    source: "UMass Empatica study (5-sec peak)"
+
+weight_lbs:
+  # Add entries like: {date: "2025-01-01", value: 175, source: "scale"}
+  - date: "2018-10-10"
+    value: 165
+    source: "MassMutual policy bloodwork"
+  - date: "2022-12-23"
+    value: 187
+    source: "MassMutual policy bloodwork"
+
+ftp_watts:
+  # Cycling Functional Threshold Power
+  # Add entries like: {date: "2025-01-01", value: 260, source: "20-min test"}
+
+marathon_times:
+  # Format: {date: "YYYY-MM-DD", time_seconds: 12345, race: "Boston"}
+  # Example: 3:30:00 = 12600 seconds
+
+5k_times:
+  # Format: {date: "YYYY-MM-DD", time_seconds: 1234, race: "Name"}
+  # Example: 20:00 = 1200 seconds
+
+squat_1rm_lbs:
+  # Format: {date: "YYYY-MM-DD", value: 315}
+
+deadlift_1rm_lbs:
+  # Format: {date: "YYYY-MM-DD", value: 365}
+
+bench_1rm_lbs:
+  # Format: {date: "YYYY-MM-DD", value: 225}

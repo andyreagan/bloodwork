@@ -7,8 +7,11 @@ import sqlite3
 import os
 from datetime import date
 
+import yaml
+
 DB_FILE = os.path.join(os.path.dirname(__file__), "bloodwork.db")
 HTML_FILE = os.path.join(os.path.dirname(__file__), "index.html")
+FITNESS_FILE = os.path.join(os.path.dirname(__file__), "fitness_data.yaml")
 
 BIRTH_YEAR = 1989
 
@@ -67,6 +70,30 @@ def load_data(db_path: str) -> tuple[dict, dict]:
     return measurements, ref_ranges
 
 
+def load_fitness_data(yaml_path: str) -> dict:
+    """Load fitness metrics from YAML file."""
+    if not os.path.exists(yaml_path):
+        return {}
+    with open(yaml_path, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+    # Normalize: ensure None for empty keys
+    for key in list(data.keys()):
+        if data[key] is None:
+            data[key] = []
+    return data
+
+
+def fmt_seconds(secs: int) -> str:
+    """Convert seconds to H:MM:SS or MM:SS display string."""
+    secs = int(secs)
+    h = secs // 3600
+    m = (secs % 3600) // 60
+    s = secs % 60
+    if h:
+        return f"{h}:{m:02d}:{s:02d}"
+    return f"{m}:{s:02d}"
+
+
 def get_status(value: float, ref: dict | None) -> str:
     """Return 'optimal', 'normal', or 'out_of_range'."""
     if not ref:
@@ -105,7 +132,144 @@ def get_trend(data_points: list) -> str:
     return "↑" if last > prev else "↓"
 
 
-def build_html(measurements: dict, ref_ranges: dict) -> str:
+def build_fitness_panel(fitness: dict) -> dict:
+    """Build the fitness panel data structure for embedding in JSON."""
+    cards = []
+    charts = []
+    placeholder_metrics = []
+
+    # ---- VO2max ----
+    vo2 = [e for e in fitness.get("vo2max", []) if e]
+    if vo2:
+        latest_vo2 = vo2[-1]
+        v = latest_vo2["value"]
+        if v > 58:
+            status = "optimal"
+        elif v >= 52:
+            status = "normal"
+        else:
+            status = "unknown"
+        cards.append({
+            "name": "VO₂max",
+            "value": v,
+            "unit": "ml/kg/min",
+            "date": latest_vo2["date"],
+            "status": status,
+            "source": latest_vo2.get("source", ""),
+        })
+        charts.append({
+            "id": "vo2max",
+            "title": "VO₂max",
+            "unit": "ml/kg/min",
+            "data": [{"date": e["date"], "value": e["value"], "source": e.get("source", "")} for e in vo2],
+            "type": "vo2max",
+            "latest_value": v,
+            "latest_date": latest_vo2["date"],
+            "status": status,
+        })
+
+    # ---- Weight ----
+    wt = [e for e in fitness.get("weight_lbs", []) if e]
+    if wt:
+        latest_wt = wt[-1]
+        cards.append({
+            "name": "Weight",
+            "value": latest_wt["value"],
+            "unit": "lbs",
+            "date": latest_wt["date"],
+            "status": "unknown",
+            "source": latest_wt.get("source", ""),
+        })
+        charts.append({
+            "id": "weight_lbs",
+            "title": "Weight",
+            "unit": "lbs",
+            "data": [{"date": e["date"], "value": e["value"], "source": e.get("source", "")} for e in wt],
+            "type": "line",
+            "latest_value": latest_wt["value"],
+            "latest_date": latest_wt["date"],
+            "status": "unknown",
+        })
+
+    # ---- FTP ----
+    ftp = [e for e in fitness.get("ftp_watts", []) if e]
+    if ftp:
+        latest = ftp[-1]
+        charts.append({
+            "id": "ftp_watts",
+            "title": "Cycling FTP",
+            "unit": "watts",
+            "data": [{"date": e["date"], "value": e["value"], "source": e.get("source", "")} for e in ftp],
+            "type": "line",
+            "latest_value": latest["value"],
+            "latest_date": latest["date"],
+            "status": "unknown",
+        })
+    else:
+        placeholder_metrics.append("Cycling FTP (ftp_watts)")
+
+    # ---- Marathon times ----
+    mar = [e for e in fitness.get("marathon_times", []) if e]
+    if mar:
+        latest = mar[-1]
+        charts.append({
+            "id": "marathon_times",
+            "title": "Marathon Time",
+            "unit": "time",
+            "data": [{"date": e["date"], "value": e["time_seconds"], "label": fmt_seconds(e["time_seconds"]), "race": e.get("race", "")} for e in mar],
+            "type": "time",
+            "latest_value": latest["time_seconds"],
+            "latest_label": fmt_seconds(latest["time_seconds"]),
+            "latest_date": latest["date"],
+            "status": "unknown",
+        })
+    else:
+        placeholder_metrics.append("Marathon Time (marathon_times)")
+
+    # ---- 5K times ----
+    fivek = [e for e in fitness.get("5k_times", []) if e]
+    if fivek:
+        latest = fivek[-1]
+        charts.append({
+            "id": "5k_times",
+            "title": "5K Time",
+            "unit": "time",
+            "data": [{"date": e["date"], "value": e["time_seconds"], "label": fmt_seconds(e["time_seconds"]), "race": e.get("race", "")} for e in fivek],
+            "type": "time",
+            "latest_value": latest["time_seconds"],
+            "latest_label": fmt_seconds(latest["time_seconds"]),
+            "latest_date": latest["date"],
+            "status": "unknown",
+        })
+    else:
+        placeholder_metrics.append("5K Time (5k_times)")
+
+    # ---- Strength lifts ----
+    for key, label in [("squat_1rm_lbs", "Squat 1RM"), ("deadlift_1rm_lbs", "Deadlift 1RM"), ("bench_1rm_lbs", "Bench 1RM")]:
+        entries = [e for e in fitness.get(key, []) if e]
+        if entries:
+            latest = entries[-1]
+            charts.append({
+                "id": key,
+                "title": label,
+                "unit": "lbs",
+                "data": [{"date": e["date"], "value": e["value"], "source": e.get("source", "")} for e in entries],
+                "type": "line",
+                "latest_value": latest["value"],
+                "latest_date": latest["date"],
+                "status": "unknown",
+            })
+        else:
+            placeholder_metrics.append(f"{label} ({key})")
+
+    return {
+        "cards": cards,
+        "charts": charts,
+        "placeholders": placeholder_metrics,
+    }
+
+
+def build_html(measurements: dict, ref_ranges: dict, fitness: dict | None = None) -> str:
     today = date.today()
     age = today.year - BIRTH_YEAR
 
@@ -153,10 +317,14 @@ def build_html(measurements: dict, ref_ranges: dict) -> str:
         if panel_charts:
             panels_data.append({"name": panel_name, "charts": panel_charts})
 
+    # Build fitness panel data
+    fitness_panel = build_fitness_panel(fitness or {})
+
     # JSON payload for embedding
     payload = json.dumps({
         "cards": cards,
         "panels": panels_data,
+        "fitness": fitness_panel,
         "generated": today.isoformat(),
         "age": age,
     }, separators=(',', ':'))
@@ -166,7 +334,7 @@ def build_html(measurements: dict, ref_ranges: dict) -> str:
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Andy's Bloodwork Dashboard</title>
+<title>Andy's Health Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 <style>
   :root {{
@@ -447,8 +615,8 @@ def build_html(measurements: dict, ref_ranges: dict) -> str:
 
 <header>
   <div class="header-title">
-    <h1>🩸 Andy's Bloodwork</h1>
-    <p>Personal health dashboard — private & self-hosted</p>
+    <h1>💪 Andy's Health Dashboard</h1>
+    <p>Bloodwork · Fitness · Performance — private & self-hosted</p>
   </div>
   <div class="header-meta" id="header-meta"></div>
 </header>
@@ -486,8 +654,10 @@ document.getElementById('header-meta').innerHTML = `
 `;
 
 // Footer
+const biomarkerCount = DATA.panels.reduce((s,p)=>s+p.charts.length,0);
+const fitnessCount = (DATA.fitness?.charts?.length || 0);
 document.getElementById('footer').textContent =
-  `Generated ${{DATA.generated}} · ${{DATA.panels.reduce((s,p)=>s+p.charts.length,0)}} biomarkers · private`;
+  `Generated ${{DATA.generated}} · ${{biomarkerCount}} biomarkers · ${{fitnessCount}} fitness metrics · private`;
 
 // Summary cards
 const cardsEl = document.getElementById('cards-grid');
@@ -587,6 +757,282 @@ DATA.panels.forEach((panel, pi) => {{
   panelsEl.appendChild(panelDiv);
   firstActive = false;
 }});
+
+// ---- Fitness Tab & Panel ----
+(function() {{
+  const fitness = DATA.fitness;
+  if (!fitness) return;
+
+  const btn = document.createElement('button');
+  btn.className = 'tab-btn';
+  btn.textContent = '💪 Fitness';
+  btn.dataset.panel = 'fitness';
+  btn.addEventListener('click', () => {{
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-fitness').classList.add('active');
+  }});
+  tabsEl.appendChild(btn);
+
+  const panelDiv = document.createElement('div');
+  panelDiv.className = 'panel';
+  panelDiv.id = 'panel-fitness';
+
+  const h2 = document.createElement('h2');
+  h2.textContent = '💪 Fitness & Performance';
+  panelDiv.appendChild(h2);
+
+  // Fitness summary cards
+  if (fitness.cards && fitness.cards.length > 0) {{
+    const cardSection = document.createElement('div');
+    cardSection.className = 'summary-section';
+    const cardLabel = document.createElement('h2');
+    cardLabel.style.cssText = 'font-size:0.9rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.75rem;';
+    cardLabel.textContent = 'Latest Values';
+    cardSection.appendChild(cardLabel);
+    const cGrid = document.createElement('div');
+    cGrid.className = 'cards-grid';
+    fitness.cards.forEach(c => {{
+      const el = document.createElement('div');
+      el.className = `bm-card ${{c.status}}`;
+      el.innerHTML = `
+        <div class="bm-name">${{c.name}}</div>
+        <div class="bm-value">${{c.value}}</div>
+        <div class="bm-unit">${{c.unit}}</div>
+        <div class="bm-date">${{c.date}}</div>
+        ${{c.source ? `<div class="bm-date" style="font-style:italic">${{c.source}}</div>` : ''}}
+      `;
+      cGrid.appendChild(el);
+    }});
+    cardSection.appendChild(cGrid);
+    panelDiv.appendChild(cardSection);
+  }}
+
+  // Charts grid
+  const grid = document.createElement('div');
+  grid.className = 'charts-grid';
+  panelDiv.appendChild(grid);
+
+  // Render each fitness chart
+  (fitness.charts || []).forEach(fc => {{
+    const card = document.createElement('div');
+    card.className = 'chart-card';
+
+    const header = document.createElement('div');
+    header.className = 'chart-header';
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'chart-title';
+    titleEl.textContent = fc.title;
+
+    const latestEl = document.createElement('div');
+    latestEl.className = `chart-latest ${{fc.status}}`;
+    const dispVal = fc.type === 'time' ? fc.latest_label : fc.latest_value;
+    const dispUnit = fc.type === 'time' ? '' : fc.unit;
+    latestEl.innerHTML = `
+      <div class="val">${{dispVal}} <span class="val-unit">${{dispUnit}}</span></div>
+      <div class="val-date">${{fc.latest_date}}</div>
+    `;
+
+    header.appendChild(titleEl);
+    header.appendChild(latestEl);
+    card.appendChild(header);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'chart-wrap';
+    const canvas = document.createElement('canvas');
+    wrap.appendChild(canvas);
+    card.appendChild(wrap);
+
+    // VO2max legend
+    if (fc.type === 'vo2max') {{
+      const leg = document.createElement('div');
+      leg.className = 'chart-legend';
+      leg.innerHTML = `
+        <div class="legend-item"><div class="legend-swatch" style="background:rgba(239,68,68,0.15)"></div>Normal (42–52)</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:rgba(234,179,8,0.2)"></div>Good (52–58)</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:rgba(34,197,94,0.25)"></div>Elite (>58)</div>
+      `;
+      card.appendChild(leg);
+    }}
+
+    grid.appendChild(card);
+    renderFitnessChart(canvas, fc);
+  }});
+
+  // Placeholder cards for missing metrics
+  if (fitness.placeholders && fitness.placeholders.length > 0) {{
+    const ph = document.createElement('div');
+    ph.style.cssText = 'margin-top:1.5rem;';
+    const phLabel = document.createElement('h3');
+    phLabel.style.cssText = 'font-size:0.85rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.75rem;';
+    phLabel.textContent = 'Not yet tracked';
+    ph.appendChild(phLabel);
+    const phGrid = document.createElement('div');
+    phGrid.className = 'charts-grid';
+    fitness.placeholders.forEach(name => {{
+      const card = document.createElement('div');
+      card.className = 'chart-card';
+      card.style.cssText = 'opacity:0.55;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:120px;text-align:center;gap:0.5rem;';
+      card.innerHTML = `
+        <div style="font-size:1.5rem">📋</div>
+        <div style="font-weight:700;color:var(--text)">${{name.split(' (')[0]}}</div>
+        <div style="font-size:0.75rem;color:var(--text-muted)">No data yet — edit <code>fitness_data.yaml</code> to add</div>
+      `;
+      phGrid.appendChild(card);
+    }});
+    ph.appendChild(phGrid);
+    panelDiv.appendChild(ph);
+  }}
+
+  panelsEl.appendChild(panelDiv);
+}})();
+
+function renderFitnessChart(canvas, fc) {{
+  const labels = fc.data.map(d => d.date);
+  const values = fc.data.map(d => d.value);
+
+  const allVals = [...values];
+  const minVal = Math.min(...allVals);
+  const maxVal = Math.max(...allVals);
+
+  let yMin, yMax;
+  const datasets = [];
+
+  if (fc.type === 'vo2max') {{
+    // Reference bands: normal 42-52 (red tint), good 52-58 (yellow), elite >58 (green)
+    yMin = Math.min(38, minVal - 3);
+    yMax = Math.max(65, maxVal + 3);
+
+    // Shade bands using fill between dataset pairs
+    // Elite band: 58 to yMax
+    datasets.push({{
+      label: '_elite_hi', data: labels.map(() => yMax),
+      borderWidth: 0, pointRadius: 0, fill: '+1',
+      backgroundColor: 'rgba(34,197,94,0.15)', tension: 0, order: 4,
+    }});
+    datasets.push({{
+      label: '_elite_lo', data: labels.map(() => 58),
+      borderWidth: 0, pointRadius: 0, fill: false,
+      backgroundColor: 'transparent', tension: 0, order: 4,
+    }});
+
+    // Good band: 52-58
+    datasets.push({{
+      label: '_good_hi', data: labels.map(() => 58),
+      borderWidth: 0, pointRadius: 0, fill: '+1',
+      backgroundColor: 'rgba(234,179,8,0.18)', tension: 0, order: 3,
+    }});
+    datasets.push({{
+      label: '_good_lo', data: labels.map(() => 52),
+      borderWidth: 0, pointRadius: 0, fill: false,
+      backgroundColor: 'transparent', tension: 0, order: 3,
+    }});
+
+    // Normal band: 42-52
+    datasets.push({{
+      label: '_norm_hi', data: labels.map(() => 52),
+      borderWidth: 0, pointRadius: 0, fill: '+1',
+      backgroundColor: 'rgba(239,68,68,0.12)', tension: 0, order: 2,
+    }});
+    datasets.push({{
+      label: '_norm_lo', data: labels.map(() => 42),
+      borderWidth: 0, pointRadius: 0, fill: false,
+      backgroundColor: 'transparent', tension: 0, order: 2,
+    }});
+
+  }} else if (fc.type === 'time') {{
+    // For race times: lower is better; no reference bands
+    const pad = (maxVal - minVal) * 0.15 || 60;
+    yMin = Math.max(0, minVal - pad);
+    yMax = maxVal + pad;
+  }} else {{
+    const pad = (maxVal - minVal) * 0.2 || 5;
+    yMin = Math.max(0, minVal - pad);
+    yMax = maxVal + pad;
+  }}
+
+  // Point colors for VO2max
+  const pointColors = values.map(v => {{
+    if (fc.type === 'vo2max') {{
+      if (v > 58) return '#22c55e';
+      if (v >= 52) return '#eab308';
+      return '#ef4444';
+    }}
+    return '#818cf8';
+  }});
+
+  datasets.push({{
+    label: fc.title,
+    data: values,
+    borderColor: '#818cf8',
+    backgroundColor: pointColors,
+    borderWidth: 2,
+    pointRadius: 6,
+    pointHoverRadius: 8,
+    pointBorderColor: '#818cf8',
+    pointBorderWidth: 1.5,
+    tension: 0.3,
+    fill: false,
+    order: 1,
+  }});
+
+  const isTime = fc.type === 'time';
+
+  new Chart(canvas, {{
+    type: 'line',
+    data: {{ labels, datasets }},
+    options: {{
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {{ mode: 'index', intersect: false }},
+      plugins: {{
+        legend: {{ display: false }},
+        tooltip: {{
+          backgroundColor: '#1a1d27',
+          borderColor: '#2e3250',
+          borderWidth: 1,
+          titleColor: '#e2e8f0',
+          bodyColor: '#8892a4',
+          callbacks: {{
+            label: ctx => {{
+              if (ctx.dataset.label.startsWith('_')) return null;
+              const v = ctx.parsed.y;
+              return isTime ? ` ${{fmtSeconds(v)}}` : ` ${{v}} ${{fc.unit}}`;
+            }},
+          }},
+          filter: item => !item.dataset.label.startsWith('_'),
+        }},
+      }},
+      scales: {{
+        x: {{
+          grid: {{ color: 'rgba(46,50,80,0.6)' }},
+          ticks: {{ color: '#8892a4', maxRotation: 45, font: {{ size: 10 }} }},
+        }},
+        y: {{
+          min: yMin,
+          max: yMax,
+          grid: {{ color: 'rgba(46,50,80,0.6)' }},
+          ticks: {{
+            color: '#8892a4',
+            font: {{ size: 10 }},
+            callback: isTime ? (v => fmtSeconds(v)) : undefined,
+          }},
+        }},
+      }},
+    }},
+  }});
+}}
+
+function fmtSeconds(secs) {{
+  secs = Math.round(secs);
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  if (h) return `${{h}}:${{String(m).padStart(2,'0')}}:${{String(s).padStart(2,'0')}}`;
+  return `${{m}}:${{String(s).padStart(2,'0')}}`;
+}}
 
 function renderChart(canvas, bm) {{
   const labels = bm.data.map(d => d.date);
@@ -737,11 +1183,15 @@ function getStatus(value, ref) {{
 def main():
     print(f"Loading data from {DB_FILE}...")
     measurements, ref_ranges = load_data(DB_FILE)
-
     print(f"  {len(measurements)} biomarkers loaded")
-    print(f"Generating {HTML_FILE}...")
 
-    html = build_html(measurements, ref_ranges)
+    print(f"Loading fitness data from {FITNESS_FILE}...")
+    fitness = load_fitness_data(FITNESS_FILE)
+    tracked = [k for k, v in fitness.items() if v]
+    print(f"  {len(tracked)} fitness metrics with data: {', '.join(tracked)}")
+
+    print(f"Generating {HTML_FILE}...")
+    html = build_html(measurements, ref_ranges, fitness)
     with open(HTML_FILE, "w", encoding="utf-8") as f:
         f.write(html)
 
