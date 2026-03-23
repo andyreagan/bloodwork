@@ -107,6 +107,176 @@ ftp_watts:
   source: TrainerRoad - AI FTP Detection
 marathon_times: null
 5k_times: null
-squat_1rm_lbs: null
-deadlift_1rm_lbs: null
-bench_1rm_lbs: null
+squat_1rm_lbs:
+- date: '2023-11-01'
+  value: 228.1
+  source: 'StrongLifts e1RM (LB)'
+- date: '2023-12-01'
+  value: 289.7
+  source: 'StrongLifts e1RM (LB)'
+- date: '2024-01-01'
+  value: 302.0
+  source: 'StrongLifts e1RM (LB)'
+- date: '2024-09-01'
+  value: 252.7
+  source: 'StrongLifts e1RM (LB)'
+- date: '2024-10-01'
+  value: 277.4
+  source: 'StrongLifts e1RM (LB)'
+- date: '2025-03-01'
+  value: 203.4
+  source: 'StrongLifts e1RM (LB)'
+- date: '2025-04-01'
+  value: 215.7
+  source: 'StrongLifts e1RM (LB)'
+- date: '2025-05-01'
+  value: 240.4
+  source: 'StrongLifts e1RM (LB)'
+- date: '2025-09-01'
+  value: 215.7
+  source: 'StrongLifts e1RM (LB)'
+- date: '2025-10-01'
+  value: 234.2
+  source: 'StrongLifts e1RM (LB)'
+- date: '2025-11-01'
+  value: 326.7
+  source: 'StrongLifts e1RM (LB)'
+- date: '2025-12-01'
+  value: 351.4
+  source: 'StrongLifts e1RM (LB)'
+- date: '2026-01-01'
+  value: 289.7
+  source: 'StrongLifts e1RM (LB)'
+deadlift_1rm_lbs:
+- date: '2023-11-01'
+  value: 277.4
+  source: 'StrongLifts e1RM (LB)'
+- date: '2023-12-01'
+  value: 339.0
+  source: 'StrongLifts e1RM (LB)'
+- date: '2024-01-01'
+  value: 351.4
+  source: 'StrongLifts e1RM (LB)'
+- date: '2024-09-01'
+  value: 277.4
+  source: 'StrongLifts e1RM (LB)'
+- date: '2024-10-01'
+  value: 425.4
+  source: 'StrongLifts e1RM (LB)'
+- date: '2025-03-01'
+  value: 302.0
+  source: 'StrongLifts e1RM (LB)'
+- date: '2025-04-01'
+  value: 326.7
+  source: 'StrongLifts e1RM (LB)'
+- date: '2025-05-01'
+  value: 376.0
+  source: 'StrongLifts e1RM (LB)'
+- date: '2025-09-01'
+  value: 339.0
+  source: 'StrongLifts e1RM (LB)'
+- date: '2025-10-01'
+  value: 388.4
+  source: 'StrongLifts e1RM (LB)'
+- date: '2025-11-01'
+  value: 450.0
+  source: 'StrongLifts e1RM (LB)'
+- date: '2025-12-01'
+  value: 425.4
+  source: 'StrongLifts e1RM (LB)'
+bench_1rm_lbs:
+- date: '2023-11-01'
+  value: 178.7
+  source: 'StrongLifts e1RM (LB)'
+- date: '2023-12-01'
+  value: 209.6
+  source: 'StrongLifts e1RM (LB)'
+- date: '2024-01-01'
+  value: 221.9
+  source: 'StrongLifts e1RM (LB)'
+- date: '2024-04-01'
+  value: 197.2
+  source: 'StrongLifts e1RM (LB)'
+- date: '2024-06-01'
+  value: 203.4
+  source: 'StrongLifts e1RM (LB)'
+- date: '2024-09-01'
+  value: 178.7
+  source: 'StrongLifts e1RM (LB)'
+- date: '2024-10-01'
+  value: 221.9
+  source: 'StrongLifts e1RM (LB)'
+- date: '2025-03-01'
+  value: 154.1
+  source: 'StrongLifts e1RM (LB)'
+- date: '2025-04-01'
+  value: 178.7
+  source: 'StrongLifts e1RM (LB)'
+- date: '2025-05-01'
+  value: 215.7
+  source: 'StrongLifts e1RM (LB)'
+- date: '2025-09-01'
+  value: 191.1
+  source: 'StrongLifts e1RM (LB)'
+- date: '2025-10-01'
+  value: 203.4
+  source: 'StrongLifts e1RM (LB)'
+- date: '2025-11-01'
+  value: 228.1
+  source: 'StrongLifts e1RM (LB)'
+- date: '2025-12-01'
+  value: 246.6
+  source: 'StrongLifts e1RM (LB)'
+- date: '2026-01-01'
+  value: 215.7
+  source: 'StrongLifts e1RM (LB)'
+overhead_press_1rm_lbs:
+- date: '2023-11-01'
+  value: 86.3
+  source: 'StrongLifts e1RM (LB)'
+- date: '2023-12-01'
+  value: 117.1
+  source: 'StrongLifts e1RM (LB)'
+- date: '2024-01-01'
+  value: 110.9
+  source: 'StrongLifts e1RM (LB)'
+- date: '2024-09-01'
+  value: 92.4
+  source: 'StrongLifts e1RM (LB)'
+barbell_row_1rm_lbs:
+- date: '2023-11-01'
+  value: 86.3
+  source: 'StrongLifts e1RM (LB)'
+- date: '2023-12-01'
+  value: 123.3
+  source: 'StrongLifts e1RM (LB)'
+- date: '2024-01-01'
+  value: 129.4
+  source: 'StrongLifts e1RM (LB)'
+- date: '2024-09-01'
+  value: 117.1
+  source: 'StrongLifts e1RM (LB)'
+- date: '2024-10-01'
+  value: 141.8
+  source: 'StrongLifts e1RM (LB)'
+- date: '2025-03-01'
+  value: 104.8
+  source: 'StrongLifts e1RM (LB)'
+- date: '2025-04-01'
+  value: 104.8
+  source: 'StrongLifts e1RM (LB)'
+- date: '2025-05-01'
+  value: 129.4
+  source: 'StrongLifts e1RM (LB)'
+- date: '2025-09-01'
+  value: 117.1
+  source: 'StrongLifts e1RM (LB)'
+- date: '2025-10-01'
+  value: 123.3
+  source: 'StrongLifts e1RM (LB)'
+- date: '2025-12-01'
+  value: 117.1
+  source: 'StrongLifts e1RM (LB)'
+- date: '2026-01-01'
+  value: 117.1
+  source: 'StrongLifts e1RM (LB)'

@@ -235,7 +235,7 @@ def build_fitness_panel(fitness: dict) -> dict:
         placeholder_metrics.append("5K Time (5k_times)")
 
     # ---- Strength lifts ----
-    for key, label in [("squat_1rm_lbs", "Squat 1RM"), ("deadlift_1rm_lbs", "Deadlift 1RM"), ("bench_1rm_lbs", "Bench 1RM")]:
+    for key, label in [("squat_1rm_lbs", "Squat 1RM"), ("deadlift_1rm_lbs", "Deadlift 1RM"), ("bench_1rm_lbs", "Bench 1RM"), ("overhead_press_1rm_lbs", "OHP 1RM"), ("barbell_row_1rm_lbs", "Barbell Row 1RM")]:
         entries = [e for e in fitness.get(key, []) if e]
         if entries:
             latest = entries[-1]
