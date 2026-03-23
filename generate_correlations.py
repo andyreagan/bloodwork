@@ -2,17 +2,19 @@
 """
 Generate correlations.html — standalone analysis page.
 
-Reads bloodwork_data.yaml + fitness_data.yaml and produces a static
-correlations.html with:
-  - Biomarker × covariate (age, #kids, weight, VO₂max) Pearson-r table
-  - Top 20 pairwise biomarker–biomarker correlations
-  - Scatter plots for selected interesting pairs
-  - Covariate timeline chart
-  - Auto-generated insight cards
+Data sources:
+  - bloodwork_data.yaml  → biomarker values per draw
+  - fitness_data.yaml    → VO₂max, weight
+  - strava.db            → training load windows before each draw
+  - whoop.db             → sleep / recovery / HRV windows before each draw
+
+For each blood-draw date we build 30-day and 90-day rolling averages of
+every wearable / training signal, then correlate those with biomarkers.
 """
 import json
 import os
-from datetime import date
+import sqlite3
+from datetime import date, datetime, timedelta
 
 import yaml
 
@@ -20,16 +22,17 @@ BLOODWORK_FILE = os.path.join(os.path.dirname(__file__), "bloodwork_data.yaml")
 FITNESS_FILE   = os.path.join(os.path.dirname(__file__), "fitness_data.yaml")
 HTML_FILE      = os.path.join(os.path.dirname(__file__), "correlations.html")
 
+STRAVA_DB = os.path.expanduser("~/projects/2026/strava-database/strava.db")
+WHOOP_DB  = os.path.expanduser("~/projects/2026/whoop-database/whoop.db")
+
 BIRTH_YEAR = 1989
 
-# Kids milestones
 LIFE_EVENTS = [
     {"date": "2017-10-01", "label": "Kid #1", "kids": 1},
     {"date": "2019-04-01", "label": "Kid #2", "kids": 2},
     {"date": "2021-07-01", "label": "Kid #3", "kids": 3},
 ]
 
-# Biomarkers to include in the analysis
 BIOMARKERS_FOR_CORR = [
     "Glucose", "HbA1c", "Cholesterol", "LDL", "HDL", "Triglycerides",
     "Testosterone", "Free Testosterone", "SHBG", "Cortisol",
@@ -38,17 +41,105 @@ BIOMARKERS_FOR_CORR = [
     "TSH", "IGF-1", "DHEA-S", "Apolipoprotein B", "Lipoprotein(a)",
 ]
 
-# Scatter pairs to visualise explicitly
+# Pairs shown as scatter plots
 SCATTER_PAIRS = [
-    ("Glucose",      "HbA1c"),
-    ("Cholesterol",  "LDL"),
-    ("HDL",          "Triglycerides"),
-    ("Testosterone", "SHBG"),
-    ("AST",          "ALT"),
-    ("Ferritin",     "Hemoglobin"),
-    ("Testosterone", "Cortisol"),
-    ("Vitamin D",    "Testosterone"),
+    ("Glucose",       "HbA1c"),
+    ("Cholesterol",   "LDL"),
+    ("HDL",           "Triglycerides"),
+    ("Testosterone",  "SHBG"),
+    ("AST",           "ALT"),
+    ("Ferritin",      "Hemoglobin"),
+    ("Testosterone",  "Cortisol"),
+    ("Vitamin D",     "Testosterone"),
 ]
+
+# Wearable / training covariates that we can correlate against biomarkers
+# Each entry: (key, label, higher_is, source)
+WEARABLE_COVARIATES = [
+    # WHOOP 30-day
+    ("whoop_hrv_30d",         "HRV 30d avg (ms)",           "+", "WHOOP"),
+    ("whoop_recovery_30d",    "Recovery score 30d avg",      "+", "WHOOP"),
+    ("whoop_rhr_30d",         "Resting HR 30d avg (bpm)",    "-", "WHOOP"),
+    ("whoop_strain_30d",      "Day strain 30d avg",          "?", "WHOOP"),
+    ("whoop_sleep_hrs_30d",   "Sleep hours 30d avg",         "+", "WHOOP"),
+    ("whoop_sleep_perf_30d",  "Sleep performance 30d avg",   "+", "WHOOP"),
+    ("whoop_spo2_30d",        "SpO₂ 30d avg (%)",            "+", "WHOOP"),
+    ("whoop_resp_30d",        "Resp rate 30d avg (br/min)",  "?", "WHOOP"),
+    ("whoop_skin_temp_30d",   "Skin temp 30d avg (°C)",      "?", "WHOOP"),
+    # WHOOP 90-day
+    ("whoop_hrv_90d",         "HRV 90d avg (ms)",            "+", "WHOOP"),
+    ("whoop_recovery_90d",    "Recovery score 90d avg",      "+", "WHOOP"),
+    ("whoop_rhr_90d",         "Resting HR 90d avg (bpm)",    "-", "WHOOP"),
+    ("whoop_strain_90d",      "Day strain 90d avg",          "?", "WHOOP"),
+    ("whoop_sleep_hrs_90d",   "Sleep hours 90d avg",         "+", "WHOOP"),
+    ("whoop_sleep_perf_90d",  "Sleep performance 90d avg",   "+", "WHOOP"),
+    # Strava 90-day
+    ("strava_hrs_90d",        "Training hours 90d",          "?", "Strava"),
+    ("strava_run_miles_90d",  "Run miles 90d",               "?", "Strava"),
+    ("strava_ride_hrs_90d",   "Ride hours 90d",              "?", "Strava"),
+    ("strava_run_hrs_90d",    "Run hours 90d",               "?", "Strava"),
+    ("strava_avg_hr_90d",     "Avg workout HR 90d (bpm)",    "?", "Strava"),
+    ("strava_avg_watts_90d",  "Avg cycling watts 90d",       "+", "Strava"),
+    # Classic covariates
+    ("age",                   "Age (years)",                 "?", "Life"),
+    ("kids",                  "# Kids",                      "?", "Life"),
+    ("weight",                "Weight (lbs)",                "?", "Life"),
+    ("vo2max",                "VO₂max (ml/kg/min)",          "+", "Fitness"),
+]
+
+
+# ---------------------------------------------------------------------------
+# Maths helpers
+# ---------------------------------------------------------------------------
+
+def pearson_r(xs: list[float], ys: list[float]) -> float | None:
+    n = len(xs)
+    if n < 3:
+        return None
+    mx = sum(xs) / n
+    my = sum(ys) / n
+    num = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+    dx  = sum((x - mx) ** 2 for x in xs) ** 0.5
+    dy  = sum((y - my) ** 2 for y in ys) ** 0.5
+    if dx == 0 or dy == 0:
+        return None
+    return num / (dx * dy)
+
+
+def ols(xs: list[float], ys: list[float]) -> tuple[float, float] | None:
+    n = len(xs)
+    if n < 2:
+        return None
+    mx = sum(xs) / n
+    my = sum(ys) / n
+    num = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+    den = sum((x - mx) ** 2 for x in xs)
+    if den == 0:
+        return None
+    slope = num / den
+    return slope, my - slope * mx
+
+
+def make_prior_lookup(series: list[dict], value_key: str = "value"):
+    """Return fn(date_str) -> float | None, last known value on or before date."""
+    series = sorted([e for e in series if e], key=lambda e: e["date"])
+    def lookup(date_str: str) -> float | None:
+        val = None
+        for e in series:
+            if e["date"] <= date_str:
+                val = e[value_key]
+            else:
+                break
+        return val
+    return lookup
+
+
+def kids_count_at(date_str: str) -> int:
+    count = 0
+    for ev in LIFE_EVENTS:
+        if date_str >= ev["date"]:
+            count = ev["kids"]
+    return count
 
 
 # ---------------------------------------------------------------------------
@@ -83,83 +174,159 @@ def load_fitness(path: str) -> dict:
     return data
 
 
-# ---------------------------------------------------------------------------
-# Maths helpers
-# ---------------------------------------------------------------------------
+def load_whoop_windows(db_path: str, draw_dates: list[str]) -> dict[str, dict]:
+    """
+    For each draw date compute 30-day and 90-day averages of WHOOP metrics.
+    Returns {draw_date: {feature: value|None, ...}, ...}
+    """
+    if not os.path.exists(db_path):
+        return {}
 
-def pearson_r(xs: list[float], ys: list[float]) -> float | None:
-    n = len(xs)
-    if n < 3:
-        return None
-    mx = sum(xs) / n
-    my = sum(ys) / n
-    num   = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
-    dx    = sum((x - mx) ** 2 for x in xs) ** 0.5
-    dy    = sum((y - my) ** 2 for y in ys) ** 0.5
-    if dx == 0 or dy == 0:
-        return None
-    return num / (dx * dy)
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
 
-
-def linear_regression(xs: list[float], ys: list[float]) -> tuple[float, float] | None:
-    """Return (slope, intercept) for simple OLS, or None."""
-    n = len(xs)
-    if n < 2:
-        return None
-    mx = sum(xs) / n
-    my = sum(ys) / n
-    num  = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
-    den  = sum((x - mx) ** 2 for x in xs)
-    if den == 0:
-        return None
-    slope     = num / den
-    intercept = my - slope * mx
-    return slope, intercept
-
-
-# ---------------------------------------------------------------------------
-# Lookup helpers (nearest-prior value)
-# ---------------------------------------------------------------------------
-
-def make_prior_lookup(series: list[dict], value_key: str = "value"):
-    """Return a function date_str -> float | None giving last known value."""
-    series = sorted([e for e in series if e], key=lambda e: e["date"])
-    def lookup(date_str: str) -> float | None:
-        val = None
-        for e in series:
-            if e["date"] <= date_str:
-                val = e[value_key]
+    result = {}
+    for draw in draw_dates:
+        row_data: dict[str, float | None] = {}
+        for days, suffix in [(30, "30d"), (90, "90d")]:
+            since = (datetime.strptime(draw, "%Y-%m-%d") - timedelta(days=days)).strftime("%Y-%m-%d")
+            cur.execute("""
+                SELECT
+                    AVG(hrv_rmssd_ms)                          AS hrv,
+                    AVG(recovery_score)                        AS recovery,
+                    AVG(resting_hr)                            AS rhr,
+                    AVG(strain)                                AS strain,
+                    AVG(sleep_total_in_bed_ms) / 3600000.0     AS sleep_hrs,
+                    AVG(sleep_performance_pct)                 AS sleep_perf,
+                    AVG(spo2_pct)                              AS spo2,
+                    AVG(respiratory_rate)                      AS resp,
+                    AVG(skin_temp_celsius)                     AS skin_temp,
+                    COUNT(*)                                   AS n_days
+                FROM daily
+                WHERE date >= ? AND date < ?
+                  AND hrv_rmssd_ms IS NOT NULL
+            """, (since, draw))
+            r = cur.fetchone()
+            if r and r["n_days"] and r["n_days"] >= 7:
+                row_data[f"whoop_hrv_{suffix}"]        = r["hrv"]
+                row_data[f"whoop_recovery_{suffix}"]   = r["recovery"]
+                row_data[f"whoop_rhr_{suffix}"]        = r["rhr"]
+                row_data[f"whoop_strain_{suffix}"]     = r["strain"]
+                row_data[f"whoop_sleep_hrs_{suffix}"]  = r["sleep_hrs"]
+                row_data[f"whoop_sleep_perf_{suffix}"] = r["sleep_perf"]
+                if suffix == "30d":
+                    row_data["whoop_spo2_30d"]       = r["spo2"]
+                    row_data["whoop_resp_30d"]        = r["resp"]
+                    row_data["whoop_skin_temp_30d"]   = r["skin_temp"]
             else:
-                break
-        return val
-    return lookup
+                for key in [f"whoop_hrv_{suffix}", f"whoop_recovery_{suffix}",
+                            f"whoop_rhr_{suffix}", f"whoop_strain_{suffix}",
+                            f"whoop_sleep_hrs_{suffix}", f"whoop_sleep_perf_{suffix}"]:
+                    row_data[key] = None
+                if suffix == "30d":
+                    row_data["whoop_spo2_30d"]      = None
+                    row_data["whoop_resp_30d"]       = None
+                    row_data["whoop_skin_temp_30d"]  = None
+        result[draw] = row_data
+
+    conn.close()
+    return result
 
 
-def kids_count_at(date_str: str) -> int:
-    count = 0
-    for ev in LIFE_EVENTS:
-        if date_str >= ev["date"]:
-            count = ev["kids"]
-    return count
+def load_strava_windows(db_path: str, draw_dates: list[str]) -> dict[str, dict]:
+    """
+    For each draw date compute 90-day Strava training load features.
+    Returns {draw_date: {feature: value, ...}, ...}
+    """
+    if not os.path.exists(db_path):
+        return {}
+
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+
+    result = {}
+    for draw in draw_dates:
+        since = (datetime.strptime(draw, "%Y-%m-%d") - timedelta(days=90)).strftime("%Y-%m-%d")
+        cur.execute("""
+            SELECT
+                SUM(moving_time_s) / 3600.0                                   AS total_hrs,
+                SUM(CASE WHEN sport_type IN ('Run','TrailRun','VirtualRun')
+                         THEN distance_m * 0.000621371 ELSE 0 END)            AS run_miles,
+                SUM(CASE WHEN sport_type IN ('Run','TrailRun','VirtualRun')
+                         THEN moving_time_s / 3600.0 ELSE 0 END)              AS run_hrs,
+                SUM(CASE WHEN sport_type IN ('Ride','VirtualRide','GravelRide',
+                         'MountainBikeRide','EBikeRide')
+                         THEN moving_time_s / 3600.0 ELSE 0 END)              AS ride_hrs,
+                AVG(CASE WHEN average_heartrate > 0
+                         THEN average_heartrate END)                           AS avg_hr,
+                AVG(CASE WHEN average_watts > 0 AND device_watts = 1
+                         THEN average_watts END)                               AS avg_watts,
+                COUNT(*)                                                        AS n_activities
+            FROM activities
+            WHERE date(start_date_local) >= ?
+              AND date(start_date_local) <  ?
+        """, (since, draw))
+        r = cur.fetchone()
+        if r and r["n_activities"] and r["n_activities"] >= 3:
+            result[draw] = {
+                "strava_hrs_90d":       r["total_hrs"],
+                "strava_run_miles_90d": r["run_miles"],
+                "strava_run_hrs_90d":   r["run_hrs"],
+                "strava_ride_hrs_90d":  r["ride_hrs"],
+                "strava_avg_hr_90d":    r["avg_hr"],
+                "strava_avg_watts_90d": r["avg_watts"],
+            }
+        else:
+            result[draw] = {k: None for k in [
+                "strava_hrs_90d", "strava_run_miles_90d", "strava_run_hrs_90d",
+                "strava_ride_hrs_90d", "strava_avg_hr_90d", "strava_avg_watts_90d",
+            ]}
+
+    conn.close()
+    return result
 
 
 # ---------------------------------------------------------------------------
 # Core analysis
 # ---------------------------------------------------------------------------
 
-def build_payload(measurements: dict, fitness: dict) -> dict:
+def build_payload(measurements: dict, fitness: dict,
+                  whoop_windows: dict, strava_windows: dict) -> dict:
+
     weight_lookup = make_prior_lookup(fitness.get("weight_lbs", []))
     vo2_lookup    = make_prior_lookup(fitness.get("vo2max", []))
 
-    # date → value dicts for fast lookup in pairwise section
+    # All blood-draw dates
+    all_dates = sorted({pt["date"] for pts in measurements.values() for pt in pts})
+
+    # date → biomarker value dicts
     bm_date_val: dict[str, dict[str, float]] = {
         bm: {pt["date"]: pt["value"] for pt in measurements[bm]}
         for bm in BIOMARKERS_FOR_CORR
         if bm in measurements
     }
 
+    # Build full covariate row per draw date
+    def covariate_row(d: str) -> dict:
+        row: dict[str, float | None] = {
+            "date":   d,
+            "age":    int(d[:4]) - BIRTH_YEAR,
+            "kids":   kids_count_at(d),
+            "weight": weight_lookup(d),
+            "vo2max": vo2_lookup(d),
+        }
+        row.update(whoop_windows.get(d, {}))
+        row.update(strava_windows.get(d, {}))
+        return row
+
+    cov_rows = {d: covariate_row(d) for d in all_dates}
+
+    covariate_keys = [c[0] for c in WEARABLE_COVARIATES]
+
     # ------------------------------------------------------------------
-    # 1. Biomarker × covariate matrix
+    # 1. Biomarker × covariate correlation matrix
     # ------------------------------------------------------------------
     biomarker_matrix = []
     for bm in BIOMARKERS_FOR_CORR:
@@ -167,69 +334,95 @@ def build_payload(measurements: dict, fitness: dict) -> dict:
         if not data or len(data) < 3:
             continue
 
-        ages, kids_list, weights, vo2s, vals = [], [], [], [], []
-        for pt in data:
-            d   = pt["date"]
-            age = int(d[:4]) - BIRTH_YEAR
-            w   = weight_lookup(d)
-            v2  = vo2_lookup(d)
-            ages.append(age)
-            kids_list.append(kids_count_at(d))
-            weights.append(w)
-            vo2s.append(v2)
-            vals.append(pt["value"])
+        cov_rs: dict[str, float | None] = {}
+        bm_vals_by_date = {pt["date"]: pt["value"] for pt in data}
 
-        r_age  = pearson_r(ages, vals)
-        r_kids = pearson_r(kids_list, vals)
-
-        w_valid  = [(w, v) for w, v in zip(weights, vals) if w  is not None]
-        v2_valid = [(v2, v) for v2, v in zip(vo2s, vals)   if v2 is not None]
-
-        r_weight = pearson_r([p[0] for p in w_valid],  [p[1] for p in w_valid])  if len(w_valid)  >= 3 else None
-        r_vo2    = pearson_r([p[0] for p in v2_valid], [p[1] for p in v2_valid]) if len(v2_valid) >= 2 else None
+        for ckey in covariate_keys:
+            # Age/kids/weight/vo2max: use all draw dates (n can be low but they span 10+ years)
+            # Wearable features: require ≥5 draws to avoid spurious r=1 on 3 points
+            min_n = 4 if ckey in ("age", "kids", "weight", "vo2max") else 5
+            pairs = [
+                (cov_rows[d][ckey], bm_vals_by_date[d])
+                for d in all_dates
+                if d in bm_vals_by_date and cov_rows[d].get(ckey) is not None
+            ]
+            if len(pairs) >= min_n:
+                r = pearson_r([p[0] for p in pairs], [p[1] for p in pairs])
+                cov_rs[ckey] = round(r, 3) if r is not None else None
+            else:
+                cov_rs[ckey] = None
 
         biomarker_matrix.append({
-            "name":     bm,
-            "n":        len(vals),
-            "r_age":    round(r_age,    3) if r_age    is not None else None,
-            "r_kids":   round(r_kids,   3) if r_kids   is not None else None,
-            "r_weight": round(r_weight, 3) if r_weight is not None else None,
-            "r_vo2":    round(r_vo2,    3) if r_vo2    is not None else None,
+            "name": bm,
+            "n":    len(data),
+            **cov_rs,
         })
 
-    biomarker_matrix.sort(key=lambda x: abs(x["r_age"] or 0), reverse=True)
+    # Sort by max |r| across classic covariates (age / kids / weight / vo2max)
+    biomarker_matrix.sort(
+        key=lambda x: max(abs(x.get(k) or 0) for k in ["age", "kids", "weight", "vo2max"]),
+        reverse=True,
+    )
 
     # ------------------------------------------------------------------
-    # 2. Top pairwise biomarker–biomarker correlations
+    # 2. Top wearable × biomarker correlations (all pairs, ranked)
+    # ------------------------------------------------------------------
+    all_cov_bm_pairs = []
+    for bm in BIOMARKERS_FOR_CORR:
+        if bm not in bm_date_val:
+            continue
+        bm_vals_by_date = bm_date_val[bm]
+        for ckey, clabel, _, csource in WEARABLE_COVARIATES:
+            min_n = 4 if ckey in ("age", "kids", "weight", "vo2max") else 5
+            pairs = [
+                (cov_rows[d].get(ckey), bm_vals_by_date.get(d))
+                for d in all_dates
+                if bm_vals_by_date.get(d) is not None and cov_rows[d].get(ckey) is not None
+            ]
+            if len(pairs) < min_n:
+                continue
+            r = pearson_r([p[0] for p in pairs], [p[1] for p in pairs])
+            if r is None:
+                continue
+            all_cov_bm_pairs.append({
+                "biomarker": bm,
+                "covariate": clabel,
+                "cov_key":   ckey,
+                "source":    csource,
+                "r":         round(r, 3),
+                "n":         len(pairs),
+            })
+
+    all_cov_bm_pairs.sort(key=lambda x: abs(x["r"]), reverse=True)
+    top_cov_bm = all_cov_bm_pairs[:30]
+
+    # ------------------------------------------------------------------
+    # 3. Top pairwise biomarker–biomarker correlations
     # ------------------------------------------------------------------
     frequent = [bm for bm in BIOMARKERS_FOR_CORR
                 if bm in bm_date_val and len(bm_date_val[bm]) >= 6]
 
-    top_corrs = []
+    top_bm_pairs = []
     for i in range(len(frequent)):
         for j in range(i + 1, len(frequent)):
             a, b = frequent[i], frequent[j]
             shared = sorted(bm_date_val[a].keys() & bm_date_val[b].keys())
             if len(shared) < 4:
                 continue
-            xs = [bm_date_val[a][d] for d in shared]
-            ys = [bm_date_val[b][d] for d in shared]
-            r  = pearson_r(xs, ys)
+            r = pearson_r([bm_date_val[a][d] for d in shared],
+                          [bm_date_val[b][d] for d in shared])
             if r is None:
                 continue
-            top_corrs.append({
-                "pair": f"{a} × {b}",
-                "bm_a": a,
-                "bm_b": b,
-                "r":    round(r, 3),
-                "n":    len(shared),
+            top_bm_pairs.append({
+                "pair": f"{a} × {b}", "bm_a": a, "bm_b": b,
+                "r": round(r, 3), "n": len(shared),
             })
 
-    top_corrs.sort(key=lambda x: abs(x["r"]), reverse=True)
-    top_corrs = top_corrs[:20]
+    top_bm_pairs.sort(key=lambda x: abs(x["r"]), reverse=True)
+    top_bm_pairs = top_bm_pairs[:20]
 
     # ------------------------------------------------------------------
-    # 3. Scatter data (with regression line endpoints)
+    # 4. Scatter data for selected biomarker pairs
     # ------------------------------------------------------------------
     scatter_pairs = []
     for bm_a, bm_b in SCATTER_PAIRS:
@@ -240,38 +433,69 @@ def build_payload(measurements: dict, fitness: dict) -> dict:
             continue
         xs = [dv_a[d] for d in shared]
         ys = [dv_b[d] for d in shared]
-        r  = pearson_r(xs, ys)
-        reg = linear_regression(xs, ys)
+        r   = pearson_r(xs, ys)
+        reg = ols(xs, ys)
         x_min, x_max = min(xs), max(xs)
         reg_line = None
         if reg:
-            slope, intercept = reg
-            reg_line = [
-                {"x": x_min, "y": round(slope * x_min + intercept, 4)},
-                {"x": x_max, "y": round(slope * x_max + intercept, 4)},
-            ]
+            s, ic = reg
+            reg_line = [{"x": x_min, "y": round(s * x_min + ic, 4)},
+                        {"x": x_max, "y": round(s * x_max + ic, 4)}]
         scatter_pairs.append({
-            "x_label":  bm_a,
-            "y_label":  bm_b,
-            "r":        round(r, 3) if r is not None else None,
-            "n":        len(shared),
+            "x_label": bm_a, "y_label": bm_b,
+            "r": round(r, 3) if r is not None else None,
+            "n": len(shared),
             "points":   [{"x": x, "y": y, "date": d} for x, y, d in zip(xs, ys, shared)],
             "reg_line": reg_line,
         })
 
     # ------------------------------------------------------------------
-    # 4. Timeline (one row per blood-draw date)
+    # 5. Wearable scatter: pick the 6 strongest wearable × biomarker pairs
+    #    that have enough data and plot them
     # ------------------------------------------------------------------
-    all_dates = sorted({pt["date"] for pts in measurements.values() for pt in pts})
+    wearable_scatters = []
+    seen_pairs: set[tuple] = set()
+    for item in top_cov_bm:
+        pair_key = (item["cov_key"], item["biomarker"])
+        if pair_key in seen_pairs:
+            continue
+        seen_pairs.add(pair_key)
+        bm = item["biomarker"]
+        ckey = item["cov_key"]
+        pts = [
+            {"x": cov_rows[d].get(ckey), "y": bm_date_val[bm].get(d), "date": d}
+            for d in all_dates
+            if bm_date_val.get(bm, {}).get(d) is not None and cov_rows[d].get(ckey) is not None
+        ]
+        if len(pts) < 3:
+            continue
+        xs = [p["x"] for p in pts]
+        ys = [p["y"] for p in pts]
+        reg = ols(xs, ys)
+        reg_line = None
+        if reg:
+            s, ic = reg
+            x_min, x_max = min(xs), max(xs)
+            reg_line = [{"x": x_min, "y": round(s * x_min + ic, 4)},
+                        {"x": x_max, "y": round(s * x_max + ic, 4)}]
+        wearable_scatters.append({
+            "x_label": item["covariate"],
+            "y_label": bm,
+            "source":  item["source"],
+            "r":       item["r"],
+            "n":       len(pts),
+            "points":  pts,
+            "reg_line": reg_line,
+        })
+        if len(wearable_scatters) >= 8:
+            break
+
+    # ------------------------------------------------------------------
+    # 6. Timeline rows for charts
+    # ------------------------------------------------------------------
     timeline = []
     for d in all_dates:
-        row = {
-            "date":   d,
-            "age":    int(d[:4]) - BIRTH_YEAR,
-            "kids":   kids_count_at(d),
-            "weight": weight_lookup(d),
-            "vo2max": vo2_lookup(d),
-        }
+        row = dict(cov_rows[d])
         for bm in BIOMARKERS_FOR_CORR:
             v = bm_date_val.get(bm, {}).get(d)
             if v is not None:
@@ -279,92 +503,128 @@ def build_payload(measurements: dict, fitness: dict) -> dict:
         timeline.append(row)
 
     # ------------------------------------------------------------------
-    # 5. Auto-generated insights
+    # 7. Auto-generated insights
     # ------------------------------------------------------------------
+    insights = _build_insights(biomarker_matrix, top_cov_bm, top_bm_pairs)
+
+    return {
+        "biomarker_matrix":   biomarker_matrix,
+        "covariate_meta":     [{"key": c[0], "label": c[1], "higher": c[2], "source": c[3]}
+                               for c in WEARABLE_COVARIATES],
+        "top_cov_bm":         top_cov_bm,
+        "top_bm_pairs":       top_bm_pairs,
+        "scatter_pairs":      scatter_pairs,
+        "wearable_scatters":  wearable_scatters,
+        "timeline":           timeline,
+        "life_events":        LIFE_EVENTS,
+        "insights":           insights,
+        "generated":          date.today().isoformat(),
+        "n_draws":            len(all_dates),
+    }
+
+
+def _build_insights(matrix: list, top_cov_bm: list, top_bm_pairs: list) -> list:
     insights = []
 
     def strongest(rows, key):
         valid = [r for r in rows if r.get(key) is not None]
-        if not valid:
-            return None
-        return max(valid, key=lambda r: abs(r[key]))
+        return max(valid, key=lambda r: abs(r[key]), default=None)
 
-    row = strongest(biomarker_matrix, "r_age")
+    # Best wearable predictor overall
+    if top_cov_bm:
+        item = top_cov_bm[0]
+        source_emoji = {"WHOOP": "⌚", "Strava": "🏃", "Life": "👶", "Fitness": "🫁"}.get(item["source"], "📊")
+        insights.append({
+            "emoji": source_emoji, "color": "#818cf8",
+            "title": f"Strongest predictor: {item['covariate']} → {item['biomarker']} (r = {item['r']:+.3f})",
+            "body":  (f"Across {item['n']} blood draws, {item['covariate']} from {item['source']} "
+                      f"{'positively' if item['r'] > 0 else 'negatively'} correlates with "
+                      f"{item['biomarker']} — the strongest single wearable–biomarker link found."),
+        })
+
+    # HRV insight
+    hrv_links = [x for x in top_cov_bm if "hrv" in x["cov_key"].lower()]
+    if hrv_links:
+        item = hrv_links[0]
+        insights.append({
+            "emoji": "💓", "color": "#22c55e" if item["r"] > 0 else "#ef4444",
+            "title": f"HRV → {item['biomarker']} (r = {item['r']:+.3f})",
+            "body":  (f"Higher HRV (better recovery) tracks with "
+                      f"{'higher' if item['r'] > 0 else 'lower'} {item['biomarker']} "
+                      f"across {item['n']} blood draws. "
+                      f"HRV reflects autonomic nervous system health."),
+        })
+
+    # Sleep insight
+    sleep_links = [x for x in top_cov_bm if "sleep" in x["cov_key"].lower()]
+    if sleep_links:
+        item = sleep_links[0]
+        insights.append({
+            "emoji": "😴", "color": "#60a5fa",
+            "title": f"Sleep → {item['biomarker']} (r = {item['r']:+.3f})",
+            "body":  (f"{item['covariate']} correlates with "
+                      f"{'higher' if item['r'] > 0 else 'lower'} {item['biomarker']}. "
+                      f"Sleep quality and duration measurably track with blood markers."),
+        })
+
+    # Training load insight
+    strava_links = [x for x in top_cov_bm if x["source"] == "Strava"]
+    if strava_links:
+        item = strava_links[0]
+        insights.append({
+            "emoji": "🏋️", "color": "#f97316",
+            "title": f"Training → {item['biomarker']} (r = {item['r']:+.3f})",
+            "body":  (f"{item['covariate']} (90-day window) "
+                      f"{'positively' if item['r'] > 0 else 'negatively'} correlates with "
+                      f"{item['biomarker']} across {item['n']} draws."),
+        })
+
+    # Recovery score insight
+    rec_links = [x for x in top_cov_bm if "recovery" in x["cov_key"].lower()]
+    if rec_links:
+        item = rec_links[0]
+        insights.append({
+            "emoji": "⚡", "color": "#eab308",
+            "title": f"Recovery score → {item['biomarker']} (r = {item['r']:+.3f})",
+            "body":  (f"WHOOP recovery score tracks with "
+                      f"{'higher' if item['r'] > 0 else 'lower'} {item['biomarker']}. "
+                      f"Recovery integrates HRV, RHR, and sleep — a composite lifestyle signal."),
+        })
+
+    # Age trend
+    row = strongest(matrix, "age")
     if row:
-        r = row["r_age"]
+        r = row["age"]
         insights.append({
             "emoji": "📈", "color": "#ef4444" if r > 0 else "#22c55e",
             "title": f"{row['name']} changes most with age (r = {r:+.2f})",
-            "body":  (f"{row['name']} rises steadily as Andy ages — worth monitoring."
-                      if r > 0 else
-                      f"{row['name']} declines with age — common pattern; check optimal ranges."),
+            "body":  (f"{row['name']} {'rises' if r > 0 else 'falls'} consistently with age — "
+                      f"{'worth monitoring' if r > 0 else 'a positive trend'}."),
         })
 
-    row = strongest(biomarker_matrix, "r_kids")
+    # Kids
+    row = strongest(matrix, "kids")
     if row:
-        r = row["r_kids"]
+        r = row["kids"]
         strength = "strongly" if abs(r) >= 0.6 else "moderately"
         insights.append({
             "emoji": "👶", "color": "#eab308",
             "title": f"{row['name']} correlates with # kids (r = {r:+.2f})",
-            "body":  (f"The arrival of children (2017, 2019, 2021) {strength} correlates with "
-                      f"changes in {row['name']} — could reflect lifestyle, sleep, or stress."),
+            "body":  (f"The arrival of children (2017, 2019, 2021) {strength} correlates "
+                      f"with changes in {row['name']} — possibly reflecting lifestyle, sleep, or stress."),
         })
 
-    row = strongest(biomarker_matrix, "r_weight")
-    if row and row["r_weight"] is not None:
-        r = row["r_weight"]
-        insights.append({
-            "emoji": "⚖️", "color": "#60a5fa",
-            "title": f"{row['name']} tracks weight most closely (r = {r:+.2f})",
-            "body":  (f"Body weight explains meaningful variation in {row['name']}. "
-                      f"Diet and body-composition improvements could directly move this marker."),
-        })
-
-    row = strongest(biomarker_matrix, "r_vo2")
-    if row and row["r_vo2"] is not None:
-        r = row["r_vo2"]
-        direction = "higher" if r > 0 else "lower"
-        insights.append({
-            "emoji": "🫁", "color": "#22c55e",
-            "title": f"{row['name']} correlates with VO₂max (r = {r:+.2f})",
-            "body":  (f"Better aerobic fitness (VO₂max) tracks with {direction} {row['name']} "
-                      f"— aerobic training may be a meaningful lever."),
-        })
-
-    if top_corrs:
-        tp = top_corrs[0]
-        direction = "together" if tp["r"] > 0 else "in opposite directions"
+    # Strongest biomarker-biomarker pair
+    if top_bm_pairs:
+        tp = top_bm_pairs[0]
         insights.append({
             "emoji": "🔗", "color": "#818cf8",
             "title": f"Strongest biomarker link: {tp['pair']} (r = {tp['r']:+.3f})",
-            "body":  (f"These two markers move {direction} across {tp['n']} blood draws — "
-                      f"{'extremely' if abs(tp['r']) >= 0.85 else 'highly'} correlated."),
+            "body":  (f"These two markers move {'together' if tp['r'] > 0 else 'in opposite directions'} "
+                      f"across {tp['n']} shared blood draws."),
         })
 
-    chol = next((r for r in biomarker_matrix if r["name"] == "Cholesterol"), None)
-    if chol and chol.get("r_age") is not None and abs(chol["r_age"]) >= 0.4:
-        r = chol["r_age"]
-        insights.append({
-            "emoji": "🫀", "color": "#ef4444" if r > 0 else "#22c55e",
-            "title": f"Cholesterol trend with age (r = {r:+.2f})",
-            "body":  ("Total Cholesterol has trended upward with age. "
-                      "Lifestyle interventions (diet, cardio) are worth discussing with a doctor."
-                      if r > 0 else
-                      "Good news — Cholesterol has trended downward with age, possibly reflecting "
-                      "improved diet or fitness."),
-        })
-
-    return {
-        "biomarker_matrix": biomarker_matrix,
-        "top_correlations": top_corrs,
-        "scatter_pairs":    scatter_pairs,
-        "timeline":         timeline,
-        "life_events":      LIFE_EVENTS,
-        "insights":         insights,
-        "generated":        date.today().isoformat(),
-        "n_draws":          len(all_dates),
-    }
+    return insights
 
 
 # ---------------------------------------------------------------------------
@@ -373,6 +633,12 @@ def build_payload(measurements: dict, fitness: dict) -> dict:
 
 def build_html(payload: dict) -> str:
     data_json = json.dumps(payload, separators=(",", ":"))
+
+    # Build a lookup label → key for the matrix table header
+    cov_meta_by_key = {c["key"]: c for c in payload["covariate_meta"]}
+    classic_keys  = ["age", "kids", "weight", "vo2max"]
+    whoop_keys    = [c["key"] for c in payload["covariate_meta"] if c["source"] == "WHOOP"]
+    strava_keys   = [c["key"] for c in payload["covariate_meta"] if c["source"] == "Strava"]
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -383,17 +649,10 @@ def build_html(payload: dict) -> str:
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 <style>
   :root {{
-    --bg: #0f1117;
-    --surface: #1a1d27;
-    --surface2: #22263a;
-    --border: #2e3250;
-    --text: #e2e8f0;
-    --muted: #8892a4;
-    --green: #22c55e;
-    --yellow: #eab308;
-    --red: #ef4444;
-    --blue: #60a5fa;
-    --accent: #818cf8;
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a;
+    --border: #2e3250; --text: #e2e8f0; --muted: #8892a4;
+    --green: #22c55e; --yellow: #eab308; --red: #ef4444;
+    --blue: #60a5fa; --accent: #818cf8; --orange: #f97316;
     --radius: 12px;
   }}
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
@@ -403,7 +662,6 @@ def build_html(payload: dict) -> str:
     font-size: 14px; line-height: 1.5; padding: 1rem;
   }}
 
-  /* ---- Header ---- */
   header {{
     display: flex; align-items: center; justify-content: space-between;
     padding: 1.25rem 1.5rem; background: var(--surface);
@@ -421,88 +679,104 @@ def build_html(payload: dict) -> str:
   }}
   .back-link:hover {{ background: var(--accent); border-color: var(--accent); color: white; }}
 
-  /* ---- Section headings ---- */
-  .section {{ margin-bottom: 2.5rem; }}
+  /* Nav tabs */
+  .tabs {{
+    display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap;
+  }}
+  .tab-btn {{
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--muted); border-radius: 6px;
+    padding: 0.4rem 0.85rem; font-size: 0.8rem; cursor: pointer; transition: all 0.15s;
+  }}
+  .tab-btn:hover, .tab-btn.active {{
+    background: var(--accent); border-color: var(--accent); color: white;
+  }}
+  .tab-panel {{ display: none; }}
+  .tab-panel.active {{ display: block; }}
+
+  /* Section */
+  .section {{ margin-bottom: 2rem; }}
   .section > h2 {{
     font-size: 1rem; font-weight: 700; color: var(--accent);
-    margin-bottom: 1rem; padding-bottom: 0.5rem;
+    margin-bottom: 0.75rem; padding-bottom: 0.5rem;
     border-bottom: 1px solid var(--border);
   }}
   .section > p.desc {{
     color: var(--muted); font-size: 0.82rem; margin-bottom: 1rem; line-height: 1.6;
   }}
 
-  /* ---- Insight cards ---- */
+  /* Insight cards */
   .insights-grid {{
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 0.85rem;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 0.85rem;
   }}
   .insight-card {{
     background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius); padding: 1rem;
   }}
-  .insight-card .ic-emoji {{ font-size: 1.4rem; margin-bottom: 0.35rem; }}
-  .insight-card .ic-title {{ font-size: 0.85rem; font-weight: 700; color: var(--text); margin-bottom: 0.3rem; }}
-  .insight-card .ic-body  {{ font-size: 0.8rem; color: var(--muted); line-height: 1.55; }}
+  .ic-emoji  {{ font-size: 1.4rem; margin-bottom: 0.35rem; }}
+  .ic-title  {{ font-size: 0.85rem; font-weight: 700; color: var(--text); margin-bottom: 0.3rem; }}
+  .ic-body   {{ font-size: 0.8rem; color: var(--muted); line-height: 1.55; }}
 
-  /* ---- Covariate matrix table ---- */
+  /* Table */
   .table-wrap {{ overflow-x: auto; }}
-  table {{ width: 100%; border-collapse: collapse; font-size: 0.8rem; }}
+  table {{ width: 100%; border-collapse: collapse; font-size: 0.78rem; white-space: nowrap; }}
   thead tr {{ border-bottom: 1px solid var(--border); color: var(--muted); text-align: left; }}
-  th {{ padding: 6px 10px; font-weight: 600; white-space: nowrap; }}
-  tbody tr {{ border-bottom: 1px solid rgba(46,50,80,0.45); }}
+  th {{ padding: 5px 8px; font-weight: 600; }}
+  tbody tr {{ border-bottom: 1px solid rgba(46,50,80,0.4); }}
   tbody tr:nth-child(even) {{ background: rgba(255,255,255,0.02); }}
-  td {{ padding: 6px 10px; vertical-align: middle; }}
-  td.bm-name {{ font-weight: 600; color: var(--text); white-space: nowrap; }}
+  td {{ padding: 5px 8px; vertical-align: middle; }}
+  td.bm-name {{ font-weight: 600; color: var(--text); position: sticky; left: 0; background: var(--bg); z-index:1; }}
   td.n-col {{ text-align: center; color: var(--muted); }}
-  .r-cell {{ min-width: 110px; }}
-  .r-val {{ font-weight: 700; font-size: 0.85rem; }}
-  .r-bar-track {{
-    height: 4px; background: rgba(255,255,255,0.08);
-    border-radius: 2px; margin-top: 3px;
-  }}
-  .r-bar-fill {{ height: 4px; border-radius: 2px; }}
 
-  /* ---- Top pairwise cards ---- */
+  .r-val {{ font-weight: 700; font-size: 0.8rem; }}
+  .r-bar-track {{ height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; margin-top: 2px; }}
+  .r-bar-fill  {{ height: 3px; border-radius: 2px; }}
+  th.group-whoop {{ background: rgba(34,197,94,0.08); }}
+  th.group-strava {{ background: rgba(249,115,22,0.08); }}
+  th.group-classic {{ background: rgba(96,165,250,0.08); }}
+
+  /* Source badge */
+  .source-badge {{
+    display: inline-block; font-size: 0.65rem; font-weight: 700;
+    padding: 1px 5px; border-radius: 4px; margin-left: 4px; vertical-align: middle;
+  }}
+  .badge-whoop  {{ background: rgba(34,197,94,0.2);  color: #22c55e; }}
+  .badge-strava {{ background: rgba(249,115,22,0.2); color: #f97316; }}
+  .badge-life   {{ background: rgba(234,179,8,0.2);  color: #eab308; }}
+  .badge-fitness{{ background: rgba(129,140,248,0.2);color: #818cf8; }}
+
+  /* Pair/top cards */
   .pair-grid {{
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 0.75rem;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.7rem;
   }}
   .pair-card {{
     background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius); padding: 0.85rem 1rem;
   }}
-  .pair-card .pair-name {{ font-size: 0.8rem; font-weight: 700; color: var(--text); margin-bottom: 4px; }}
-  .pair-card .pair-r    {{ font-size: 1.2rem; font-weight: 700; }}
-  .pair-card .pair-meta {{ font-size: 0.7rem; color: var(--muted); margin-top: 3px; }}
-  .pair-bar-track {{ height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; margin-top: 8px; }}
-  .pair-bar-fill  {{ height: 4px; border-radius: 2px; }}
+  .pair-name {{ font-size: 0.78rem; font-weight: 700; color: var(--text); margin-bottom: 3px; }}
+  .pair-r    {{ font-size: 1.15rem; font-weight: 700; }}
+  .pair-meta {{ font-size: 0.68rem; color: var(--muted); margin-top: 2px; }}
+  .pair-bar-track {{ height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; margin-top: 6px; }}
+  .pair-bar-fill  {{ height: 3px; border-radius: 2px; }}
 
-  /* ---- Chart cards ---- */
+  /* Charts */
   .charts-grid {{
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 1.25rem;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;
   }}
   .chart-card {{
     background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius); padding: 1rem 1rem 0.75rem;
   }}
-  .chart-header {{ display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 0.6rem; }}
-  .chart-title {{ font-size: 0.85rem; font-weight: 700; color: var(--text); }}
-  .chart-meta  {{ text-align: right; }}
-  .chart-meta .r-big {{ font-size: 1.15rem; font-weight: 700; }}
-  .chart-meta .n-lbl {{ font-size: 0.65rem; color: var(--muted); }}
+  .chart-header {{ display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 0.5rem; }}
+  .chart-title  {{ font-size: 0.82rem; font-weight: 700; color: var(--text); line-height: 1.3; }}
+  .chart-meta   {{ text-align: right; flex-shrink: 0; margin-left: 0.5rem; }}
+  .r-big  {{ font-size: 1.1rem; font-weight: 700; }}
+  .n-lbl  {{ font-size: 0.65rem; color: var(--muted); }}
   .chart-wrap {{ height: 160px; position: relative; }}
-
   .full-card {{ grid-column: 1 / -1; }}
   .timeline-wrap {{ height: 220px; position: relative; }}
 
-  .chart-legend {{
-    display: flex; gap: 0.75rem; margin-top: 0.4rem; flex-wrap: wrap;
-  }}
+  .chart-legend {{ display: flex; gap: 0.75rem; margin-top: 0.4rem; flex-wrap: wrap; }}
   .legend-item {{ display: flex; align-items: center; gap: 4px; font-size: 0.65rem; color: var(--muted); }}
   .legend-swatch {{ width: 12px; height: 8px; border-radius: 2px; }}
 
@@ -510,10 +784,10 @@ def build_html(payload: dict) -> str:
     text-align: center; color: var(--muted); font-size: 0.75rem;
     padding: 1rem 0; border-top: 1px solid var(--border); margin-top: 2rem;
   }}
-
   @media (max-width: 600px) {{
     .charts-grid {{ grid-template-columns: 1fr; }}
     .pair-grid   {{ grid-template-columns: 1fr; }}
+    .insights-grid {{ grid-template-columns: 1fr; }}
   }}
 </style>
 </head>
@@ -522,12 +796,13 @@ def build_html(payload: dict) -> str:
 <header>
   <div>
     <h1>🔬 Correlations &amp; Analysis</h1>
-    <p>Pearson <em>r</em> · biomarkers vs age, kids, weight, VO₂max · 2013–2026</p>
+    <p>Biomarkers × WHOOP sleep/recovery · Strava training load · life covariates — 2013–2026</p>
   </div>
   <a href="index.html" class="back-link">← Dashboard</a>
 </header>
 
-<div id="app"></div>
+<div class="tabs" id="tabs"></div>
+<div id="tab-panels"></div>
 
 <footer id="footer"></footer>
 
@@ -535,7 +810,7 @@ def build_html(payload: dict) -> str:
 const DATA = {data_json};
 
 // ---------------------------------------------------------------------------
-// Colour helpers
+// Helpers
 // ---------------------------------------------------------------------------
 function rColor(r) {{
   if (r === null || r === undefined) return 'var(--muted)';
@@ -544,7 +819,6 @@ function rColor(r) {{
   if (a >= 0.4) return r > 0 ? '#86efac' : '#fca5a5';
   return 'var(--muted)';
 }}
-
 function rStrength(r) {{
   if (r === null) return '';
   const a = Math.abs(r);
@@ -552,25 +826,367 @@ function rStrength(r) {{
   if (a >= 0.4) return 'moderate';
   return 'weak';
 }}
-
 function rBarHtml(r) {{
   if (r === null || r === undefined) return '<span style="color:var(--muted)">—</span>';
-  const pct  = Math.round(Math.abs(r) * 100);
-  const col  = rColor(r);
-  const dir  = r >= 0 ? '▲' : '▼';
+  const pct = Math.round(Math.abs(r) * 100);
+  const col = rColor(r);
+  const dir = r >= 0 ? '▲' : '▼';
   return `<div class="r-val" style="color:${{col}};">${{r.toFixed(3)}} ${{dir}}</div>
           <div class="r-bar-track"><div class="r-bar-fill" style="width:${{pct}}%;background:${{col}};"></div></div>`;
 }}
+function badgeHtml(source) {{
+  const cls = {{'WHOOP':'whoop','Strava':'strava','Life':'life','Fitness':'fitness'}}[source] || 'life';
+  return `<span class="source-badge badge-${{cls}}">${{source}}</span>`;
+}}
+function scatterPointColors(points) {{
+  const years = points.map(p => parseInt(p.date.substring(0,4)));
+  const minYr = Math.min(...years), maxYr = Math.max(...years);
+  return points.map(p => {{
+    const t = maxYr === minYr ? 0.5 : (parseInt(p.date.substring(0,4)) - minYr) / (maxYr - minYr);
+    return `rgba(${{Math.round(96+t*(249-96))}},${{Math.round(165+t*(115-165))}},${{Math.round(250+t*(22-250))}},0.9)`;
+  }});
+}}
 
 // ---------------------------------------------------------------------------
-// App root
+// Tab system
 // ---------------------------------------------------------------------------
-const app = document.getElementById('app');
+const tabsEl   = document.getElementById('tabs');
+const panelsEl = document.getElementById('tab-panels');
+let firstTab   = true;
+
+function addTab(label, id, buildFn) {{
+  const btn = document.createElement('button');
+  btn.className = 'tab-btn' + (firstTab ? ' active' : '');
+  btn.textContent = label;
+  btn.addEventListener('click', () => {{
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + id).classList.add('active');
+  }});
+  tabsEl.appendChild(btn);
+
+  const panel = document.createElement('div');
+  panel.className = 'tab-panel' + (firstTab ? ' active' : '');
+  panel.id = 'panel-' + id;
+  buildFn(panel);
+  panelsEl.appendChild(panel);
+  firstTab = false;
+}}
+
+// ---------------------------------------------------------------------------
+// Tab 1: Insights
+// ---------------------------------------------------------------------------
+addTab('💡 Insights', 'insights', panel => {{
+  const sec = mkSection('Key Insights', null);
+  const grid = document.createElement('div');
+  grid.className = 'insights-grid';
+  (DATA.insights || []).forEach(ins => {{
+    const card = document.createElement('div');
+    card.className = 'insight-card';
+    card.style.borderLeft = `3px solid ${{ins.color}}`;
+    card.innerHTML = `<div class="ic-emoji">${{ins.emoji}}</div>
+                      <div class="ic-title">${{ins.title}}</div>
+                      <div class="ic-body">${{ins.body}}</div>`;
+    grid.appendChild(card);
+  }});
+  sec.appendChild(grid);
+  panel.appendChild(sec);
+}});
+
+// ---------------------------------------------------------------------------
+// Tab 2: Wearable × Biomarker top correlations
+// ---------------------------------------------------------------------------
+addTab('⌚ Wearable × Biomarker', 'wearable', panel => {{
+  const sec = mkSection(
+    'Top Wearable / Training → Biomarker Correlations',
+    `Pearson <em>r</em> between WHOOP sleep/recovery metrics and Strava training load windows
+     (30-day and 90-day averages before each blood draw) versus every biomarker. Top 30 by |r|.`
+  );
+  const grid = document.createElement('div');
+  grid.className = 'pair-grid';
+  (DATA.top_cov_bm || []).forEach(item => {{
+    const col = rColor(item.r);
+    const card = document.createElement('div');
+    card.className = 'pair-card';
+    card.style.borderLeft = `3px solid ${{col}}`;
+    card.innerHTML = `
+      <div class="pair-name">${{item.covariate}} ${{badgeHtml(item.source)}}<br>→ ${{item.biomarker}}</div>
+      <div class="pair-r" style="color:${{col}};">r = ${{item.r.toFixed(3)}}</div>
+      <div class="pair-meta">${{rStrength(item.r)}} ${{item.r > 0 ? 'positive' : 'negative'}} · n=${{item.n}}</div>
+      <div class="pair-bar-track"><div class="pair-bar-fill" style="width:${{Math.round(Math.abs(item.r)*100)}}%;background:${{col}};"></div></div>`;
+    grid.appendChild(card);
+  }});
+  sec.appendChild(grid);
+  panel.appendChild(sec);
+
+  // Scatter plots for top wearable pairs
+  if (DATA.wearable_scatters && DATA.wearable_scatters.length > 0) {{
+    const sec2 = mkSection('Scatter Plots — Top Wearable Pairs',
+      'Each point is one blood draw. Colour: blue (early) → orange (recent). Regression line shown.');
+    const sgrid = document.createElement('div');
+    sgrid.className = 'charts-grid';
+    DATA.wearable_scatters.forEach(sp => renderScatterCard(sgrid, sp));
+    sec2.appendChild(sgrid);
+    panel.appendChild(sec2);
+  }}
+}});
+
+// ---------------------------------------------------------------------------
+// Tab 3: Full matrix table
+// ---------------------------------------------------------------------------
+addTab('🧬 Full Matrix', 'matrix', panel => {{
+  const sec = mkSection(
+    'Biomarker × All Covariates — Pearson r',
+    `Every biomarker row vs. all life, fitness, WHOOP, and Strava covariates.
+     Sorted by max |r| vs classic covariates (age/kids/weight/VO₂max). Scroll right for all columns.`
+  );
+
+  const covMeta = DATA.covariate_meta || [];
+  const classicKeys = ['age','kids','weight','vo2max'];
+  const whoopKeys   = covMeta.filter(c => c.source === 'WHOOP').map(c => c.key);
+  const stravaKeys  = covMeta.filter(c => c.source === 'Strava').map(c => c.key);
+  const keyToLabel  = Object.fromEntries(covMeta.map(c => [c.key, c.label]));
+
+  const wrap = document.createElement('div');
+  wrap.className = 'table-wrap';
+  const tbl = document.createElement('table');
+
+  // Header row
+  const thead = document.createElement('thead');
+  let htr = '<tr>';
+  htr += '<th>Biomarker</th><th class="n-col">n</th>';
+  classicKeys.forEach(k => {{ htr += `<th class="group-classic">${{keyToLabel[k] || k}}</th>`; }});
+  whoopKeys.forEach(k   => {{ htr += `<th class="group-whoop">${{(keyToLabel[k]||k).replace(' avg','').replace(' (ms)','').replace(' (bpm)','')}}</th>`; }});
+  stravaKeys.forEach(k  => {{ htr += `<th class="group-strava">${{(keyToLabel[k]||k)}}</th>`; }});
+  htr += '</tr>';
+  thead.innerHTML = htr;
+  tbl.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  (DATA.biomarker_matrix || []).forEach(row => {{
+    const tr = document.createElement('tr');
+    let cells = `<td class="bm-name">${{row.name}}</td><td class="n-col">${{row.n}}</td>`;
+    [...classicKeys, ...whoopKeys, ...stravaKeys].forEach(k => {{
+      const v = row[k];
+      cells += `<td style="min-width:90px">${{rBarHtml(v !== undefined ? v : null)}}</td>`;
+    }});
+    tr.innerHTML = cells;
+    tbody.appendChild(tr);
+  }});
+  tbl.appendChild(tbody);
+  wrap.appendChild(tbl);
+  sec.appendChild(wrap);
+  panel.appendChild(sec);
+}});
+
+// ---------------------------------------------------------------------------
+// Tab 4: Biomarker pairs
+// ---------------------------------------------------------------------------
+addTab('🔗 Biomarker Pairs', 'pairs', panel => {{
+  const sec = mkSection(
+    'Top Biomarker–Biomarker Correlations',
+    'Pearson <em>r</em> between all biomarker pairs on shared blood-draw dates (≥4 required). Top 20 by |r|.'
+  );
+  const grid = document.createElement('div');
+  grid.className = 'pair-grid';
+  (DATA.top_bm_pairs || []).forEach(item => {{
+    const col = rColor(item.r);
+    const card = document.createElement('div');
+    card.className = 'pair-card';
+    card.style.borderLeft = `3px solid ${{col}}`;
+    card.innerHTML = `
+      <div class="pair-name">${{item.pair}}</div>
+      <div class="pair-r" style="color:${{col}};">r = ${{item.r.toFixed(3)}}</div>
+      <div class="pair-meta">${{rStrength(item.r)}} ${{item.r > 0 ? 'positive' : 'negative'}} · n=${{item.n}}</div>
+      <div class="pair-bar-track"><div class="pair-bar-fill" style="width:${{Math.round(Math.abs(item.r)*100)}}%;background:${{col}};"></div></div>`;
+    grid.appendChild(card);
+  }});
+  sec.appendChild(grid);
+  panel.appendChild(sec);
+
+  // Biomarker scatter plots
+  const sec2 = mkSection('Scatter Plots — Key Biomarker Pairs',
+    'Each point = one blood draw. Blue (early) → orange (recent).');
+  const sgrid = document.createElement('div');
+  sgrid.className = 'charts-grid';
+  (DATA.scatter_pairs || []).forEach(sp => renderScatterCard(sgrid, sp));
+  sec2.appendChild(sgrid);
+  panel.appendChild(sec2);
+}});
+
+// ---------------------------------------------------------------------------
+// Tab 5: Timeline
+// ---------------------------------------------------------------------------
+addTab('📅 Timeline', 'timeline', panel => {{
+  const sec = mkSection(
+    'Wearable Metrics Over Blood-Draw Dates',
+    'Rolling averages of WHOOP and Strava signals plotted at each blood-draw date. Life-event markers shown.'
+  );
+
+  const tl = DATA.timeline || [];
+  const labels = tl.map(r => r.date);
+
+  // Chart builder helper
+  function tlCard(title, datasets, yLabel, yLabel2, height) {{
+    const card = document.createElement('div');
+    card.className = 'chart-card full-card';
+    card.innerHTML = `<div class="chart-header"><div class="chart-title">${{title}}</div></div>`;
+    const wrap = document.createElement('div');
+    wrap.className = 'chart-wrap';
+    wrap.style.height = (height || 180) + 'px';
+    const canvas = document.createElement('canvas');
+    wrap.appendChild(canvas);
+    card.appendChild(wrap);
+
+    // Life-event plugin
+    const lifePlugin = {{
+      id: 'lifeEvents',
+      afterDraw(chart) {{
+        const {{ ctx, chartArea: {{ top, bottom }}, scales: {{ x }} }} = chart;
+        if (!x) return;
+        (DATA.life_events || []).forEach(ev => {{
+          const idx = labels.indexOf(ev.date);
+          if (idx < 0) return;
+          const xPx = x.getPixelForValue(idx);
+          ctx.save();
+          ctx.beginPath(); ctx.moveTo(xPx, top); ctx.lineTo(xPx, bottom);
+          ctx.strokeStyle = 'rgba(234,179,8,0.45)'; ctx.lineWidth = 1.5;
+          ctx.setLineDash([4,3]); ctx.stroke();
+          ctx.fillStyle = '#eab308'; ctx.font = '9px sans-serif';
+          ctx.textAlign = 'center'; ctx.fillText(ev.label, xPx, top - 3);
+          ctx.restore();
+        }});
+      }},
+    }};
+
+    const scales = {{
+      x: {{ grid: {{ color: 'rgba(46,50,80,0.6)' }}, ticks: {{ color: '#8892a4', maxRotation: 45, maxTicksLimit: 20, font: {{ size: 9 }} }} }},
+      y: {{ title: {{ display: !!yLabel, text: yLabel||'', color:'#8892a4', font:{{size:9}} }}, grid: {{ color: 'rgba(46,50,80,0.6)' }}, ticks: {{ color: '#8892a4', font: {{ size: 9 }} }} }},
+    }};
+    if (yLabel2) {{
+      scales.y2 = {{ position: 'right', title: {{ display: true, text: yLabel2, color:'#8892a4', font:{{size:9}} }}, grid: {{ display: false }}, ticks: {{ color: '#8892a4', font: {{ size: 9 }} }} }};
+    }}
+
+    new Chart(canvas, {{
+      type: 'line', plugins: [lifePlugin],
+      data: {{ labels, datasets }},
+      options: {{
+        responsive: true, maintainAspectRatio: false,
+        interaction: {{ mode: 'index', intersect: false }},
+        plugins: {{
+          legend: {{ display: false }},
+          tooltip: {{ backgroundColor: '#1a1d27', borderColor: '#2e3250', borderWidth: 1, titleColor: '#e2e8f0', bodyColor: '#8892a4' }},
+        }},
+        scales,
+      }},
+    }});
+    return card;
+  }}
+
+  const grid = document.createElement('div');
+  grid.className = 'charts-grid';
+  grid.style.gridTemplateColumns = '1fr';
+
+  // Chart 1: HRV + Recovery (30d)
+  grid.appendChild(tlCard('WHOOP: HRV & Recovery Score (30-day avg)', [
+    {{ label: 'HRV rMSSD (ms)', data: tl.map(r => r.whoop_hrv_30d), borderColor: '#22c55e', backgroundColor:'transparent', borderWidth:2.5, pointRadius:5, tension:0.3, fill:false, yAxisID:'y', spanGaps:true }},
+    {{ label: 'Recovery score', data: tl.map(r => r.whoop_recovery_30d), borderColor: '#60a5fa', backgroundColor:'rgba(96,165,250,0.1)', borderWidth:2, pointRadius:4, tension:0.3, fill:true, yAxisID:'y2', spanGaps:true }},
+  ], 'HRV (ms)', 'Recovery (0–100)'));
+
+  // Chart 2: RHR + Strain (30d)
+  grid.appendChild(tlCard('WHOOP: Resting HR & Day Strain (30-day avg)', [
+    {{ label: 'Resting HR (bpm)', data: tl.map(r => r.whoop_rhr_30d), borderColor: '#ef4444', backgroundColor:'transparent', borderWidth:2.5, pointRadius:5, tension:0.3, fill:false, yAxisID:'y', spanGaps:true }},
+    {{ label: 'Day strain', data: tl.map(r => r.whoop_strain_30d), borderColor: '#f97316', backgroundColor:'rgba(249,115,22,0.1)', borderWidth:2, pointRadius:4, tension:0.3, fill:true, yAxisID:'y2', spanGaps:true }},
+  ], 'RHR (bpm)', 'Strain (0–21)'));
+
+  // Chart 3: Sleep
+  grid.appendChild(tlCard('WHOOP: Sleep Hours & Performance (30-day avg)', [
+    {{ label: 'Sleep hrs', data: tl.map(r => r.whoop_sleep_hrs_30d), borderColor: '#a855f7', backgroundColor:'rgba(168,85,247,0.1)', borderWidth:2.5, pointRadius:5, tension:0.3, fill:true, yAxisID:'y', spanGaps:true }},
+    {{ label: 'Sleep performance %', data: tl.map(r => r.whoop_sleep_perf_30d), borderColor: '#818cf8', backgroundColor:'transparent', borderWidth:2, pointRadius:4, tension:0.3, fill:false, yAxisID:'y2', spanGaps:true }},
+  ], 'Hours', 'Performance (%)'));
+
+  // Chart 4: Strava load
+  grid.appendChild(tlCard('Strava: Training Load (90-day window)', [
+    {{ label: 'Total hours', data: tl.map(r => r.strava_hrs_90d), borderColor: '#f97316', backgroundColor:'rgba(249,115,22,0.1)', borderWidth:2.5, pointRadius:5, tension:0.3, fill:true, yAxisID:'y', spanGaps:true }},
+    {{ label: 'Run miles', data: tl.map(r => r.strava_run_miles_90d), borderColor: '#22c55e', backgroundColor:'transparent', borderWidth:2, pointRadius:4, tension:0.3, fill:false, yAxisID:'y2', spanGaps:true }},
+  ], 'Training hrs', 'Run miles'));
+
+  // Chart 5: SpO2 + resp rate
+  grid.appendChild(tlCard('WHOOP: SpO₂ & Respiratory Rate (30-day avg)', [
+    {{ label: 'SpO₂ (%)', data: tl.map(r => r.whoop_spo2_30d), borderColor: '#60a5fa', backgroundColor:'rgba(96,165,250,0.1)', borderWidth:2.5, pointRadius:5, tension:0.3, fill:true, yAxisID:'y', spanGaps:true }},
+    {{ label: 'Resp rate (br/min)', data: tl.map(r => r.whoop_resp_30d), borderColor: '#eab308', backgroundColor:'transparent', borderWidth:2, pointRadius:4, tension:0.3, fill:false, yAxisID:'y2', spanGaps:true }},
+  ], 'SpO₂ (%)', 'Breaths/min'));
+
+  sec.appendChild(grid);
+  panel.appendChild(sec);
+}});
+
+// ---------------------------------------------------------------------------
+// Shared: render scatter card
+// ---------------------------------------------------------------------------
+function renderScatterCard(container, sp) {{
+  const card = document.createElement('div');
+  card.className = 'chart-card';
+  const col = rColor(sp.r);
+  const hdr = document.createElement('div');
+  hdr.className = 'chart-header';
+  hdr.innerHTML = `
+    <div class="chart-title">${{sp.x_label}}<br><span style="color:var(--muted);font-weight:400">vs</span> ${{sp.y_label}}</div>
+    <div class="chart-meta">
+      <div class="r-big" style="color:${{col}};">r = ${{sp.r !== null ? sp.r.toFixed(3) : '—'}}</div>
+      <div class="n-lbl">n = ${{sp.n}}</div>
+    </div>`;
+  card.appendChild(hdr);
+  const wrap = document.createElement('div');
+  wrap.className = 'chart-wrap';
+  const canvas = document.createElement('canvas');
+  wrap.appendChild(canvas);
+  card.appendChild(wrap);
+  container.appendChild(card);
+
+  const ptColors = scatterPointColors(sp.points);
+  const datasets = [{{
+    label: `${{sp.x_label}} vs ${{sp.y_label}}`,
+    data: sp.points.map(p => ({{ x: p.x, y: p.y }})),
+    backgroundColor: ptColors, borderColor: ptColors.map(c => c.replace('0.9','1')),
+    borderWidth: 1.5, pointRadius: 6, pointHoverRadius: 8, type: 'scatter',
+  }}];
+  if (sp.reg_line) {{
+    datasets.push({{
+      label: 'Trend', data: sp.reg_line, type: 'line',
+      borderColor: 'rgba(129,140,248,0.55)', borderWidth: 1.5,
+      borderDash: [4,3], pointRadius: 0, fill: false,
+    }});
+  }}
+  new Chart(canvas, {{
+    type: 'scatter', data: {{ datasets }},
+    options: {{
+      responsive: true, maintainAspectRatio: false,
+      plugins: {{
+        legend: {{ display: false }},
+        tooltip: {{
+          backgroundColor: '#1a1d27', borderColor: '#2e3250', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#8892a4',
+          callbacks: {{
+            title:  items => sp.points[items[0].dataIndex]?.date || '',
+            label:  ctx  => `${{sp.x_label}}: ${{ctx.parsed.x}},  ${{sp.y_label}}: ${{ctx.parsed.y}}`,
+          }},
+          filter: item => item.dataset.label !== 'Trend',
+        }},
+      }},
+      scales: {{
+        x: {{ title: {{ display: true, text: sp.x_label, color:'#8892a4', font:{{size:9}} }}, grid: {{ color: 'rgba(46,50,80,0.6)' }}, ticks: {{ color:'#8892a4', font:{{size:9}} }} }},
+        y: {{ title: {{ display: true, text: sp.y_label, color:'#8892a4', font:{{size:9}} }}, grid: {{ color: 'rgba(46,50,80,0.6)' }}, ticks: {{ color:'#8892a4', font:{{size:9}} }} }},
+      }},
+    }},
+  }});
+}}
 
 // ---------------------------------------------------------------------------
 // Section helper
 // ---------------------------------------------------------------------------
-function makeSection(title, descHTML) {{
+function mkSection(title, descHTML) {{
   const sec = document.createElement('div');
   sec.className = 'section';
   const h2 = document.createElement('h2');
@@ -586,340 +1202,12 @@ function makeSection(title, descHTML) {{
 }}
 
 // ---------------------------------------------------------------------------
-// 1. Insights
-// ---------------------------------------------------------------------------
-(function() {{
-  const sec = makeSection('Key Insights', null);
-  const grid = document.createElement('div');
-  grid.className = 'insights-grid';
-  (DATA.insights || []).forEach(ins => {{
-    const card = document.createElement('div');
-    card.className = 'insight-card';
-    card.style.borderLeft = `3px solid ${{ins.color}}`;
-    card.innerHTML = `
-      <div class="ic-emoji">${{ins.emoji}}</div>
-      <div class="ic-title">${{ins.title}}</div>
-      <div class="ic-body">${{ins.body}}</div>
-    `;
-    grid.appendChild(card);
-  }});
-  sec.appendChild(grid);
-  app.appendChild(sec);
-}})();
-
-// ---------------------------------------------------------------------------
-// 2. Biomarker × covariate matrix
-// ---------------------------------------------------------------------------
-(function() {{
-  const sec = makeSection(
-    'Biomarker vs. Age / # Kids / Weight / VO₂max',
-    `Pearson <em>r</em> for each biomarker against four life covariates across all blood-draw dates.
-     Sorted by |r with age|. ▲ = positive correlation, ▼ = negative.`
-  );
-
-  const wrap = document.createElement('div');
-  wrap.className = 'table-wrap';
-  const table = document.createElement('table');
-  table.innerHTML = `
-    <thead>
-      <tr>
-        <th>Biomarker</th>
-        <th class="n-col">n</th>
-        <th>r · Age</th>
-        <th>r · # Kids</th>
-        <th>r · Weight</th>
-        <th>r · VO₂max</th>
-      </tr>
-    </thead>
-  `;
-  const tbody = document.createElement('tbody');
-  (DATA.biomarker_matrix || []).forEach(row => {{
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td class="bm-name">${{row.name}}</td>
-      <td class="n-col">${{row.n}}</td>
-      <td class="r-cell">${{rBarHtml(row.r_age)}}</td>
-      <td class="r-cell">${{rBarHtml(row.r_kids)}}</td>
-      <td class="r-cell">${{row.r_weight !== null ? rBarHtml(row.r_weight) : '<span style="color:var(--muted)">—</span>'}}</td>
-      <td class="r-cell">${{row.r_vo2 !== null ? rBarHtml(row.r_vo2) : '<span style="color:var(--muted)">—</span>'}}</td>
-    `;
-    tbody.appendChild(tr);
-  }});
-  table.appendChild(tbody);
-  wrap.appendChild(table);
-  sec.appendChild(wrap);
-  app.appendChild(sec);
-}})();
-
-// ---------------------------------------------------------------------------
-// 3. Top pairwise biomarker–biomarker correlations
-// ---------------------------------------------------------------------------
-(function() {{
-  const sec = makeSection(
-    'Top Biomarker–Biomarker Correlations',
-    'Pearson <em>r</em> between all biomarker pairs on shared blood-draw dates (≥4 shared draws required). Top 20 by |r|.'
-  );
-  const grid = document.createElement('div');
-  grid.className = 'pair-grid';
-  (DATA.top_correlations || []).forEach(item => {{
-    const a   = Math.abs(item.r);
-    const col = rColor(item.r);
-    const card = document.createElement('div');
-    card.className = 'pair-card';
-    card.style.borderLeft = `3px solid ${{col}}`;
-    card.innerHTML = `
-      <div class="pair-name">${{item.pair}}</div>
-      <div class="pair-r" style="color:${{col}};">r = ${{item.r.toFixed(3)}}</div>
-      <div class="pair-meta">${{rStrength(item.r)}} ${{item.r > 0 ? 'positive' : 'negative'}} · n=${{item.n}}</div>
-      <div class="pair-bar-track"><div class="pair-bar-fill" style="width:${{Math.round(a*100)}}%;background:${{col}};"></div></div>
-    `;
-    grid.appendChild(card);
-  }});
-  sec.appendChild(grid);
-  app.appendChild(sec);
-}})();
-
-// ---------------------------------------------------------------------------
-// 4. Scatter plots
-// ---------------------------------------------------------------------------
-(function() {{
-  const sec = makeSection(
-    'Scatter Plots — Key Pairs',
-    'Each point is one blood draw. Colour fades from blue (early) to orange (recent). Regression line shown.'
-  );
-  const grid = document.createElement('div');
-  grid.className = 'charts-grid';
-
-  (DATA.scatter_pairs || []).forEach(sp => {{
-    const card = document.createElement('div');
-    card.className = 'chart-card';
-
-    const hdr = document.createElement('div');
-    hdr.className = 'chart-header';
-    const col = rColor(sp.r);
-    hdr.innerHTML = `
-      <div class="chart-title">${{sp.x_label}} vs ${{sp.y_label}}</div>
-      <div class="chart-meta">
-        <div class="r-big" style="color:${{col}};">r = ${{sp.r !== null ? sp.r.toFixed(3) : '—'}}</div>
-        <div class="n-lbl">n = ${{sp.n}} draws</div>
-      </div>
-    `;
-    card.appendChild(hdr);
-
-    const wrap = document.createElement('div');
-    wrap.className = 'chart-wrap';
-    const canvas = document.createElement('canvas');
-    wrap.appendChild(canvas);
-    card.appendChild(wrap);
-    grid.appendChild(card);
-
-    // Point colours: blue (early) → orange (recent)
-    const years  = sp.points.map(p => parseInt(p.date.substring(0,4)));
-    const minYr  = Math.min(...years);
-    const maxYr  = Math.max(...years);
-    const ptColors = sp.points.map(p => {{
-      const t = maxYr === minYr ? 0.5 : (parseInt(p.date.substring(0,4)) - minYr) / (maxYr - minYr);
-      const r = Math.round(96  + t * (249 - 96));
-      const g = Math.round(165 + t * (115 - 165));
-      const b = Math.round(250 + t * (22  - 250));
-      return `rgba(${{r}},${{g}},${{b}},0.9)`;
-    }});
-
-    const datasets = [{{
-      label: `${{sp.x_label}} vs ${{sp.y_label}}`,
-      data:  sp.points.map(p => ({{ x: p.x, y: p.y }})),
-      backgroundColor:  ptColors,
-      borderColor:      ptColors.map(c => c.replace('0.9','1')),
-      borderWidth: 1.5,
-      pointRadius: 6,
-      pointHoverRadius: 8,
-      type: 'scatter',
-    }}];
-
-    if (sp.reg_line) {{
-      datasets.push({{
-        label: 'Trend',
-        data:  sp.reg_line,
-        type:  'line',
-        borderColor: 'rgba(129,140,248,0.6)',
-        borderWidth: 1.5,
-        borderDash: [4,3],
-        pointRadius: 0,
-        fill: false,
-      }});
-    }}
-
-    new Chart(canvas, {{
-      type: 'scatter',
-      data: {{ datasets }},
-      options: {{
-        responsive: true, maintainAspectRatio: false,
-        plugins: {{
-          legend: {{ display: false }},
-          tooltip: {{
-            backgroundColor: '#1a1d27', borderColor: '#2e3250', borderWidth: 1,
-            titleColor: '#e2e8f0', bodyColor: '#8892a4',
-            callbacks: {{
-              title:  items => sp.points[items[0].dataIndex]?.date || '',
-              label:  ctx  => `${{sp.x_label}}: ${{ctx.parsed.x}},  ${{sp.y_label}}: ${{ctx.parsed.y}}`,
-            }},
-            filter: item => item.dataset.label !== 'Trend',
-          }},
-        }},
-        scales: {{
-          x: {{
-            title: {{ display: true, text: sp.x_label, color: '#8892a4', font: {{ size: 10 }} }},
-            grid: {{ color: 'rgba(46,50,80,0.6)' }}, ticks: {{ color: '#8892a4', font: {{ size: 10 }} }},
-          }},
-          y: {{
-            title: {{ display: true, text: sp.y_label, color: '#8892a4', font: {{ size: 10 }} }},
-            grid: {{ color: 'rgba(46,50,80,0.6)' }}, ticks: {{ color: '#8892a4', font: {{ size: 10 }} }},
-          }},
-        }},
-      }},
-    }});
-  }});
-
-  sec.appendChild(grid);
-  app.appendChild(sec);
-}})();
-
-// ---------------------------------------------------------------------------
-// 5. Timeline chart (covariates over time)
-// ---------------------------------------------------------------------------
-(function() {{
-  const sec = makeSection(
-    'Life Covariates Over Blood-Draw Dates',
-    'Weight and VO₂max (right axis) plotted against every blood-draw date, with # kids shaded (left axis). Life-event markers in grey.'
-  );
-
-  const card = document.createElement('div');
-  card.className = 'chart-card full-card';
-
-  const hdr = document.createElement('div');
-  hdr.className = 'chart-header';
-  hdr.innerHTML = `
-    <div class="chart-title">Weight · VO₂max · # Kids — across ${{DATA.n_draws}} blood draws</div>
-  `;
-  card.appendChild(hdr);
-
-  const wrap = document.createElement('div');
-  wrap.className = 'timeline-wrap';
-  const canvas = document.createElement('canvas');
-  wrap.appendChild(canvas);
-  card.appendChild(wrap);
-
-  const leg = document.createElement('div');
-  leg.className = 'chart-legend';
-  leg.innerHTML = `
-    <div class="legend-item"><div class="legend-swatch" style="background:#a855f7"></div># Kids (left)</div>
-    <div class="legend-item"><div class="legend-swatch" style="background:#60a5fa"></div>Weight lbs (right)</div>
-    <div class="legend-item"><div class="legend-swatch" style="background:#22c55e"></div>VO₂max ml/kg/min (right)</div>
-  `;
-  card.appendChild(leg);
-
-  const grid = document.createElement('div');
-  grid.className = 'charts-grid';
-  grid.style.gridTemplateColumns = '1fr';
-  grid.appendChild(card);
-  sec.appendChild(grid);
-  app.appendChild(sec);
-
-  const tl     = DATA.timeline || [];
-  const labels = tl.map(r => r.date);
-
-  // Vertical annotation lines for life events
-  const lifeEventPlugin = {{
-    id: 'lifeEvents',
-    afterDraw(chart) {{
-      const {{ ctx, chartArea: {{ top, bottom }}, scales: {{ x }} }} = chart;
-      if (!x) return;
-      (DATA.life_events || []).forEach(ev => {{
-        const idx = labels.indexOf(ev.date);
-        if (idx < 0) return;
-        const xPx = x.getPixelForValue(idx);
-        ctx.save();
-        ctx.beginPath();
-        ctx.moveTo(xPx, top);
-        ctx.lineTo(xPx, bottom);
-        ctx.strokeStyle = 'rgba(234,179,8,0.45)';
-        ctx.lineWidth   = 1.5;
-        ctx.setLineDash([4,3]);
-        ctx.stroke();
-        ctx.fillStyle   = '#eab308';
-        ctx.font        = '10px sans-serif';
-        ctx.textAlign   = 'center';
-        ctx.fillText(ev.label, xPx, top - 4);
-        ctx.restore();
-      }});
-    }},
-  }};
-
-  new Chart(canvas, {{
-    type: 'line',
-    plugins: [lifeEventPlugin],
-    data: {{
-      labels,
-      datasets: [
-        {{
-          label: '# Kids',
-          data:  tl.map(r => r.kids),
-          borderColor: '#a855f7', backgroundColor: 'rgba(168,85,247,0.12)',
-          borderWidth: 2.5, pointRadius: 3, tension: 0.1, fill: true, yAxisID: 'y',
-        }},
-        {{
-          label: 'Weight (lbs)',
-          data:  tl.map(r => r.weight),
-          borderColor: '#60a5fa', backgroundColor: 'transparent',
-          borderWidth: 2, pointRadius: 3, tension: 0.3, fill: false,
-          yAxisID: 'y2', spanGaps: true,
-        }},
-        {{
-          label: 'VO₂max',
-          data:  tl.map(r => r.vo2max),
-          borderColor: '#22c55e', backgroundColor: 'transparent',
-          borderWidth: 2.5, pointRadius: 6, tension: 0.3, fill: false,
-          yAxisID: 'y2', spanGaps: true,
-        }},
-      ],
-    }},
-    options: {{
-      responsive: true, maintainAspectRatio: false,
-      interaction: {{ mode: 'index', intersect: false }},
-      plugins: {{
-        legend: {{ display: false }},
-        tooltip: {{
-          backgroundColor: '#1a1d27', borderColor: '#2e3250', borderWidth: 1,
-          titleColor: '#e2e8f0', bodyColor: '#8892a4',
-        }},
-      }},
-      scales: {{
-        x: {{
-          grid: {{ color: 'rgba(46,50,80,0.6)' }},
-          ticks: {{ color: '#8892a4', maxRotation: 45, maxTicksLimit: 20, font: {{ size: 9 }} }},
-        }},
-        y: {{
-          title: {{ display: true, text: '# Kids', color: '#a855f7', font: {{ size: 10 }} }},
-          min: 0, max: 4, stepSize: 1,
-          grid: {{ color: 'rgba(46,50,80,0.6)' }},
-          ticks: {{ color: '#8892a4', font: {{ size: 10 }}, stepSize: 1 }},
-        }},
-        y2: {{
-          position: 'right',
-          title: {{ display: true, text: 'Weight / VO₂max', color: '#60a5fa', font: {{ size: 10 }} }},
-          grid: {{ display: false }},
-          ticks: {{ color: '#8892a4', font: {{ size: 10 }} }},
-        }},
-      }},
-    }},
-  }});
-}})();
-
-// ---------------------------------------------------------------------------
 // Footer
 // ---------------------------------------------------------------------------
 document.getElementById('footer').textContent =
-  `Generated ${{DATA.generated}} · ${{DATA.n_draws}} blood draws · ${{(DATA.biomarker_matrix||[]).length}} biomarkers analysed`;
+  `Generated ${{DATA.generated}} · ${{DATA.n_draws}} blood draws · `+
+  `${{(DATA.biomarker_matrix||[]).length}} biomarkers · `+
+  `${{(DATA.covariate_meta||[]).length}} covariates (WHOOP + Strava + Life)`;
 </script>
 </body>
 </html>
@@ -933,18 +1221,29 @@ document.getElementById('footer').textContent =
 def main():
     print(f"Loading bloodwork from {BLOODWORK_FILE}...")
     measurements, ref_ranges = load_bloodwork(BLOODWORK_FILE)
-    print(f"  {len(measurements)} biomarkers")
+    all_dates = sorted({pt["date"] for pts in measurements.values() for pt in pts})
+    print(f"  {len(measurements)} biomarkers · {len(all_dates)} draw dates")
 
     print(f"Loading fitness from {FITNESS_FILE}...")
     fitness = load_fitness(FITNESS_FILE)
 
+    print(f"Loading WHOOP windows from {WHOOP_DB}...")
+    whoop_windows = load_whoop_windows(WHOOP_DB, all_dates)
+    covered = sum(1 for d in all_dates if whoop_windows.get(d, {}).get("whoop_hrv_30d") is not None)
+    print(f"  {covered}/{len(all_dates)} draw dates have WHOOP 30-day data")
+
+    print(f"Loading Strava windows from {STRAVA_DB}...")
+    strava_windows = load_strava_windows(STRAVA_DB, all_dates)
+    scovered = sum(1 for d in all_dates if strava_windows.get(d, {}).get("strava_hrs_90d") is not None)
+    print(f"  {scovered}/{len(all_dates)} draw dates have Strava 90-day data")
+
     print("Building correlation payload...")
-    payload = build_payload(measurements, fitness)
-    print(f"  {len(payload['biomarker_matrix'])} biomarkers × 4 covariates")
-    print(f"  {len(payload['top_correlations'])} top pairwise correlations")
-    print(f"  {len(payload['scatter_pairs'])} scatter pairs")
-    print(f"  {len(payload['timeline'])} blood-draw dates in timeline")
-    print(f"  {len(payload['insights'])} insights generated")
+    payload = build_payload(measurements, fitness, whoop_windows, strava_windows)
+    print(f"  {len(payload['biomarker_matrix'])} biomarkers × {len(payload['covariate_meta'])} covariates")
+    print(f"  {len(payload['top_cov_bm'])} top wearable→biomarker pairs")
+    print(f"  {len(payload['top_bm_pairs'])} top biomarker–biomarker pairs")
+    print(f"  {len(payload['wearable_scatters'])} wearable scatter plots")
+    print(f"  {len(payload['insights'])} insights")
 
     print(f"Writing {HTML_FILE}...")
     html = build_html(payload)

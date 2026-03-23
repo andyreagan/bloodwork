@@ -7,17 +7,10 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 <style>
   :root {
-    --bg: #0f1117;
-    --surface: #1a1d27;
-    --surface2: #22263a;
-    --border: #2e3250;
-    --text: #e2e8f0;
-    --muted: #8892a4;
-    --green: #22c55e;
-    --yellow: #eab308;
-    --red: #ef4444;
-    --blue: #60a5fa;
-    --accent: #818cf8;
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a;
+    --border: #2e3250; --text: #e2e8f0; --muted: #8892a4;
+    --green: #22c55e; --yellow: #eab308; --red: #ef4444;
+    --blue: #60a5fa; --accent: #818cf8; --orange: #f97316;
     --radius: 12px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -27,7 +20,6 @@
     font-size: 14px; line-height: 1.5; padding: 1rem;
   }
 
-  /* ---- Header ---- */
   header {
     display: flex; align-items: center; justify-content: space-between;
     padding: 1.25rem 1.5rem; background: var(--surface);
@@ -45,88 +37,104 @@
   }
   .back-link:hover { background: var(--accent); border-color: var(--accent); color: white; }
 
-  /* ---- Section headings ---- */
-  .section { margin-bottom: 2.5rem; }
+  /* Nav tabs */
+  .tabs {
+    display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap;
+  }
+  .tab-btn {
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--muted); border-radius: 6px;
+    padding: 0.4rem 0.85rem; font-size: 0.8rem; cursor: pointer; transition: all 0.15s;
+  }
+  .tab-btn:hover, .tab-btn.active {
+    background: var(--accent); border-color: var(--accent); color: white;
+  }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Section */
+  .section { margin-bottom: 2rem; }
   .section > h2 {
     font-size: 1rem; font-weight: 700; color: var(--accent);
-    margin-bottom: 1rem; padding-bottom: 0.5rem;
+    margin-bottom: 0.75rem; padding-bottom: 0.5rem;
     border-bottom: 1px solid var(--border);
   }
   .section > p.desc {
     color: var(--muted); font-size: 0.82rem; margin-bottom: 1rem; line-height: 1.6;
   }
 
-  /* ---- Insight cards ---- */
+  /* Insight cards */
   .insights-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 0.85rem;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 0.85rem;
   }
   .insight-card {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius); padding: 1rem;
   }
-  .insight-card .ic-emoji { font-size: 1.4rem; margin-bottom: 0.35rem; }
-  .insight-card .ic-title { font-size: 0.85rem; font-weight: 700; color: var(--text); margin-bottom: 0.3rem; }
-  .insight-card .ic-body  { font-size: 0.8rem; color: var(--muted); line-height: 1.55; }
+  .ic-emoji  { font-size: 1.4rem; margin-bottom: 0.35rem; }
+  .ic-title  { font-size: 0.85rem; font-weight: 700; color: var(--text); margin-bottom: 0.3rem; }
+  .ic-body   { font-size: 0.8rem; color: var(--muted); line-height: 1.55; }
 
-  /* ---- Covariate matrix table ---- */
+  /* Table */
   .table-wrap { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.78rem; white-space: nowrap; }
   thead tr { border-bottom: 1px solid var(--border); color: var(--muted); text-align: left; }
-  th { padding: 6px 10px; font-weight: 600; white-space: nowrap; }
-  tbody tr { border-bottom: 1px solid rgba(46,50,80,0.45); }
+  th { padding: 5px 8px; font-weight: 600; }
+  tbody tr { border-bottom: 1px solid rgba(46,50,80,0.4); }
   tbody tr:nth-child(even) { background: rgba(255,255,255,0.02); }
-  td { padding: 6px 10px; vertical-align: middle; }
-  td.bm-name { font-weight: 600; color: var(--text); white-space: nowrap; }
+  td { padding: 5px 8px; vertical-align: middle; }
+  td.bm-name { font-weight: 600; color: var(--text); position: sticky; left: 0; background: var(--bg); z-index:1; }
   td.n-col { text-align: center; color: var(--muted); }
-  .r-cell { min-width: 110px; }
-  .r-val { font-weight: 700; font-size: 0.85rem; }
-  .r-bar-track {
-    height: 4px; background: rgba(255,255,255,0.08);
-    border-radius: 2px; margin-top: 3px;
-  }
-  .r-bar-fill { height: 4px; border-radius: 2px; }
 
-  /* ---- Top pairwise cards ---- */
+  .r-val { font-weight: 700; font-size: 0.8rem; }
+  .r-bar-track { height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; margin-top: 2px; }
+  .r-bar-fill  { height: 3px; border-radius: 2px; }
+  th.group-whoop { background: rgba(34,197,94,0.08); }
+  th.group-strava { background: rgba(249,115,22,0.08); }
+  th.group-classic { background: rgba(96,165,250,0.08); }
+
+  /* Source badge */
+  .source-badge {
+    display: inline-block; font-size: 0.65rem; font-weight: 700;
+    padding: 1px 5px; border-radius: 4px; margin-left: 4px; vertical-align: middle;
+  }
+  .badge-whoop  { background: rgba(34,197,94,0.2);  color: #22c55e; }
+  .badge-strava { background: rgba(249,115,22,0.2); color: #f97316; }
+  .badge-life   { background: rgba(234,179,8,0.2);  color: #eab308; }
+  .badge-fitness{ background: rgba(129,140,248,0.2);color: #818cf8; }
+
+  /* Pair/top cards */
   .pair-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 0.75rem;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.7rem;
   }
   .pair-card {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius); padding: 0.85rem 1rem;
   }
-  .pair-card .pair-name { font-size: 0.8rem; font-weight: 700; color: var(--text); margin-bottom: 4px; }
-  .pair-card .pair-r    { font-size: 1.2rem; font-weight: 700; }
-  .pair-card .pair-meta { font-size: 0.7rem; color: var(--muted); margin-top: 3px; }
-  .pair-bar-track { height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; margin-top: 8px; }
-  .pair-bar-fill  { height: 4px; border-radius: 2px; }
+  .pair-name { font-size: 0.78rem; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+  .pair-r    { font-size: 1.15rem; font-weight: 700; }
+  .pair-meta { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
+  .pair-bar-track { height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; margin-top: 6px; }
+  .pair-bar-fill  { height: 3px; border-radius: 2px; }
 
-  /* ---- Chart cards ---- */
+  /* Charts */
   .charts-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 1.25rem;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;
   }
   .chart-card {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius); padding: 1rem 1rem 0.75rem;
   }
-  .chart-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 0.6rem; }
-  .chart-title { font-size: 0.85rem; font-weight: 700; color: var(--text); }
-  .chart-meta  { text-align: right; }
-  .chart-meta .r-big { font-size: 1.15rem; font-weight: 700; }
-  .chart-meta .n-lbl { font-size: 0.65rem; color: var(--muted); }
+  .chart-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 0.5rem; }
+  .chart-title  { font-size: 0.82rem; font-weight: 700; color: var(--text); line-height: 1.3; }
+  .chart-meta   { text-align: right; flex-shrink: 0; margin-left: 0.5rem; }
+  .r-big  { font-size: 1.1rem; font-weight: 700; }
+  .n-lbl  { font-size: 0.65rem; color: var(--muted); }
   .chart-wrap { height: 160px; position: relative; }
-
   .full-card { grid-column: 1 / -1; }
   .timeline-wrap { height: 220px; position: relative; }
 
-  .chart-legend {
-    display: flex; gap: 0.75rem; margin-top: 0.4rem; flex-wrap: wrap;
-  }
+  .chart-legend { display: flex; gap: 0.75rem; margin-top: 0.4rem; flex-wrap: wrap; }
   .legend-item { display: flex; align-items: center; gap: 4px; font-size: 0.65rem; color: var(--muted); }
   .legend-swatch { width: 12px; height: 8px; border-radius: 2px; }
 
@@ -134,10 +142,10 @@
     text-align: center; color: var(--muted); font-size: 0.75rem;
     padding: 1rem 0; border-top: 1px solid var(--border); margin-top: 2rem;
   }
-
   @media (max-width: 600px) {
     .charts-grid { grid-template-columns: 1fr; }
     .pair-grid   { grid-template-columns: 1fr; }
+    .insights-grid { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -146,20 +154,21 @@
 <header>
   <div>
     <h1>🔬 Correlations &amp; Analysis</h1>
-    <p>Pearson <em>r</em> · biomarkers vs age, kids, weight, VO₂max · 2013–2026</p>
+    <p>Biomarkers × WHOOP sleep/recovery · Strava training load · life covariates — 2013–2026</p>
   </div>
   <a href="index.html" class="back-link">← Dashboard</a>
 </header>
 
-<div id="app"></div>
+<div class="tabs" id="tabs"></div>
+<div id="tab-panels"></div>
 
 <footer id="footer"></footer>
 
 <script>
-const DATA = {"biomarker_matrix":[{"name":"Cortisol","n":3,"r_age":-0.993,"r_kids":null,"r_weight":-0.937,"r_vo2":null},{"name":"Ferritin","n":3,"r_age":0.924,"r_kids":null,"r_weight":0.989,"r_vo2":null},{"name":"HbA1c","n":7,"r_age":0.897,"r_kids":0.658,"r_weight":0.786,"r_vo2":0.617},{"name":"SHBG","n":5,"r_age":-0.886,"r_kids":null,"r_weight":-0.948,"r_vo2":-0.363},{"name":"Free Testosterone","n":6,"r_age":0.863,"r_kids":null,"r_weight":0.552,"r_vo2":0.941},{"name":"ALT","n":15,"r_age":0.679,"r_kids":0.522,"r_weight":0.68,"r_vo2":0.316},{"name":"Testosterone","n":6,"r_age":-0.597,"r_kids":null,"r_weight":-0.775,"r_vo2":-0.056},{"name":"GGT","n":4,"r_age":0.596,"r_kids":0.249,"r_weight":0.814,"r_vo2":null},{"name":"Glucose","n":15,"r_age":0.523,"r_kids":0.539,"r_weight":0.663,"r_vo2":0.22},{"name":"AST","n":15,"r_age":0.472,"r_kids":0.351,"r_weight":0.402,"r_vo2":0.03},{"name":"Triglycerides","n":14,"r_age":0.453,"r_kids":0.565,"r_weight":0.361,"r_vo2":-0.069},{"name":"HDL","n":14,"r_age":-0.451,"r_kids":-0.551,"r_weight":-0.404,"r_vo2":-0.191},{"name":"Hematocrit","n":9,"r_age":0.423,"r_kids":0.272,"r_weight":0.413,"r_vo2":0.834},{"name":"Vitamin D","n":5,"r_age":-0.354,"r_kids":null,"r_weight":-0.507,"r_vo2":-0.083},{"name":"LDL","n":14,"r_age":0.315,"r_kids":0.427,"r_weight":0.517,"r_vo2":0.238},{"name":"Cholesterol","n":14,"r_age":0.24,"r_kids":0.334,"r_weight":0.41,"r_vo2":0.088},{"name":"Hemoglobin","n":9,"r_age":0.146,"r_kids":-0.041,"r_weight":0.105,"r_vo2":0.961},{"name":"hsCRP","n":5,"r_age":0.032,"r_kids":null,"r_weight":0.077,"r_vo2":-0.657},{"name":"Homocysteine","n":3,"r_age":null,"r_kids":null,"r_weight":-0.935,"r_vo2":null},{"name":"TSH","n":3,"r_age":null,"r_kids":null,"r_weight":-0.431,"r_vo2":null},{"name":"DHEA-S","n":3,"r_age":null,"r_kids":null,"r_weight":-0.694,"r_vo2":null},{"name":"Apolipoprotein B","n":3,"r_age":null,"r_kids":null,"r_weight":0.442,"r_vo2":null}],"top_correlations":[{"pair":"HbA1c \u00d7 AST","bm_a":"HbA1c","bm_b":"AST","r":0.943,"n":7},{"pair":"Cholesterol \u00d7 LDL","bm_a":"Cholesterol","bm_b":"LDL","r":0.94,"n":14},{"pair":"HbA1c \u00d7 ALT","bm_a":"HbA1c","bm_b":"ALT","r":0.92,"n":7},{"pair":"Glucose \u00d7 HbA1c","bm_a":"Glucose","bm_b":"HbA1c","r":0.842,"n":7},{"pair":"HbA1c \u00d7 Free Testosterone","bm_a":"HbA1c","bm_b":"Free Testosterone","r":0.79,"n":5},{"pair":"Free Testosterone \u00d7 Hemoglobin","bm_a":"Free Testosterone","bm_b":"Hemoglobin","r":0.771,"n":5},{"pair":"Triglycerides \u00d7 Testosterone","bm_a":"Triglycerides","bm_b":"Testosterone","r":0.767,"n":6},{"pair":"Triglycerides \u00d7 Hematocrit","bm_a":"Triglycerides","bm_b":"Hematocrit","r":0.744,"n":8},{"pair":"Glucose \u00d7 ALT","bm_a":"Glucose","bm_b":"ALT","r":0.724,"n":15},{"pair":"AST \u00d7 ALT","bm_a":"AST","bm_b":"ALT","r":0.718,"n":15},{"pair":"Free Testosterone \u00d7 AST","bm_a":"Free Testosterone","bm_b":"AST","r":0.715,"n":6},{"pair":"Hemoglobin \u00d7 Hematocrit","bm_a":"Hemoglobin","bm_b":"Hematocrit","r":0.669,"n":9},{"pair":"Cholesterol \u00d7 Triglycerides","bm_a":"Cholesterol","bm_b":"Triglycerides","r":0.667,"n":14},{"pair":"LDL \u00d7 ALT","bm_a":"LDL","bm_b":"ALT","r":0.611,"n":13},{"pair":"Glucose \u00d7 AST","bm_a":"Glucose","bm_b":"AST","r":0.598,"n":15},{"pair":"Glucose \u00d7 LDL","bm_a":"Glucose","bm_b":"LDL","r":0.575,"n":13},{"pair":"LDL \u00d7 Triglycerides","bm_a":"LDL","bm_b":"Triglycerides","r":0.573,"n":14},{"pair":"Testosterone \u00d7 Hematocrit","bm_a":"Testosterone","bm_b":"Hematocrit","r":0.567,"n":5},{"pair":"ALT \u00d7 Hemoglobin","bm_a":"ALT","bm_b":"Hemoglobin","r":0.564,"n":8},{"pair":"HbA1c \u00d7 Hemoglobin","bm_a":"HbA1c","bm_b":"Hemoglobin","r":0.559,"n":5}],"scatter_pairs":[{"x_label":"Glucose","y_label":"HbA1c","r":0.842,"n":7,"points":[{"x":76.0,"y":5.1,"date":"2018-10-10"},{"x":96.0,"y":5.3,"date":"2021-10-29"},{"x":94.0,"y":5.5,"date":"2022-12-23"},{"x":97.0,"y":5.5,"date":"2023-07-10"},{"x":104.0,"y":6.0,"date":"2025-03-06"},{"x":97.0,"y":5.7,"date":"2025-06-05"},{"x":98.0,"y":5.6,"date":"2025-12-04"}],"reg_line":[{"x":76.0,"y":5.0161},{"x":104.0,"y":5.7888}]},{"x_label":"Cholesterol","y_label":"LDL","r":0.94,"n":14,"points":[{"x":157.0,"y":83.0,"date":"2013-01-10"},{"x":127.0,"y":47.0,"date":"2018-09-27"},{"x":135.0,"y":55.0,"date":"2018-10-10"},{"x":119.0,"y":51.0,"date":"2019-01-14"},{"x":160.0,"y":82.0,"date":"2021-10-29"},{"x":142.0,"y":71.0,"date":"2022-09-30"},{"x":137.0,"y":66.0,"date":"2022-12-23"},{"x":153.0,"y":88.0,"date":"2023-01-03"},{"x":129.0,"y":62.0,"date":"2023-07-10"},{"x":179.0,"y":94.0,"date":"2023-11-02"},{"x":146.0,"y":67.0,"date":"2024-11-27"},{"x":157.0,"y":84.0,"date":"2025-03-06"},{"x":133.0,"y":65.0,"date":"2025-06-05"},{"x":174.0,"y":93.0,"date":"2025-12-04"}],"reg_line":[{"x":119.0,"y":49.7275},{"x":179.0,"y":98.7037}]},{"x_label":"HDL","y_label":"Triglycerides","r":-0.197,"n":14,"points":[{"x":64.0,"y":50.0,"date":"2013-01-10"},{"x":70.0,"y":48.0,"date":"2018-09-27"},{"x":65.0,"y":74.0,"date":"2018-10-10"},{"x":60.0,"y":39.0,"date":"2019-01-14"},{"x":59.0,"y":96.0,"date":"2021-10-29"},{"x":57.0,"y":68.0,"date":"2022-09-30"},{"x":56.0,"y":75.0,"date":"2022-12-23"},{"x":54.0,"y":57.0,"date":"2023-01-03"},{"x":53.0,"y":67.0,"date":"2023-07-10"},{"x":61.0,"y":120.0,"date":"2023-11-02"},{"x":67.0,"y":59.0,"date":"2024-11-27"},{"x":58.0,"y":80.0,"date":"2025-03-06"},{"x":53.0,"y":78.0,"date":"2025-06-05"},{"x":64.0,"y":80.0,"date":"2025-12-04"}],"reg_line":[{"x":53.0,"y":76.2149},{"x":70.0,"y":63.1629}]},{"x_label":"Testosterone","y_label":"SHBG","r":0.752,"n":5,"points":[{"x":725.0,"y":40.0,"date":"2021-10-29"},{"x":495.0,"y":28.0,"date":"2023-07-10"},{"x":570.0,"y":29.1,"date":"2025-03-06"},{"x":608.0,"y":24.0,"date":"2025-06-05"},{"x":548.0,"y":26.0,"date":"2025-12-04"}],"reg_line":[{"x":495.0,"y":24.3015},{"x":725.0,"y":36.7989}]},{"x_label":"AST","y_label":"ALT","r":0.718,"n":15,"points":[{"x":25.0,"y":16.0,"date":"2013-01-10"},{"x":18.0,"y":11.0,"date":"2018-10-10"},{"x":39.0,"y":24.0,"date":"2019-01-14"},{"x":30.0,"y":20.0,"date":"2021-07-22"},{"x":26.0,"y":19.0,"date":"2021-10-29"},{"x":38.0,"y":26.0,"date":"2022-09-30"},{"x":24.0,"y":20.0,"date":"2022-12-23"},{"x":42.0,"y":34.0,"date":"2023-01-03"},{"x":25.0,"y":18.0,"date":"2023-07-10"},{"x":31.0,"y":43.0,"date":"2023-11-02"},{"x":45.0,"y":36.0,"date":"2023-11-16"},{"x":40.0,"y":28.0,"date":"2024-11-27"},{"x":43.0,"y":42.0,"date":"2025-03-06"},{"x":32.0,"y":32.0,"date":"2025-06-05"},{"x":32.0,"y":35.0,"date":"2025-12-04"}],"reg_line":[{"x":18.0,"y":14.3402},{"x":45.0,"y":37.523}]},{"x_label":"Ferritin","y_label":"Hemoglobin","r":-0.381,"n":3,"points":[{"x":60.0,"y":15.4,"date":"2021-10-29"},{"x":78.0,"y":14.8,"date":"2023-07-10"},{"x":81.0,"y":15.4,"date":"2025-12-04"}],"reg_line":[{"x":60.0,"y":15.3512},{"x":81.0,"y":15.107}]},{"x_label":"Testosterone","y_label":"Cortisol","r":0.652,"n":3,"points":[{"x":725.0,"y":18.0,"date":"2021-10-29"},{"x":495.0,"y":15.4,"date":"2023-07-10"},{"x":548.0,"y":11.5,"date":"2025-12-04"}],"reg_line":[{"x":495.0,"y":13.2956},{"x":725.0,"y":17.3699}]},{"x_label":"Vitamin D","y_label":"Testosterone","r":0.518,"n":5,"points":[{"x":41.0,"y":725.0,"date":"2021-10-29"},{"x":37.0,"y":495.0,"date":"2023-07-10"},{"x":34.4,"y":570.0,"date":"2025-03-06"},{"x":44.4,"y":608.0,"date":"2025-06-05"},{"x":29.0,"y":548.0,"date":"2025-12-04"}],"reg_line":[{"x":29.0,"y":527.9192},{"x":44.4,"y":643.5717}]}],"timeline":[{"date":"2013-01-10","age":24,"kids":0,"weight":172.0,"vo2max":null,"Glucose":95.0,"Cholesterol":157.0,"LDL":83.0,"HDL":64.0,"Triglycerides":50.0,"AST":25.0,"ALT":16.0,"Hemoglobin":15.3,"Hematocrit":44.4},{"date":"2018-09-27","age":29,"kids":1,"weight":167.2,"vo2max":null,"Cholesterol":127.0,"LDL":47.0,"HDL":70.0,"Triglycerides":48.0},{"date":"2018-10-10","age":29,"kids":1,"weight":165,"vo2max":null,"Glucose":76.0,"HbA1c":5.1,"Cholesterol":135.0,"LDL":55.0,"HDL":65.0,"Triglycerides":74.0,"AST":18.0,"ALT":11.0,"GGT":23.0},{"date":"2019-01-14","age":30,"kids":1,"weight":167.0,"vo2max":null,"Glucose":93.0,"Cholesterol":119.0,"LDL":51.0,"HDL":60.0,"Triglycerides":39.0,"AST":39.0,"ALT":24.0},{"date":"2021-07-22","age":32,"kids":3,"weight":172.0,"vo2max":null,"Glucose":92.0,"AST":30.0,"ALT":20.0},{"date":"2021-08-10","age":32,"kids":3,"weight":172.0,"vo2max":null,"Hemoglobin":15.0,"Hematocrit":43.3},{"date":"2021-10-29","age":32,"kids":3,"weight":172.0,"vo2max":null,"Glucose":96.0,"HbA1c":5.3,"Cholesterol":160.0,"LDL":82.0,"HDL":59.0,"Triglycerides":96.0,"Testosterone":725.0,"Free Testosterone":10.02,"SHBG":40.0,"Cortisol":18.0,"Vitamin D":41.0,"Ferritin":60.0,"hsCRP":0.3,"AST":26.0,"ALT":19.0,"GGT":15.0,"Hemoglobin":15.4,"Hematocrit":46.9},{"date":"2022-09-30","age":33,"kids":3,"weight":183.0,"vo2max":null,"Glucose":100.0,"Cholesterol":142.0,"LDL":71.0,"HDL":57.0,"Triglycerides":68.0,"AST":38.0,"ALT":26.0},{"date":"2022-12-23","age":33,"kids":3,"weight":187,"vo2max":null,"Glucose":94.0,"HbA1c":5.5,"Cholesterol":137.0,"LDL":66.0,"HDL":56.0,"Triglycerides":75.0,"AST":24.0,"ALT":20.0,"GGT":29.0},{"date":"2023-01-03","age":34,"kids":3,"weight":188.0,"vo2max":null,"Glucose":97.0,"Cholesterol":153.0,"LDL":88.0,"HDL":54.0,"Triglycerides":57.0,"AST":42.0,"ALT":34.0,"Hemoglobin":15.3,"Hematocrit":45.4},{"date":"2023-07-10","age":34,"kids":3,"weight":192.0,"vo2max":55.6,"Glucose":97.0,"HbA1c":5.5,"Cholesterol":129.0,"LDL":62.0,"HDL":53.0,"Triglycerides":67.0,"Testosterone":495.0,"Free Testosterone":7.81,"SHBG":28.0,"Cortisol":15.4,"Vitamin D":37.0,"Ferritin":78.0,"hsCRP":0.6,"AST":25.0,"ALT":18.0,"GGT":42.0,"Hemoglobin":14.8,"Hematocrit":44.0},{"date":"2023-11-02","age":34,"kids":3,"weight":189.0,"vo2max":55.6,"Glucose":102.0,"Cholesterol":179.0,"LDL":94.0,"HDL":61.0,"Triglycerides":120.0,"Testosterone":669.0,"Free Testosterone":20.7,"AST":31.0,"ALT":43.0},{"date":"2023-11-16","age":34,"kids":3,"weight":189.0,"vo2max":55.6,"Glucose":97.0,"AST":45.0,"ALT":36.0},{"date":"2024-11-27","age":35,"kids":3,"weight":194.0,"vo2max":55.6,"Glucose":98.0,"Cholesterol":146.0,"LDL":67.0,"HDL":67.0,"Triglycerides":59.0,"AST":40.0,"ALT":28.0,"Hemoglobin":14.9,"Hematocrit":45.0},{"date":"2025-03-06","age":36,"kids":3,"weight":192.0,"vo2max":60.6,"Glucose":104.0,"HbA1c":6.0,"Cholesterol":157.0,"LDL":84.0,"HDL":58.0,"Triglycerides":80.0,"Testosterone":570.0,"Free Testosterone":127.7,"SHBG":29.1,"Vitamin D":34.4,"hsCRP":0.5,"Homocysteine":8.2,"AST":43.0,"ALT":42.0,"Hemoglobin":15.7,"Hematocrit":45.6,"TSH":2.08,"IGF-1":194.0,"DHEA-S":266.0,"Apolipoprotein B":72.0,"Lipoprotein(a)":9.0},{"date":"2025-06-05","age":36,"kids":3,"weight":194.0,"vo2max":60.6,"Glucose":97.0,"HbA1c":5.7,"Cholesterol":133.0,"LDL":65.0,"HDL":53.0,"Triglycerides":78.0,"Testosterone":608.0,"Free Testosterone":153.5,"SHBG":24.0,"Vitamin D":44.4,"hsCRP":0.43,"Homocysteine":7.4,"AST":32.0,"ALT":32.0,"Hemoglobin":15.6,"Hematocrit":46.7,"TSH":1.49,"IGF-1":177.0,"DHEA-S":339.0,"Apolipoprotein B":59.0},{"date":"2025-12-04","age":36,"kids":3,"weight":200.0,"vo2max":60.6,"Glucose":98.0,"HbA1c":5.6,"Cholesterol":174.0,"LDL":93.0,"HDL":64.0,"Triglycerides":80.0,"Testosterone":548.0,"Free Testosterone":93.2,"SHBG":26.0,"Cortisol":11.5,"Vitamin D":29.0,"Ferritin":81.0,"hsCRP":0.2,"Homocysteine":6.8,"AST":32.0,"ALT":35.0,"Hemoglobin":15.4,"Hematocrit":47.5,"TSH":1.68,"DHEA-S":202.0,"Apolipoprotein B":75.0,"Lipoprotein(a)":9.0}],"life_events":[{"date":"2017-10-01","label":"Kid #1","kids":1},{"date":"2019-04-01","label":"Kid #2","kids":2},{"date":"2021-07-01","label":"Kid #3","kids":3}],"insights":[{"emoji":"\ud83d\udcc8","color":"#22c55e","title":"Cortisol changes most with age (r = -0.99)","body":"Cortisol declines with age \u2014 common pattern; check optimal ranges."},{"emoji":"\ud83d\udc76","color":"#eab308","title":"HbA1c correlates with # kids (r = +0.66)","body":"The arrival of children (2017, 2019, 2021) strongly correlates with changes in HbA1c \u2014 could reflect lifestyle, sleep, or stress."},{"emoji":"\u2696\ufe0f","color":"#60a5fa","title":"Ferritin tracks weight most closely (r = +0.99)","body":"Body weight explains meaningful variation in Ferritin. Diet and body-composition improvements could directly move this marker."},{"emoji":"\ud83e\udec1","color":"#22c55e","title":"Hemoglobin correlates with VO\u2082max (r = +0.96)","body":"Better aerobic fitness (VO\u2082max) tracks with higher Hemoglobin \u2014 aerobic training may be a meaningful lever."},{"emoji":"\ud83d\udd17","color":"#818cf8","title":"Strongest biomarker link: HbA1c \u00d7 AST (r = +0.943)","body":"These two markers move together across 7 blood draws \u2014 extremely correlated."}],"generated":"2026-03-23","n_draws":17};
+const DATA = {"biomarker_matrix":[{"name":"Hemoglobin","n":9,"whoop_hrv_30d":-0.318,"whoop_recovery_30d":0.256,"whoop_rhr_30d":0.114,"whoop_strain_30d":-0.795,"whoop_sleep_hrs_30d":0.12,"whoop_sleep_perf_30d":0.389,"whoop_spo2_30d":-0.218,"whoop_resp_30d":-0.821,"whoop_skin_temp_30d":0.679,"whoop_hrv_90d":-0.515,"whoop_recovery_90d":0.185,"whoop_rhr_90d":0.264,"whoop_strain_90d":-0.424,"whoop_sleep_hrs_90d":0.442,"whoop_sleep_perf_90d":0.527,"strava_hrs_90d":0.359,"strava_run_miles_90d":-0.472,"strava_ride_hrs_90d":0.602,"strava_run_hrs_90d":-0.525,"strava_avg_hr_90d":0.106,"strava_avg_watts_90d":-0.197,"age":0.146,"kids":-0.041,"weight":0.105,"vo2max":0.961},{"name":"SHBG","n":5,"whoop_hrv_30d":0.879,"whoop_recovery_30d":-0.021,"whoop_rhr_30d":-0.731,"whoop_strain_30d":0.669,"whoop_sleep_hrs_30d":-0.079,"whoop_sleep_perf_30d":-0.492,"whoop_spo2_30d":null,"whoop_resp_30d":0.215,"whoop_skin_temp_30d":null,"whoop_hrv_90d":0.779,"whoop_recovery_90d":-0.477,"whoop_rhr_90d":-0.632,"whoop_strain_90d":0.805,"whoop_sleep_hrs_90d":0.163,"whoop_sleep_perf_90d":-0.249,"strava_hrs_90d":-0.817,"strava_run_miles_90d":0.902,"strava_ride_hrs_90d":-0.899,"strava_run_hrs_90d":0.904,"strava_avg_hr_90d":0.911,"strava_avg_watts_90d":-0.455,"age":-0.886,"kids":null,"weight":-0.948,"vo2max":-0.363},{"name":"Free Testosterone","n":6,"whoop_hrv_30d":-0.845,"whoop_recovery_30d":0.069,"whoop_rhr_30d":0.607,"whoop_strain_30d":-0.905,"whoop_sleep_hrs_30d":-0.09,"whoop_sleep_perf_30d":0.442,"whoop_spo2_30d":-0.67,"whoop_resp_30d":-0.866,"whoop_skin_temp_30d":0.723,"whoop_hrv_90d":-0.925,"whoop_recovery_90d":0.185,"whoop_rhr_90d":0.697,"whoop_strain_90d":-0.835,"whoop_sleep_hrs_90d":0.182,"whoop_sleep_perf_90d":0.573,"strava_hrs_90d":0.81,"strava_run_miles_90d":-0.889,"strava_ride_hrs_90d":0.895,"strava_run_hrs_90d":-0.901,"strava_avg_hr_90d":-0.635,"strava_avg_watts_90d":-0.473,"age":0.863,"kids":null,"weight":0.552,"vo2max":0.941},{"name":"HbA1c","n":7,"whoop_hrv_30d":-0.784,"whoop_recovery_30d":-0.382,"whoop_rhr_30d":0.474,"whoop_strain_30d":-0.789,"whoop_sleep_hrs_30d":-0.277,"whoop_sleep_perf_30d":0.086,"whoop_spo2_30d":-0.118,"whoop_resp_30d":-0.657,"whoop_skin_temp_30d":-0.273,"whoop_hrv_90d":-0.7,"whoop_recovery_90d":-0.053,"whoop_rhr_90d":0.376,"whoop_strain_90d":-0.561,"whoop_sleep_hrs_90d":-0.09,"whoop_sleep_perf_90d":0.077,"strava_hrs_90d":0.144,"strava_run_miles_90d":-0.74,"strava_ride_hrs_90d":0.746,"strava_run_hrs_90d":-0.729,"strava_avg_hr_90d":-0.65,"strava_avg_watts_90d":-0.055,"age":0.897,"kids":0.658,"weight":0.786,"vo2max":0.617},{"name":"Hematocrit","n":9,"whoop_hrv_30d":-0.252,"whoop_recovery_30d":0.595,"whoop_rhr_30d":0.212,"whoop_strain_30d":-0.451,"whoop_sleep_hrs_30d":0.404,"whoop_sleep_perf_30d":0.451,"whoop_spo2_30d":-0.574,"whoop_resp_30d":-0.709,"whoop_skin_temp_30d":0.819,"whoop_hrv_90d":-0.596,"whoop_recovery_90d":0.396,"whoop_rhr_90d":0.405,"whoop_strain_90d":-0.596,"whoop_sleep_hrs_90d":0.533,"whoop_sleep_perf_90d":0.631,"strava_hrs_90d":0.058,"strava_run_miles_90d":-0.47,"strava_ride_hrs_90d":0.475,"strava_run_hrs_90d":-0.502,"strava_avg_hr_90d":0.477,"strava_avg_watts_90d":0.216,"age":0.423,"kids":0.272,"weight":0.413,"vo2max":0.834},{"name":"GGT","n":4,"whoop_hrv_30d":null,"whoop_recovery_30d":null,"whoop_rhr_30d":null,"whoop_strain_30d":null,"whoop_sleep_hrs_30d":null,"whoop_sleep_perf_30d":null,"whoop_spo2_30d":null,"whoop_resp_30d":null,"whoop_skin_temp_30d":null,"whoop_hrv_90d":null,"whoop_recovery_90d":null,"whoop_rhr_90d":null,"whoop_strain_90d":null,"whoop_sleep_hrs_90d":null,"whoop_sleep_perf_90d":null,"strava_hrs_90d":null,"strava_run_miles_90d":null,"strava_ride_hrs_90d":null,"strava_run_hrs_90d":null,"strava_avg_hr_90d":null,"strava_avg_watts_90d":null,"age":0.596,"kids":0.249,"weight":0.814,"vo2max":null},{"name":"Testosterone","n":6,"whoop_hrv_30d":0.627,"whoop_recovery_30d":0.544,"whoop_rhr_30d":-0.731,"whoop_strain_30d":0.091,"whoop_sleep_hrs_30d":0.519,"whoop_sleep_perf_30d":0.153,"whoop_spo2_30d":0.444,"whoop_resp_30d":-0.058,"whoop_skin_temp_30d":-0.439,"whoop_hrv_90d":0.436,"whoop_recovery_90d":0.069,"whoop_rhr_90d":-0.589,"whoop_strain_90d":0.375,"whoop_sleep_hrs_90d":0.634,"whoop_sleep_perf_90d":0.175,"strava_hrs_90d":-0.617,"strava_run_miles_90d":0.589,"strava_ride_hrs_90d":-0.597,"strava_run_hrs_90d":0.578,"strava_avg_hr_90d":0.875,"strava_avg_watts_90d":-0.244,"age":-0.597,"kids":null,"weight":-0.775,"vo2max":-0.056},{"name":"ALT","n":15,"whoop_hrv_30d":-0.553,"whoop_recovery_30d":-0.191,"whoop_rhr_30d":0.272,"whoop_strain_30d":-0.77,"whoop_sleep_hrs_30d":0.483,"whoop_sleep_perf_30d":0.41,"whoop_spo2_30d":0.179,"whoop_resp_30d":-0.312,"whoop_skin_temp_30d":-0.261,"whoop_hrv_90d":-0.448,"whoop_recovery_90d":0.169,"whoop_rhr_90d":0.14,"whoop_strain_90d":-0.525,"whoop_sleep_hrs_90d":0.324,"whoop_sleep_perf_90d":0.194,"strava_hrs_90d":-0.288,"strava_run_miles_90d":-0.351,"strava_ride_hrs_90d":0.21,"strava_run_hrs_90d":-0.297,"strava_avg_hr_90d":-0.006,"strava_avg_watts_90d":0.496,"age":0.679,"kids":0.522,"weight":0.68,"vo2max":0.316},{"name":"Glucose","n":15,"whoop_hrv_30d":-0.512,"whoop_recovery_30d":-0.463,"whoop_rhr_30d":0.231,"whoop_strain_30d":-0.623,"whoop_sleep_hrs_30d":0.037,"whoop_sleep_perf_30d":0.031,"whoop_spo2_30d":0.046,"whoop_resp_30d":-0.211,"whoop_skin_temp_30d":-0.416,"whoop_hrv_90d":-0.359,"whoop_recovery_90d":0.15,"whoop_rhr_90d":0.142,"whoop_strain_90d":-0.416,"whoop_sleep_hrs_90d":-0.019,"whoop_sleep_perf_90d":-0.02,"strava_hrs_90d":-0.383,"strava_run_miles_90d":-0.381,"strava_ride_hrs_90d":0.219,"strava_run_hrs_90d":-0.329,"strava_avg_hr_90d":-0.296,"strava_avg_watts_90d":0.382,"age":0.523,"kids":0.539,"weight":0.663,"vo2max":0.22},{"name":"hsCRP","n":5,"whoop_hrv_30d":0.052,"whoop_recovery_30d":-0.312,"whoop_rhr_30d":-0.19,"whoop_strain_30d":0.079,"whoop_sleep_hrs_30d":-0.881,"whoop_sleep_perf_30d":-0.549,"whoop_spo2_30d":null,"whoop_resp_30d":0.395,"whoop_skin_temp_30d":null,"whoop_hrv_90d":0.263,"whoop_recovery_90d":-0.032,"whoop_rhr_90d":-0.34,"whoop_strain_90d":0.332,"whoop_sleep_hrs_90d":-0.942,"whoop_sleep_perf_90d":-0.796,"strava_hrs_90d":-0.093,"strava_run_miles_90d":0.093,"strava_ride_hrs_90d":-0.017,"strava_run_hrs_90d":0.06,"strava_avg_hr_90d":-0.412,"strava_avg_watts_90d":0.265,"age":0.032,"kids":null,"weight":0.077,"vo2max":-0.657},{"name":"Triglycerides","n":14,"whoop_hrv_30d":0.314,"whoop_recovery_30d":0.427,"whoop_rhr_30d":-0.605,"whoop_strain_30d":-0.199,"whoop_sleep_hrs_30d":0.651,"whoop_sleep_perf_30d":0.465,"whoop_spo2_30d":0.232,"whoop_resp_30d":0.06,"whoop_skin_temp_30d":-0.328,"whoop_hrv_90d":0.335,"whoop_recovery_90d":0.443,"whoop_rhr_90d":-0.687,"whoop_strain_90d":0.297,"whoop_sleep_hrs_90d":0.569,"whoop_sleep_perf_90d":0.311,"strava_hrs_90d":-0.354,"strava_run_miles_90d":0.026,"strava_ride_hrs_90d":-0.101,"strava_run_hrs_90d":0.098,"strava_avg_hr_90d":0.198,"strava_avg_watts_90d":0.442,"age":0.453,"kids":0.565,"weight":0.361,"vo2max":-0.069},{"name":"HDL","n":14,"whoop_hrv_30d":-0.227,"whoop_recovery_30d":-0.012,"whoop_rhr_30d":0.178,"whoop_strain_30d":0.143,"whoop_sleep_hrs_30d":0.422,"whoop_sleep_perf_30d":0.036,"whoop_spo2_30d":-0.108,"whoop_resp_30d":-0.235,"whoop_skin_temp_30d":-0.332,"whoop_hrv_90d":-0.207,"whoop_recovery_90d":-0.078,"whoop_rhr_90d":0.055,"whoop_strain_90d":-0.265,"whoop_sleep_hrs_90d":0.428,"whoop_sleep_perf_90d":0.153,"strava_hrs_90d":0.303,"strava_run_miles_90d":0.379,"strava_ride_hrs_90d":-0.296,"strava_run_hrs_90d":0.418,"strava_avg_hr_90d":0.606,"strava_avg_watts_90d":0.202,"age":-0.451,"kids":-0.551,"weight":-0.404,"vo2max":-0.191},{"name":"LDL","n":14,"whoop_hrv_30d":0.001,"whoop_recovery_30d":-0.118,"whoop_rhr_30d":0.008,"whoop_strain_30d":-0.262,"whoop_sleep_hrs_30d":0.581,"whoop_sleep_perf_30d":0.332,"whoop_spo2_30d":0.313,"whoop_resp_30d":-0.12,"whoop_skin_temp_30d":-0.08,"whoop_hrv_90d":-0.019,"whoop_recovery_90d":-0.119,"whoop_rhr_90d":-0.022,"whoop_strain_90d":-0.064,"whoop_sleep_hrs_90d":0.62,"whoop_sleep_perf_90d":0.286,"strava_hrs_90d":-0.452,"strava_run_miles_90d":-0.326,"strava_ride_hrs_90d":0.085,"strava_run_hrs_90d":-0.246,"strava_avg_hr_90d":-0.236,"strava_avg_watts_90d":0.387,"age":0.315,"kids":0.427,"weight":0.517,"vo2max":0.238},{"name":"Vitamin D","n":5,"whoop_hrv_30d":0.433,"whoop_recovery_30d":0.715,"whoop_rhr_30d":-0.78,"whoop_strain_30d":-0.023,"whoop_sleep_hrs_30d":-0.023,"whoop_sleep_perf_30d":0.154,"whoop_spo2_30d":null,"whoop_resp_30d":0.119,"whoop_skin_temp_30d":null,"whoop_hrv_90d":0.301,"whoop_recovery_90d":0.558,"whoop_rhr_90d":-0.744,"whoop_strain_90d":0.309,"whoop_sleep_hrs_90d":-0.067,"whoop_sleep_perf_90d":0.012,"strava_hrs_90d":-0.466,"strava_run_miles_90d":0.28,"strava_ride_hrs_90d":-0.231,"strava_run_hrs_90d":0.218,"strava_avg_hr_90d":0.399,"strava_avg_watts_90d":-0.574,"age":-0.354,"kids":null,"weight":-0.507,"vo2max":-0.083},{"name":"AST","n":15,"whoop_hrv_30d":-0.396,"whoop_recovery_30d":-0.367,"whoop_rhr_30d":0.249,"whoop_strain_30d":-0.455,"whoop_sleep_hrs_30d":0.17,"whoop_sleep_perf_30d":0.014,"whoop_spo2_30d":0.273,"whoop_resp_30d":-0.243,"whoop_skin_temp_30d":-0.397,"whoop_hrv_90d":-0.268,"whoop_recovery_90d":-0.202,"whoop_rhr_90d":0.198,"whoop_strain_90d":-0.342,"whoop_sleep_hrs_90d":0.099,"whoop_sleep_perf_90d":-0.104,"strava_hrs_90d":-0.245,"strava_run_miles_90d":-0.232,"strava_ride_hrs_90d":0.079,"strava_run_hrs_90d":-0.206,"strava_avg_hr_90d":-0.161,"strava_avg_watts_90d":0.114,"age":0.472,"kids":0.351,"weight":0.402,"vo2max":0.03},{"name":"Cholesterol","n":14,"whoop_hrv_30d":0.006,"whoop_recovery_30d":0.004,"whoop_rhr_30d":-0.073,"whoop_strain_30d":-0.182,"whoop_sleep_hrs_30d":0.694,"whoop_sleep_perf_30d":0.358,"whoop_spo2_30d":0.245,"whoop_resp_30d":-0.125,"whoop_skin_temp_30d":-0.226,"whoop_hrv_90d":0.008,"whoop_recovery_90d":-0.006,"whoop_rhr_90d":-0.153,"whoop_strain_90d":-0.057,"whoop_sleep_hrs_90d":0.702,"whoop_sleep_perf_90d":0.324,"strava_hrs_90d":-0.375,"strava_run_miles_90d":-0.159,"strava_ride_hrs_90d":-0.04,"strava_run_hrs_90d":-0.062,"strava_avg_hr_90d":0.025,"strava_avg_watts_90d":0.451,"age":0.24,"kids":0.334,"weight":0.41,"vo2max":0.088},{"name":"Cortisol","n":3,"whoop_hrv_30d":null,"whoop_recovery_30d":null,"whoop_rhr_30d":null,"whoop_strain_30d":null,"whoop_sleep_hrs_30d":null,"whoop_sleep_perf_30d":null,"whoop_spo2_30d":null,"whoop_resp_30d":null,"whoop_skin_temp_30d":null,"whoop_hrv_90d":null,"whoop_recovery_90d":null,"whoop_rhr_90d":null,"whoop_strain_90d":null,"whoop_sleep_hrs_90d":null,"whoop_sleep_perf_90d":null,"strava_hrs_90d":null,"strava_run_miles_90d":null,"strava_ride_hrs_90d":null,"strava_run_hrs_90d":null,"strava_avg_hr_90d":null,"strava_avg_watts_90d":null,"age":null,"kids":null,"weight":null,"vo2max":null},{"name":"Ferritin","n":3,"whoop_hrv_30d":null,"whoop_recovery_30d":null,"whoop_rhr_30d":null,"whoop_strain_30d":null,"whoop_sleep_hrs_30d":null,"whoop_sleep_perf_30d":null,"whoop_spo2_30d":null,"whoop_resp_30d":null,"whoop_skin_temp_30d":null,"whoop_hrv_90d":null,"whoop_recovery_90d":null,"whoop_rhr_90d":null,"whoop_strain_90d":null,"whoop_sleep_hrs_90d":null,"whoop_sleep_perf_90d":null,"strava_hrs_90d":null,"strava_run_miles_90d":null,"strava_ride_hrs_90d":null,"strava_run_hrs_90d":null,"strava_avg_hr_90d":null,"strava_avg_watts_90d":null,"age":null,"kids":null,"weight":null,"vo2max":null},{"name":"Homocysteine","n":3,"whoop_hrv_30d":null,"whoop_recovery_30d":null,"whoop_rhr_30d":null,"whoop_strain_30d":null,"whoop_sleep_hrs_30d":null,"whoop_sleep_perf_30d":null,"whoop_spo2_30d":null,"whoop_resp_30d":null,"whoop_skin_temp_30d":null,"whoop_hrv_90d":null,"whoop_recovery_90d":null,"whoop_rhr_90d":null,"whoop_strain_90d":null,"whoop_sleep_hrs_90d":null,"whoop_sleep_perf_90d":null,"strava_hrs_90d":null,"strava_run_miles_90d":null,"strava_ride_hrs_90d":null,"strava_run_hrs_90d":null,"strava_avg_hr_90d":null,"strava_avg_watts_90d":null,"age":null,"kids":null,"weight":null,"vo2max":null},{"name":"TSH","n":3,"whoop_hrv_30d":null,"whoop_recovery_30d":null,"whoop_rhr_30d":null,"whoop_strain_30d":null,"whoop_sleep_hrs_30d":null,"whoop_sleep_perf_30d":null,"whoop_spo2_30d":null,"whoop_resp_30d":null,"whoop_skin_temp_30d":null,"whoop_hrv_90d":null,"whoop_recovery_90d":null,"whoop_rhr_90d":null,"whoop_strain_90d":null,"whoop_sleep_hrs_90d":null,"whoop_sleep_perf_90d":null,"strava_hrs_90d":null,"strava_run_miles_90d":null,"strava_ride_hrs_90d":null,"strava_run_hrs_90d":null,"strava_avg_hr_90d":null,"strava_avg_watts_90d":null,"age":null,"kids":null,"weight":null,"vo2max":null},{"name":"DHEA-S","n":3,"whoop_hrv_30d":null,"whoop_recovery_30d":null,"whoop_rhr_30d":null,"whoop_strain_30d":null,"whoop_sleep_hrs_30d":null,"whoop_sleep_perf_30d":null,"whoop_spo2_30d":null,"whoop_resp_30d":null,"whoop_skin_temp_30d":null,"whoop_hrv_90d":null,"whoop_recovery_90d":null,"whoop_rhr_90d":null,"whoop_strain_90d":null,"whoop_sleep_hrs_90d":null,"whoop_sleep_perf_90d":null,"strava_hrs_90d":null,"strava_run_miles_90d":null,"strava_ride_hrs_90d":null,"strava_run_hrs_90d":null,"strava_avg_hr_90d":null,"strava_avg_watts_90d":null,"age":null,"kids":null,"weight":null,"vo2max":null},{"name":"Apolipoprotein B","n":3,"whoop_hrv_30d":null,"whoop_recovery_30d":null,"whoop_rhr_30d":null,"whoop_strain_30d":null,"whoop_sleep_hrs_30d":null,"whoop_sleep_perf_30d":null,"whoop_spo2_30d":null,"whoop_resp_30d":null,"whoop_skin_temp_30d":null,"whoop_hrv_90d":null,"whoop_recovery_90d":null,"whoop_rhr_90d":null,"whoop_strain_90d":null,"whoop_sleep_hrs_90d":null,"whoop_sleep_perf_90d":null,"strava_hrs_90d":null,"strava_run_miles_90d":null,"strava_ride_hrs_90d":null,"strava_run_hrs_90d":null,"strava_avg_hr_90d":null,"strava_avg_watts_90d":null,"age":null,"kids":null,"weight":null,"vo2max":null}],"covariate_meta":[{"key":"whoop_hrv_30d","label":"HRV 30d avg (ms)","higher":"+","source":"WHOOP"},{"key":"whoop_recovery_30d","label":"Recovery score 30d avg","higher":"+","source":"WHOOP"},{"key":"whoop_rhr_30d","label":"Resting HR 30d avg (bpm)","higher":"-","source":"WHOOP"},{"key":"whoop_strain_30d","label":"Day strain 30d avg","higher":"?","source":"WHOOP"},{"key":"whoop_sleep_hrs_30d","label":"Sleep hours 30d avg","higher":"+","source":"WHOOP"},{"key":"whoop_sleep_perf_30d","label":"Sleep performance 30d avg","higher":"+","source":"WHOOP"},{"key":"whoop_spo2_30d","label":"SpO\u2082 30d avg (%)","higher":"+","source":"WHOOP"},{"key":"whoop_resp_30d","label":"Resp rate 30d avg (br/min)","higher":"?","source":"WHOOP"},{"key":"whoop_skin_temp_30d","label":"Skin temp 30d avg (\u00b0C)","higher":"?","source":"WHOOP"},{"key":"whoop_hrv_90d","label":"HRV 90d avg (ms)","higher":"+","source":"WHOOP"},{"key":"whoop_recovery_90d","label":"Recovery score 90d avg","higher":"+","source":"WHOOP"},{"key":"whoop_rhr_90d","label":"Resting HR 90d avg (bpm)","higher":"-","source":"WHOOP"},{"key":"whoop_strain_90d","label":"Day strain 90d avg","higher":"?","source":"WHOOP"},{"key":"whoop_sleep_hrs_90d","label":"Sleep hours 90d avg","higher":"+","source":"WHOOP"},{"key":"whoop_sleep_perf_90d","label":"Sleep performance 90d avg","higher":"+","source":"WHOOP"},{"key":"strava_hrs_90d","label":"Training hours 90d","higher":"?","source":"Strava"},{"key":"strava_run_miles_90d","label":"Run miles 90d","higher":"?","source":"Strava"},{"key":"strava_ride_hrs_90d","label":"Ride hours 90d","higher":"?","source":"Strava"},{"key":"strava_run_hrs_90d","label":"Run hours 90d","higher":"?","source":"Strava"},{"key":"strava_avg_hr_90d","label":"Avg workout HR 90d (bpm)","higher":"?","source":"Strava"},{"key":"strava_avg_watts_90d","label":"Avg cycling watts 90d","higher":"+","source":"Strava"},{"key":"age","label":"Age (years)","higher":"?","source":"Life"},{"key":"kids","label":"# Kids","higher":"?","source":"Life"},{"key":"weight","label":"Weight (lbs)","higher":"?","source":"Life"},{"key":"vo2max","label":"VO\u2082max (ml/kg/min)","higher":"+","source":"Fitness"}],"top_cov_bm":[{"biomarker":"Hemoglobin","covariate":"VO\u2082max (ml/kg/min)","cov_key":"vo2max","source":"Fitness","r":0.961,"n":5},{"biomarker":"SHBG","covariate":"Weight (lbs)","cov_key":"weight","source":"Life","r":-0.948,"n":5},{"biomarker":"hsCRP","covariate":"Sleep hours 90d avg","cov_key":"whoop_sleep_hrs_90d","source":"WHOOP","r":-0.942,"n":5},{"biomarker":"Free Testosterone","covariate":"VO\u2082max (ml/kg/min)","cov_key":"vo2max","source":"Fitness","r":0.941,"n":5},{"biomarker":"Free Testosterone","covariate":"HRV 90d avg (ms)","cov_key":"whoop_hrv_90d","source":"WHOOP","r":-0.925,"n":6},{"biomarker":"SHBG","covariate":"Avg workout HR 90d (bpm)","cov_key":"strava_avg_hr_90d","source":"Strava","r":0.911,"n":5},{"biomarker":"Free Testosterone","covariate":"Day strain 30d avg","cov_key":"whoop_strain_30d","source":"WHOOP","r":-0.905,"n":6},{"biomarker":"SHBG","covariate":"Run hours 90d","cov_key":"strava_run_hrs_90d","source":"Strava","r":0.904,"n":5},{"biomarker":"SHBG","covariate":"Run miles 90d","cov_key":"strava_run_miles_90d","source":"Strava","r":0.902,"n":5},{"biomarker":"Free Testosterone","covariate":"Run hours 90d","cov_key":"strava_run_hrs_90d","source":"Strava","r":-0.901,"n":6},{"biomarker":"SHBG","covariate":"Ride hours 90d","cov_key":"strava_ride_hrs_90d","source":"Strava","r":-0.899,"n":5},{"biomarker":"HbA1c","covariate":"Age (years)","cov_key":"age","source":"Life","r":0.897,"n":7},{"biomarker":"Free Testosterone","covariate":"Ride hours 90d","cov_key":"strava_ride_hrs_90d","source":"Strava","r":0.895,"n":6},{"biomarker":"Free Testosterone","covariate":"Run miles 90d","cov_key":"strava_run_miles_90d","source":"Strava","r":-0.889,"n":6},{"biomarker":"SHBG","covariate":"Age (years)","cov_key":"age","source":"Life","r":-0.886,"n":5},{"biomarker":"hsCRP","covariate":"Sleep hours 30d avg","cov_key":"whoop_sleep_hrs_30d","source":"WHOOP","r":-0.881,"n":5},{"biomarker":"SHBG","covariate":"HRV 30d avg (ms)","cov_key":"whoop_hrv_30d","source":"WHOOP","r":0.879,"n":5},{"biomarker":"Testosterone","covariate":"Avg workout HR 90d (bpm)","cov_key":"strava_avg_hr_90d","source":"Strava","r":0.875,"n":6},{"biomarker":"Free Testosterone","covariate":"Resp rate 30d avg (br/min)","cov_key":"whoop_resp_30d","source":"WHOOP","r":-0.866,"n":6},{"biomarker":"Free Testosterone","covariate":"Age (years)","cov_key":"age","source":"Life","r":0.863,"n":6},{"biomarker":"Free Testosterone","covariate":"HRV 30d avg (ms)","cov_key":"whoop_hrv_30d","source":"WHOOP","r":-0.845,"n":6},{"biomarker":"Free Testosterone","covariate":"Day strain 90d avg","cov_key":"whoop_strain_90d","source":"WHOOP","r":-0.835,"n":6},{"biomarker":"Hematocrit","covariate":"VO\u2082max (ml/kg/min)","cov_key":"vo2max","source":"Fitness","r":0.834,"n":5},{"biomarker":"Hemoglobin","covariate":"Resp rate 30d avg (br/min)","cov_key":"whoop_resp_30d","source":"WHOOP","r":-0.821,"n":8},{"biomarker":"Hematocrit","covariate":"Skin temp 30d avg (\u00b0C)","cov_key":"whoop_skin_temp_30d","source":"WHOOP","r":0.819,"n":6},{"biomarker":"SHBG","covariate":"Training hours 90d","cov_key":"strava_hrs_90d","source":"Strava","r":-0.817,"n":5},{"biomarker":"GGT","covariate":"Weight (lbs)","cov_key":"weight","source":"Life","r":0.814,"n":4},{"biomarker":"Free Testosterone","covariate":"Training hours 90d","cov_key":"strava_hrs_90d","source":"Strava","r":0.81,"n":6},{"biomarker":"SHBG","covariate":"Day strain 90d avg","cov_key":"whoop_strain_90d","source":"WHOOP","r":0.805,"n":5},{"biomarker":"hsCRP","covariate":"Sleep performance 90d avg","cov_key":"whoop_sleep_perf_90d","source":"WHOOP","r":-0.796,"n":5}],"top_bm_pairs":[{"pair":"HbA1c \u00d7 AST","bm_a":"HbA1c","bm_b":"AST","r":0.943,"n":7},{"pair":"Cholesterol \u00d7 LDL","bm_a":"Cholesterol","bm_b":"LDL","r":0.94,"n":14},{"pair":"HbA1c \u00d7 ALT","bm_a":"HbA1c","bm_b":"ALT","r":0.92,"n":7},{"pair":"Glucose \u00d7 HbA1c","bm_a":"Glucose","bm_b":"HbA1c","r":0.842,"n":7},{"pair":"HbA1c \u00d7 Free Testosterone","bm_a":"HbA1c","bm_b":"Free Testosterone","r":0.79,"n":5},{"pair":"Free Testosterone \u00d7 Hemoglobin","bm_a":"Free Testosterone","bm_b":"Hemoglobin","r":0.771,"n":5},{"pair":"Triglycerides \u00d7 Testosterone","bm_a":"Triglycerides","bm_b":"Testosterone","r":0.767,"n":6},{"pair":"Triglycerides \u00d7 Hematocrit","bm_a":"Triglycerides","bm_b":"Hematocrit","r":0.744,"n":8},{"pair":"Glucose \u00d7 ALT","bm_a":"Glucose","bm_b":"ALT","r":0.724,"n":15},{"pair":"AST \u00d7 ALT","bm_a":"AST","bm_b":"ALT","r":0.718,"n":15},{"pair":"Free Testosterone \u00d7 AST","bm_a":"Free Testosterone","bm_b":"AST","r":0.715,"n":6},{"pair":"Hemoglobin \u00d7 Hematocrit","bm_a":"Hemoglobin","bm_b":"Hematocrit","r":0.669,"n":9},{"pair":"Cholesterol \u00d7 Triglycerides","bm_a":"Cholesterol","bm_b":"Triglycerides","r":0.667,"n":14},{"pair":"LDL \u00d7 ALT","bm_a":"LDL","bm_b":"ALT","r":0.611,"n":13},{"pair":"Glucose \u00d7 AST","bm_a":"Glucose","bm_b":"AST","r":0.598,"n":15},{"pair":"Glucose \u00d7 LDL","bm_a":"Glucose","bm_b":"LDL","r":0.575,"n":13},{"pair":"LDL \u00d7 Triglycerides","bm_a":"LDL","bm_b":"Triglycerides","r":0.573,"n":14},{"pair":"Testosterone \u00d7 Hematocrit","bm_a":"Testosterone","bm_b":"Hematocrit","r":0.567,"n":5},{"pair":"ALT \u00d7 Hemoglobin","bm_a":"ALT","bm_b":"Hemoglobin","r":0.564,"n":8},{"pair":"HbA1c \u00d7 Hemoglobin","bm_a":"HbA1c","bm_b":"Hemoglobin","r":0.559,"n":5}],"scatter_pairs":[{"x_label":"Glucose","y_label":"HbA1c","r":0.842,"n":7,"points":[{"x":76.0,"y":5.1,"date":"2018-10-10"},{"x":96.0,"y":5.3,"date":"2021-10-29"},{"x":94.0,"y":5.5,"date":"2022-12-23"},{"x":97.0,"y":5.5,"date":"2023-07-10"},{"x":104.0,"y":6.0,"date":"2025-03-06"},{"x":97.0,"y":5.7,"date":"2025-06-05"},{"x":98.0,"y":5.6,"date":"2025-12-04"}],"reg_line":[{"x":76.0,"y":5.0161},{"x":104.0,"y":5.7888}]},{"x_label":"Cholesterol","y_label":"LDL","r":0.94,"n":14,"points":[{"x":157.0,"y":83.0,"date":"2013-01-10"},{"x":127.0,"y":47.0,"date":"2018-09-27"},{"x":135.0,"y":55.0,"date":"2018-10-10"},{"x":119.0,"y":51.0,"date":"2019-01-14"},{"x":160.0,"y":82.0,"date":"2021-10-29"},{"x":142.0,"y":71.0,"date":"2022-09-30"},{"x":137.0,"y":66.0,"date":"2022-12-23"},{"x":153.0,"y":88.0,"date":"2023-01-03"},{"x":129.0,"y":62.0,"date":"2023-07-10"},{"x":179.0,"y":94.0,"date":"2023-11-02"},{"x":146.0,"y":67.0,"date":"2024-11-27"},{"x":157.0,"y":84.0,"date":"2025-03-06"},{"x":133.0,"y":65.0,"date":"2025-06-05"},{"x":174.0,"y":93.0,"date":"2025-12-04"}],"reg_line":[{"x":119.0,"y":49.7275},{"x":179.0,"y":98.7037}]},{"x_label":"HDL","y_label":"Triglycerides","r":-0.197,"n":14,"points":[{"x":64.0,"y":50.0,"date":"2013-01-10"},{"x":70.0,"y":48.0,"date":"2018-09-27"},{"x":65.0,"y":74.0,"date":"2018-10-10"},{"x":60.0,"y":39.0,"date":"2019-01-14"},{"x":59.0,"y":96.0,"date":"2021-10-29"},{"x":57.0,"y":68.0,"date":"2022-09-30"},{"x":56.0,"y":75.0,"date":"2022-12-23"},{"x":54.0,"y":57.0,"date":"2023-01-03"},{"x":53.0,"y":67.0,"date":"2023-07-10"},{"x":61.0,"y":120.0,"date":"2023-11-02"},{"x":67.0,"y":59.0,"date":"2024-11-27"},{"x":58.0,"y":80.0,"date":"2025-03-06"},{"x":53.0,"y":78.0,"date":"2025-06-05"},{"x":64.0,"y":80.0,"date":"2025-12-04"}],"reg_line":[{"x":53.0,"y":76.2149},{"x":70.0,"y":63.1629}]},{"x_label":"Testosterone","y_label":"SHBG","r":0.752,"n":5,"points":[{"x":725.0,"y":40.0,"date":"2021-10-29"},{"x":495.0,"y":28.0,"date":"2023-07-10"},{"x":570.0,"y":29.1,"date":"2025-03-06"},{"x":608.0,"y":24.0,"date":"2025-06-05"},{"x":548.0,"y":26.0,"date":"2025-12-04"}],"reg_line":[{"x":495.0,"y":24.3015},{"x":725.0,"y":36.7989}]},{"x_label":"AST","y_label":"ALT","r":0.718,"n":15,"points":[{"x":25.0,"y":16.0,"date":"2013-01-10"},{"x":18.0,"y":11.0,"date":"2018-10-10"},{"x":39.0,"y":24.0,"date":"2019-01-14"},{"x":30.0,"y":20.0,"date":"2021-07-22"},{"x":26.0,"y":19.0,"date":"2021-10-29"},{"x":38.0,"y":26.0,"date":"2022-09-30"},{"x":24.0,"y":20.0,"date":"2022-12-23"},{"x":42.0,"y":34.0,"date":"2023-01-03"},{"x":25.0,"y":18.0,"date":"2023-07-10"},{"x":31.0,"y":43.0,"date":"2023-11-02"},{"x":45.0,"y":36.0,"date":"2023-11-16"},{"x":40.0,"y":28.0,"date":"2024-11-27"},{"x":43.0,"y":42.0,"date":"2025-03-06"},{"x":32.0,"y":32.0,"date":"2025-06-05"},{"x":32.0,"y":35.0,"date":"2025-12-04"}],"reg_line":[{"x":18.0,"y":14.3402},{"x":45.0,"y":37.523}]},{"x_label":"Ferritin","y_label":"Hemoglobin","r":-0.381,"n":3,"points":[{"x":60.0,"y":15.4,"date":"2021-10-29"},{"x":78.0,"y":14.8,"date":"2023-07-10"},{"x":81.0,"y":15.4,"date":"2025-12-04"}],"reg_line":[{"x":60.0,"y":15.3512},{"x":81.0,"y":15.107}]},{"x_label":"Testosterone","y_label":"Cortisol","r":0.652,"n":3,"points":[{"x":725.0,"y":18.0,"date":"2021-10-29"},{"x":495.0,"y":15.4,"date":"2023-07-10"},{"x":548.0,"y":11.5,"date":"2025-12-04"}],"reg_line":[{"x":495.0,"y":13.2956},{"x":725.0,"y":17.3699}]},{"x_label":"Vitamin D","y_label":"Testosterone","r":0.518,"n":5,"points":[{"x":41.0,"y":725.0,"date":"2021-10-29"},{"x":37.0,"y":495.0,"date":"2023-07-10"},{"x":34.4,"y":570.0,"date":"2025-03-06"},{"x":44.4,"y":608.0,"date":"2025-06-05"},{"x":29.0,"y":548.0,"date":"2025-12-04"}],"reg_line":[{"x":29.0,"y":527.9192},{"x":44.4,"y":643.5717}]}],"wearable_scatters":[{"x_label":"VO\u2082max (ml/kg/min)","y_label":"Hemoglobin","source":"Fitness","r":0.961,"n":5,"points":[{"x":55.6,"y":14.8,"date":"2023-07-10"},{"x":55.6,"y":14.9,"date":"2024-11-27"},{"x":60.6,"y":15.7,"date":"2025-03-06"},{"x":60.6,"y":15.6,"date":"2025-06-05"},{"x":60.6,"y":15.4,"date":"2025-12-04"}],"reg_line":[{"x":55.6,"y":14.85},{"x":60.6,"y":15.5667}]},{"x_label":"Weight (lbs)","y_label":"SHBG","source":"Life","r":-0.948,"n":5,"points":[{"x":172.0,"y":40.0,"date":"2021-10-29"},{"x":192.0,"y":28.0,"date":"2023-07-10"},{"x":192.0,"y":29.1,"date":"2025-03-06"},{"x":194.0,"y":24.0,"date":"2025-06-05"},{"x":200.0,"y":26.0,"date":"2025-12-04"}],"reg_line":[{"x":172.0,"y":39.4566},{"x":200.0,"y":23.8441}]},{"x_label":"Sleep hours 90d avg","y_label":"hsCRP","source":"WHOOP","r":-0.942,"n":5,"points":[{"x":7.848024432098765,"y":0.3,"date":"2021-10-29"},{"x":7.148008074074074,"y":0.6,"date":"2023-07-10"},{"x":7.502535574935401,"y":0.5,"date":"2025-03-06"},{"x":7.745951605783866,"y":0.43,"date":"2025-06-05"},{"x":7.95075899691358,"y":0.2,"date":"2025-12-04"}],"reg_line":[{"x":7.148008074074074,"y":0.6347},{"x":7.95075899691358,"y":0.2608}]},{"x_label":"VO\u2082max (ml/kg/min)","y_label":"Free Testosterone","source":"Fitness","r":0.941,"n":5,"points":[{"x":55.6,"y":7.81,"date":"2023-07-10"},{"x":55.6,"y":20.7,"date":"2023-11-02"},{"x":60.6,"y":127.7,"date":"2025-03-06"},{"x":60.6,"y":153.5,"date":"2025-06-05"},{"x":60.6,"y":93.2,"date":"2025-12-04"}],"reg_line":[{"x":55.6,"y":14.255},{"x":60.6,"y":124.8}]},{"x_label":"HRV 90d avg (ms)","y_label":"Free Testosterone","source":"WHOOP","r":-0.925,"n":6,"points":[{"x":62.91980963333333,"y":10.02,"date":"2021-10-29"},{"x":60.19345366666666,"y":7.81,"date":"2023-07-10"},{"x":61.0484182051282,"y":20.7,"date":"2023-11-02"},{"x":49.121069999999996,"y":127.7,"date":"2025-03-06"},{"x":46.02598889041096,"y":153.5,"date":"2025-06-05"},{"x":45.4310778,"y":93.2,"date":"2025-12-04"}],"reg_line":[{"x":45.4310778,"y":132.7027},{"x":62.91980963333333,"y":4.1742}]},{"x_label":"Avg workout HR 90d (bpm)","y_label":"SHBG","source":"Strava","r":0.911,"n":5,"points":[{"x":138.888,"y":40.0,"date":"2021-10-29"},{"x":124.37202797202798,"y":28.0,"date":"2023-07-10"},{"x":123.22352941176472,"y":29.1,"date":"2025-03-06"},{"x":125.23142857142858,"y":24.0,"date":"2025-06-05"},{"x":124.76799999999999,"y":26.0,"date":"2025-12-04"}],"reg_line":[{"x":123.22352941176472,"y":25.879},{"x":138.888,"y":39.4972}]},{"x_label":"Day strain 30d avg","y_label":"Free Testosterone","source":"WHOOP","r":-0.905,"n":6,"points":[{"x":12.78045118,"y":10.02,"date":"2021-10-29"},{"x":12.801168546153844,"y":7.81,"date":"2023-07-10"},{"x":10.892491103333333,"y":20.7,"date":"2023-11-02"},{"x":9.993681222222222,"y":127.7,"date":"2025-03-06"},{"x":9.28510416,"y":153.5,"date":"2025-06-05"},{"x":10.731454359999999,"y":93.2,"date":"2025-12-04"}],"reg_line":[{"x":9.28510416,"y":141.3243},{"x":12.801168546153844,"y":-0.6455}]},{"x_label":"Run hours 90d","y_label":"SHBG","source":"Strava","r":0.904,"n":5,"points":[{"x":71.73083333333334,"y":40.0,"date":"2021-10-29"},{"x":51.501111111111115,"y":28.0,"date":"2023-07-10"},{"x":32.090833333333336,"y":29.1,"date":"2025-03-06"},{"x":18.450833333333332,"y":24.0,"date":"2025-06-05"},{"x":24.349722222222223,"y":26.0,"date":"2025-12-04"}],"reg_line":[{"x":18.450833333333332,"y":23.964},{"x":71.73083333333334,"y":37.693}]}],"timeline":[{"date":"2013-01-10","age":24,"kids":0,"weight":172.0,"vo2max":null,"whoop_hrv_30d":null,"whoop_recovery_30d":null,"whoop_rhr_30d":null,"whoop_strain_30d":null,"whoop_sleep_hrs_30d":null,"whoop_sleep_perf_30d":null,"whoop_spo2_30d":null,"whoop_resp_30d":null,"whoop_skin_temp_30d":null,"whoop_hrv_90d":null,"whoop_recovery_90d":null,"whoop_rhr_90d":null,"whoop_strain_90d":null,"whoop_sleep_hrs_90d":null,"whoop_sleep_perf_90d":null,"strava_hrs_90d":null,"strava_run_miles_90d":null,"strava_run_hrs_90d":null,"strava_ride_hrs_90d":null,"strava_avg_hr_90d":null,"strava_avg_watts_90d":null,"Glucose":95.0,"Cholesterol":157.0,"LDL":83.0,"HDL":64.0,"Triglycerides":50.0,"AST":25.0,"ALT":16.0,"Hemoglobin":15.3,"Hematocrit":44.4},{"date":"2018-09-27","age":29,"kids":1,"weight":167.2,"vo2max":null,"whoop_hrv_30d":null,"whoop_recovery_30d":null,"whoop_rhr_30d":null,"whoop_strain_30d":null,"whoop_sleep_hrs_30d":null,"whoop_sleep_perf_30d":null,"whoop_spo2_30d":null,"whoop_resp_30d":null,"whoop_skin_temp_30d":null,"whoop_hrv_90d":null,"whoop_recovery_90d":null,"whoop_rhr_90d":null,"whoop_strain_90d":null,"whoop_sleep_hrs_90d":null,"whoop_sleep_perf_90d":null,"strava_hrs_90d":119.99472222222222,"strava_run_miles_90d":448.4182230374,"strava_run_hrs_90d":63.17472222222222,"strava_ride_hrs_90d":29.76361111111111,"strava_avg_hr_90d":139.935,"strava_avg_watts_90d":null,"Cholesterol":127.0,"LDL":47.0,"HDL":70.0,"Triglycerides":48.0},{"date":"2018-10-10","age":29,"kids":1,"weight":165,"vo2max":null,"whoop_hrv_30d":null,"whoop_recovery_30d":null,"whoop_rhr_30d":null,"whoop_strain_30d":null,"whoop_sleep_hrs_30d":null,"whoop_sleep_perf_30d":null,"whoop_spo2_30d":null,"whoop_resp_30d":null,"whoop_skin_temp_30d":null,"whoop_hrv_90d":null,"whoop_recovery_90d":null,"whoop_rhr_90d":null,"whoop_strain_90d":null,"whoop_sleep_hrs_90d":null,"whoop_sleep_perf_90d":null,"strava_hrs_90d":123.03888888888889,"strava_run_miles_90d":429.6205075454,"strava_run_hrs_90d":60.425,"strava_ride_hrs_90d":32.661944444444444,"strava_avg_hr_90d":139.68928571428572,"strava_avg_watts_90d":null,"Glucose":76.0,"HbA1c":5.1,"Cholesterol":135.0,"LDL":55.0,"HDL":65.0,"Triglycerides":74.0,"AST":18.0,"ALT":11.0,"GGT":23.0},{"date":"2019-01-14","age":30,"kids":1,"weight":167.0,"vo2max":null,"whoop_hrv_30d":null,"whoop_recovery_30d":null,"whoop_rhr_30d":null,"whoop_strain_30d":null,"whoop_sleep_hrs_30d":null,"whoop_sleep_perf_30d":null,"whoop_spo2_30d":null,"whoop_resp_30d":null,"whoop_skin_temp_30d":null,"whoop_hrv_90d":null,"whoop_recovery_90d":null,"whoop_rhr_90d":null,"whoop_strain_90d":null,"whoop_sleep_hrs_90d":null,"whoop_sleep_perf_90d":null,"strava_hrs_90d":114.19083333333333,"strava_run_miles_90d":471.6233230324,"strava_run_hrs_90d":62.48305555555556,"strava_ride_hrs_90d":33.929722222222225,"strava_avg_hr_90d":134.1076923076923,"strava_avg_watts_90d":215.6833333333333,"Glucose":93.0,"Cholesterol":119.0,"LDL":51.0,"HDL":60.0,"Triglycerides":39.0,"AST":39.0,"ALT":24.0},{"date":"2021-07-22","age":32,"kids":3,"weight":172.0,"vo2max":null,"whoop_hrv_30d":72.13587720000001,"whoop_recovery_30d":68.0,"whoop_rhr_30d":48.833333333333336,"whoop_strain_30d":13.346419200000001,"whoop_sleep_hrs_30d":7.6094803055555555,"whoop_sleep_perf_30d":76.0,"whoop_spo2_30d":null,"whoop_resp_30d":13.9138183,"whoop_skin_temp_30d":null,"whoop_hrv_90d":68.4006154494382,"whoop_recovery_90d":57.247191011235955,"whoop_rhr_90d":49.157303370786515,"whoop_strain_90d":13.054054301123596,"whoop_sleep_hrs_90d":7.818688842072409,"whoop_sleep_perf_90d":76.56179775280899,"strava_hrs_90d":121.2675,"strava_run_miles_90d":464.7851351774,"strava_run_hrs_90d":71.06388888888888,"strava_ride_hrs_90d":24.409444444444446,"strava_avg_hr_90d":120.02127659574468,"strava_avg_watts_90d":144.29999999999998,"Glucose":92.0,"AST":30.0,"ALT":20.0},{"date":"2021-08-10","age":32,"kids":3,"weight":172.0,"vo2max":null,"whoop_hrv_30d":59.3624528,"whoop_recovery_30d":50.766666666666666,"whoop_rhr_30d":51.63333333333333,"whoop_strain_30d":11.990522736666666,"whoop_sleep_hrs_30d":7.850123907407407,"whoop_sleep_perf_30d":79.0,"whoop_spo2_30d":null,"whoop_resp_30d":14.236002533333334,"whoop_skin_temp_30d":null,"whoop_hrv_90d":65.28016811235955,"whoop_recovery_90d":56.89887640449438,"whoop_rhr_90d":49.87640449438202,"whoop_strain_90d":12.882624357303369,"whoop_sleep_hrs_90d":7.83270336454432,"whoop_sleep_perf_90d":77.50561797752809,"strava_hrs_90d":116.80444444444444,"strava_run_miles_90d":456.9933913858,"strava_run_hrs_90d":70.12555555555555,"strava_ride_hrs_90d":23.76361111111111,"strava_avg_hr_90d":118.72317073170731,"strava_avg_watts_90d":124.57499999999999,"Hemoglobin":15.0,"Hematocrit":43.3},{"date":"2021-10-29","age":32,"kids":3,"weight":172.0,"vo2max":null,"whoop_hrv_30d":73.1314289,"whoop_recovery_30d":63.166666666666664,"whoop_rhr_30d":49.766666666666666,"whoop_strain_30d":12.78045118,"whoop_sleep_hrs_30d":7.662155222222222,"whoop_sleep_perf_30d":74.96666666666667,"whoop_spo2_30d":null,"whoop_resp_30d":13.924235033333334,"whoop_skin_temp_30d":null,"whoop_hrv_90d":62.91980963333333,"whoop_recovery_90d":59.51111111111111,"whoop_rhr_90d":51.13333333333333,"whoop_strain_90d":12.575017835555556,"whoop_sleep_hrs_90d":7.848024432098765,"whoop_sleep_perf_90d":78.04444444444445,"strava_hrs_90d":92.97888888888889,"strava_run_miles_90d":498.2426702611,"strava_run_hrs_90d":71.73083333333334,"strava_ride_hrs_90d":14.894166666666667,"strava_avg_hr_90d":138.888,"strava_avg_watts_90d":205.3842105263158,"Glucose":96.0,"HbA1c":5.3,"Cholesterol":160.0,"LDL":82.0,"HDL":59.0,"Triglycerides":96.0,"Testosterone":725.0,"Free Testosterone":10.02,"SHBG":40.0,"Cortisol":18.0,"Vitamin D":41.0,"Ferritin":60.0,"hsCRP":0.3,"AST":26.0,"ALT":19.0,"GGT":15.0,"Hemoglobin":15.4,"Hematocrit":46.9},{"date":"2022-09-30","age":33,"kids":3,"weight":183.0,"vo2max":null,"whoop_hrv_30d":57.041411333333336,"whoop_recovery_30d":56.63333333333333,"whoop_rhr_30d":52.5,"whoop_strain_30d":11.048831076666666,"whoop_sleep_hrs_30d":7.426195462962963,"whoop_sleep_perf_30d":70.4,"whoop_spo2_30d":96.68731906666667,"whoop_resp_30d":13.943196616666667,"whoop_skin_temp_30d":33.826118799999996,"whoop_hrv_90d":60.354620749999995,"whoop_recovery_90d":59.32142857142857,"whoop_rhr_90d":52.82142857142857,"whoop_strain_90d":11.31023910325,"whoop_sleep_hrs_90d":7.664360740740741,"whoop_sleep_perf_90d":73.0952380952381,"strava_hrs_90d":108.35833333333333,"strava_run_miles_90d":176.0724943423,"strava_run_hrs_90d":26.191666666666666,"strava_ride_hrs_90d":58.75555555555556,"strava_avg_hr_90d":112.67121951219511,"strava_avg_watts_90d":183.00444444444446,"Glucose":100.0,"Cholesterol":142.0,"LDL":71.0,"HDL":57.0,"Triglycerides":68.0,"AST":38.0,"ALT":26.0},{"date":"2022-12-23","age":33,"kids":3,"weight":187,"vo2max":null,"whoop_hrv_30d":59.35892543333333,"whoop_recovery_30d":56.36666666666667,"whoop_rhr_30d":55.833333333333336,"whoop_strain_30d":12.331458983333333,"whoop_sleep_hrs_30d":7.301204694444444,"whoop_sleep_perf_30d":66.1,"whoop_spo2_30d":96.88471576666667,"whoop_resp_30d":13.835123750000001,"whoop_skin_temp_30d":34.33166693333333,"whoop_hrv_90d":54.93860096666666,"whoop_recovery_90d":54.9,"whoop_rhr_90d":55.78888888888889,"whoop_strain_90d":11.339990612222222,"whoop_sleep_hrs_90d":7.389891833333333,"whoop_sleep_perf_90d":67.33333333333333,"strava_hrs_90d":88.53416666666666,"strava_run_miles_90d":232.0907055569,"strava_run_hrs_90d":34.918055555555554,"strava_ride_hrs_90d":34.668055555555554,"strava_avg_hr_90d":114.95,"strava_avg_watts_90d":254.20222222222222,"Glucose":94.0,"HbA1c":5.5,"Cholesterol":137.0,"LDL":66.0,"HDL":56.0,"Triglycerides":75.0,"AST":24.0,"ALT":20.0,"GGT":29.0},{"date":"2023-01-03","age":34,"kids":3,"weight":188.0,"vo2max":null,"whoop_hrv_30d":58.02652393333334,"whoop_recovery_30d":54.06666666666667,"whoop_rhr_30d":55.63333333333333,"whoop_strain_30d":11.580368069999999,"whoop_sleep_hrs_30d":7.543574851851852,"whoop_sleep_perf_30d":71.16666666666667,"whoop_spo2_30d":97.14513873333334,"whoop_resp_30d":14.019694,"whoop_skin_temp_30d":34.15583363333334,"whoop_hrv_90d":54.10967323333333,"whoop_recovery_90d":53.55555555555556,"whoop_rhr_90d":56.22222222222222,"whoop_strain_90d":11.198384884444446,"whoop_sleep_hrs_90d":7.49933712037037,"whoop_sleep_perf_90d":69.11111111111111,"strava_hrs_90d":86.62138888888889,"strava_run_miles_90d":237.9903746535,"strava_run_hrs_90d":36.165277777777774,"strava_ride_hrs_90d":31.135277777777777,"strava_avg_hr_90d":115.69877300613499,"strava_avg_watts_90d":266.16037735849056,"Glucose":97.0,"Cholesterol":153.0,"LDL":88.0,"HDL":54.0,"Triglycerides":57.0,"AST":42.0,"ALT":34.0,"Hemoglobin":15.3,"Hematocrit":45.4},{"date":"2023-07-10","age":34,"kids":3,"weight":192.0,"vo2max":55.6,"whoop_hrv_30d":58.693629769230775,"whoop_recovery_30d":54.92307692307692,"whoop_rhr_30d":52.84615384615385,"whoop_strain_30d":12.801168546153844,"whoop_sleep_hrs_30d":7.0068583119658125,"whoop_sleep_perf_30d":71.76923076923077,"whoop_spo2_30d":96.35524876923077,"whoop_resp_30d":14.354341923076923,"whoop_skin_temp_30d":33.949230846153846,"whoop_hrv_90d":60.19345366666666,"whoop_recovery_90d":61.15555555555556,"whoop_rhr_90d":51.977777777777774,"whoop_strain_90d":12.137202499999999,"whoop_sleep_hrs_90d":7.148008074074074,"whoop_sleep_perf_90d":68.84444444444445,"strava_hrs_90d":102.07444444444444,"strava_run_miles_90d":348.4844299865,"strava_run_hrs_90d":51.501111111111115,"strava_ride_hrs_90d":41.26916666666666,"strava_avg_hr_90d":124.37202797202798,"strava_avg_watts_90d":327.11496062992126,"Glucose":97.0,"HbA1c":5.5,"Cholesterol":129.0,"LDL":62.0,"HDL":53.0,"Triglycerides":67.0,"Testosterone":495.0,"Free Testosterone":7.81,"SHBG":28.0,"Cortisol":15.4,"Vitamin D":37.0,"Ferritin":78.0,"hsCRP":0.6,"AST":25.0,"ALT":18.0,"GGT":42.0,"Hemoglobin":14.8,"Hematocrit":44.0},{"date":"2023-11-02","age":34,"kids":3,"weight":189.0,"vo2max":55.6,"whoop_hrv_30d":61.00451446666667,"whoop_recovery_30d":63.266666666666666,"whoop_rhr_30d":50.9,"whoop_strain_30d":10.892491103333333,"whoop_sleep_hrs_30d":8.496845537037037,"whoop_sleep_perf_30d":80.16666666666667,"whoop_spo2_30d":97.2515763,"whoop_resp_30d":14.133138,"whoop_skin_temp_30d":33.63733333333333,"whoop_hrv_90d":61.0484182051282,"whoop_recovery_90d":62.57692307692308,"whoop_rhr_90d":50.44871794871795,"whoop_strain_90d":11.634961087179487,"whoop_sleep_hrs_90d":7.824572517806268,"whoop_sleep_perf_90d":73.33333333333333,"strava_hrs_90d":84.17472222222223,"strava_run_miles_90d":444.46462577570003,"strava_run_hrs_90d":67.54027777777777,"strava_ride_hrs_90d":12.698055555555555,"strava_avg_hr_90d":139.3827160493827,"strava_avg_watts_90d":382.69620253164555,"Glucose":102.0,"Cholesterol":179.0,"LDL":94.0,"HDL":61.0,"Triglycerides":120.0,"Testosterone":669.0,"Free Testosterone":20.7,"AST":31.0,"ALT":43.0},{"date":"2023-11-16","age":34,"kids":3,"weight":189.0,"vo2max":55.6,"whoop_hrv_30d":58.0505651,"whoop_recovery_30d":58.96666666666667,"whoop_rhr_30d":51.96666666666667,"whoop_strain_30d":10.792354626666667,"whoop_sleep_hrs_30d":8.450622157407407,"whoop_sleep_perf_30d":81.3,"whoop_spo2_30d":97.37458576666667,"whoop_resp_30d":14.066080699999999,"whoop_skin_temp_30d":33.64066673333333,"whoop_hrv_90d":59.99092882222222,"whoop_recovery_90d":61.05555555555556,"whoop_rhr_90d":50.87777777777778,"whoop_strain_90d":11.662039894444444,"whoop_sleep_hrs_90d":7.805687833333333,"whoop_sleep_perf_90d":73.6,"strava_hrs_90d":82.72611111111111,"strava_run_miles_90d":427.551093567,"strava_run_hrs_90d":65.25416666666666,"strava_ride_hrs_90d":11.516388888888889,"strava_avg_hr_90d":138.8,"strava_avg_watts_90d":376.7082191780822,"Glucose":97.0,"AST":45.0,"ALT":36.0},{"date":"2024-11-27","age":35,"kids":3,"weight":194.0,"vo2max":55.6,"whoop_hrv_30d":48.8183369,"whoop_recovery_30d":58.56666666666667,"whoop_rhr_30d":55.233333333333334,"whoop_strain_30d":12.52794523,"whoop_sleep_hrs_30d":7.5639447870370375,"whoop_sleep_perf_30d":69.1,"whoop_spo2_30d":96.2593983,"whoop_resp_30d":13.83601895,"whoop_skin_temp_30d":33.796611033333335,"whoop_hrv_90d":50.127225196428576,"whoop_recovery_90d":57.339285714285715,"whoop_rhr_90d":54.625,"whoop_strain_90d":10.797877351785715,"whoop_sleep_hrs_90d":7.501224350198413,"whoop_sleep_perf_90d":70.01785714285714,"strava_hrs_90d":90.18166666666667,"strava_run_miles_90d":272.3790963178,"strava_run_hrs_90d":45.78916666666667,"strava_ride_hrs_90d":27.89472222222222,"strava_avg_hr_90d":128.0063829787234,"strava_avg_watts_90d":280.81632653061223,"Glucose":98.0,"Cholesterol":146.0,"LDL":67.0,"HDL":67.0,"Triglycerides":59.0,"AST":40.0,"ALT":28.0,"Hemoglobin":14.9,"Hematocrit":45.0},{"date":"2025-03-06","age":36,"kids":3,"weight":192.0,"vo2max":60.6,"whoop_hrv_30d":44.74082151851852,"whoop_recovery_30d":49.370370370370374,"whoop_rhr_30d":54.81481481481482,"whoop_strain_30d":9.993681222222222,"whoop_sleep_hrs_30d":7.021674917695473,"whoop_sleep_perf_30d":71.03703703703704,"whoop_spo2_30d":96.44576225925927,"whoop_resp_30d":13.501066962962964,"whoop_skin_temp_30d":34.042593000000004,"whoop_hrv_90d":49.121069999999996,"whoop_recovery_90d":56.325581395348834,"whoop_rhr_90d":54.104651162790695,"whoop_strain_90d":11.133645844186047,"whoop_sleep_hrs_90d":7.502535574935401,"whoop_sleep_perf_90d":73.24418604651163,"strava_hrs_90d":116.32916666666667,"strava_run_miles_90d":207.5935267045,"strava_run_hrs_90d":32.090833333333336,"strava_ride_hrs_90d":68.73444444444445,"strava_avg_hr_90d":123.22352941176472,"strava_avg_watts_90d":236.11898734177217,"Glucose":104.0,"HbA1c":6.0,"Cholesterol":157.0,"LDL":84.0,"HDL":58.0,"Triglycerides":80.0,"Testosterone":570.0,"Free Testosterone":127.7,"SHBG":29.1,"Vitamin D":34.4,"hsCRP":0.5,"Homocysteine":8.2,"AST":43.0,"ALT":42.0,"Hemoglobin":15.7,"Hematocrit":45.6,"TSH":2.08,"IGF-1":194.0,"DHEA-S":266.0,"Apolipoprotein B":72.0,"Lipoprotein(a)":9.0},{"date":"2025-06-05","age":36,"kids":3,"weight":194.0,"vo2max":60.6,"whoop_hrv_30d":44.92630306666667,"whoop_recovery_30d":70.4,"whoop_rhr_30d":53.03333333333333,"whoop_strain_30d":9.28510416,"whoop_sleep_hrs_30d":7.799914796296296,"whoop_sleep_perf_30d":86.7,"whoop_spo2_30d":95.60012076666666,"whoop_resp_30d":13.649820933333332,"whoop_skin_temp_30d":34.25361076666666,"whoop_hrv_90d":46.02598889041096,"whoop_recovery_90d":66.68493150684931,"whoop_rhr_90d":52.89041095890411,"whoop_strain_90d":10.374599571232876,"whoop_sleep_hrs_90d":7.745951605783866,"whoop_sleep_perf_90d":84.3013698630137,"strava_hrs_90d":113.60472222222222,"strava_run_miles_90d":122.075168031,"strava_run_hrs_90d":18.450833333333332,"strava_ride_hrs_90d":81.24111111111111,"strava_avg_hr_90d":125.23142857142858,"strava_avg_watts_90d":223.0157894736842,"Glucose":97.0,"HbA1c":5.7,"Cholesterol":133.0,"LDL":65.0,"HDL":53.0,"Triglycerides":78.0,"Testosterone":608.0,"Free Testosterone":153.5,"SHBG":24.0,"Vitamin D":44.4,"hsCRP":0.43,"Homocysteine":7.4,"AST":32.0,"ALT":32.0,"Hemoglobin":15.6,"Hematocrit":46.7,"TSH":1.49,"IGF-1":177.0,"DHEA-S":339.0,"Apolipoprotein B":59.0},{"date":"2025-12-04","age":36,"kids":3,"weight":200.0,"vo2max":60.6,"whoop_hrv_30d":41.178467133333335,"whoop_recovery_30d":57.666666666666664,"whoop_rhr_30d":56.9,"whoop_strain_30d":10.731454359999999,"whoop_sleep_hrs_30d":8.045032925925927,"whoop_sleep_perf_30d":83.56666666666666,"whoop_spo2_30d":95.79902659999999,"whoop_resp_30d":13.700276683333334,"whoop_skin_temp_30d":34.3035444,"whoop_hrv_90d":45.4310778,"whoop_recovery_90d":60.81111111111111,"whoop_rhr_90d":55.18888888888889,"whoop_strain_90d":10.165013378888888,"whoop_sleep_hrs_90d":7.95075899691358,"whoop_sleep_perf_90d":85.14444444444445,"strava_hrs_90d":117.65083333333334,"strava_run_miles_90d":135.258175167,"strava_run_hrs_90d":24.349722222222223,"strava_ride_hrs_90d":73.49638888888889,"strava_avg_hr_90d":124.76799999999999,"strava_avg_watts_90d":294.23125,"Glucose":98.0,"HbA1c":5.6,"Cholesterol":174.0,"LDL":93.0,"HDL":64.0,"Triglycerides":80.0,"Testosterone":548.0,"Free Testosterone":93.2,"SHBG":26.0,"Cortisol":11.5,"Vitamin D":29.0,"Ferritin":81.0,"hsCRP":0.2,"Homocysteine":6.8,"AST":32.0,"ALT":35.0,"Hemoglobin":15.4,"Hematocrit":47.5,"TSH":1.68,"DHEA-S":202.0,"Apolipoprotein B":75.0,"Lipoprotein(a)":9.0}],"life_events":[{"date":"2017-10-01","label":"Kid #1","kids":1},{"date":"2019-04-01","label":"Kid #2","kids":2},{"date":"2021-07-01","label":"Kid #3","kids":3}],"insights":[{"emoji":"\ud83e\udec1","color":"#818cf8","title":"Strongest predictor: VO\u2082max (ml/kg/min) \u2192 Hemoglobin (r = +0.961)","body":"Across 5 blood draws, VO\u2082max (ml/kg/min) from Fitness positively correlates with Hemoglobin \u2014 the strongest single wearable\u2013biomarker link found."},{"emoji":"\ud83d\udc93","color":"#ef4444","title":"HRV \u2192 Free Testosterone (r = -0.925)","body":"Higher HRV (better recovery) tracks with lower Free Testosterone across 6 blood draws. HRV reflects autonomic nervous system health."},{"emoji":"\ud83d\ude34","color":"#60a5fa","title":"Sleep \u2192 hsCRP (r = -0.942)","body":"Sleep hours 90d avg correlates with lower hsCRP. Sleep quality and duration measurably track with blood markers."},{"emoji":"\ud83c\udfcb\ufe0f","color":"#f97316","title":"Training \u2192 SHBG (r = +0.911)","body":"Avg workout HR 90d (bpm) (90-day window) positively correlates with SHBG across 5 draws."},{"emoji":"\ud83d\udcc8","color":"#ef4444","title":"HbA1c changes most with age (r = +0.90)","body":"HbA1c rises consistently with age \u2014 worth monitoring."},{"emoji":"\ud83d\udc76","color":"#eab308","title":"HbA1c correlates with # kids (r = +0.66)","body":"The arrival of children (2017, 2019, 2021) strongly correlates with changes in HbA1c \u2014 possibly reflecting lifestyle, sleep, or stress."},{"emoji":"\ud83d\udd17","color":"#818cf8","title":"Strongest biomarker link: HbA1c \u00d7 AST (r = +0.943)","body":"These two markers move together across 7 shared blood draws."}],"generated":"2026-03-23","n_draws":17};
 
 // ---------------------------------------------------------------------------
-// Colour helpers
+// Helpers
 // ---------------------------------------------------------------------------
 function rColor(r) {
   if (r === null || r === undefined) return 'var(--muted)';
@@ -168,7 +177,6 @@ function rColor(r) {
   if (a >= 0.4) return r > 0 ? '#86efac' : '#fca5a5';
   return 'var(--muted)';
 }
-
 function rStrength(r) {
   if (r === null) return '';
   const a = Math.abs(r);
@@ -176,25 +184,367 @@ function rStrength(r) {
   if (a >= 0.4) return 'moderate';
   return 'weak';
 }
-
 function rBarHtml(r) {
   if (r === null || r === undefined) return '<span style="color:var(--muted)">—</span>';
-  const pct  = Math.round(Math.abs(r) * 100);
-  const col  = rColor(r);
-  const dir  = r >= 0 ? '▲' : '▼';
+  const pct = Math.round(Math.abs(r) * 100);
+  const col = rColor(r);
+  const dir = r >= 0 ? '▲' : '▼';
   return `<div class="r-val" style="color:${col};">${r.toFixed(3)} ${dir}</div>
           <div class="r-bar-track"><div class="r-bar-fill" style="width:${pct}%;background:${col};"></div></div>`;
 }
+function badgeHtml(source) {
+  const cls = {'WHOOP':'whoop','Strava':'strava','Life':'life','Fitness':'fitness'}[source] || 'life';
+  return `<span class="source-badge badge-${cls}">${source}</span>`;
+}
+function scatterPointColors(points) {
+  const years = points.map(p => parseInt(p.date.substring(0,4)));
+  const minYr = Math.min(...years), maxYr = Math.max(...years);
+  return points.map(p => {
+    const t = maxYr === minYr ? 0.5 : (parseInt(p.date.substring(0,4)) - minYr) / (maxYr - minYr);
+    return `rgba(${Math.round(96+t*(249-96))},${Math.round(165+t*(115-165))},${Math.round(250+t*(22-250))},0.9)`;
+  });
+}
 
 // ---------------------------------------------------------------------------
-// App root
+// Tab system
 // ---------------------------------------------------------------------------
-const app = document.getElementById('app');
+const tabsEl   = document.getElementById('tabs');
+const panelsEl = document.getElementById('tab-panels');
+let firstTab   = true;
+
+function addTab(label, id, buildFn) {
+  const btn = document.createElement('button');
+  btn.className = 'tab-btn' + (firstTab ? ' active' : '');
+  btn.textContent = label;
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + id).classList.add('active');
+  });
+  tabsEl.appendChild(btn);
+
+  const panel = document.createElement('div');
+  panel.className = 'tab-panel' + (firstTab ? ' active' : '');
+  panel.id = 'panel-' + id;
+  buildFn(panel);
+  panelsEl.appendChild(panel);
+  firstTab = false;
+}
+
+// ---------------------------------------------------------------------------
+// Tab 1: Insights
+// ---------------------------------------------------------------------------
+addTab('💡 Insights', 'insights', panel => {
+  const sec = mkSection('Key Insights', null);
+  const grid = document.createElement('div');
+  grid.className = 'insights-grid';
+  (DATA.insights || []).forEach(ins => {
+    const card = document.createElement('div');
+    card.className = 'insight-card';
+    card.style.borderLeft = `3px solid ${ins.color}`;
+    card.innerHTML = `<div class="ic-emoji">${ins.emoji}</div>
+                      <div class="ic-title">${ins.title}</div>
+                      <div class="ic-body">${ins.body}</div>`;
+    grid.appendChild(card);
+  });
+  sec.appendChild(grid);
+  panel.appendChild(sec);
+});
+
+// ---------------------------------------------------------------------------
+// Tab 2: Wearable × Biomarker top correlations
+// ---------------------------------------------------------------------------
+addTab('⌚ Wearable × Biomarker', 'wearable', panel => {
+  const sec = mkSection(
+    'Top Wearable / Training → Biomarker Correlations',
+    `Pearson <em>r</em> between WHOOP sleep/recovery metrics and Strava training load windows
+     (30-day and 90-day averages before each blood draw) versus every biomarker. Top 30 by |r|.`
+  );
+  const grid = document.createElement('div');
+  grid.className = 'pair-grid';
+  (DATA.top_cov_bm || []).forEach(item => {
+    const col = rColor(item.r);
+    const card = document.createElement('div');
+    card.className = 'pair-card';
+    card.style.borderLeft = `3px solid ${col}`;
+    card.innerHTML = `
+      <div class="pair-name">${item.covariate} ${badgeHtml(item.source)}<br>→ ${item.biomarker}</div>
+      <div class="pair-r" style="color:${col};">r = ${item.r.toFixed(3)}</div>
+      <div class="pair-meta">${rStrength(item.r)} ${item.r > 0 ? 'positive' : 'negative'} · n=${item.n}</div>
+      <div class="pair-bar-track"><div class="pair-bar-fill" style="width:${Math.round(Math.abs(item.r)*100)}%;background:${col};"></div></div>`;
+    grid.appendChild(card);
+  });
+  sec.appendChild(grid);
+  panel.appendChild(sec);
+
+  // Scatter plots for top wearable pairs
+  if (DATA.wearable_scatters && DATA.wearable_scatters.length > 0) {
+    const sec2 = mkSection('Scatter Plots — Top Wearable Pairs',
+      'Each point is one blood draw. Colour: blue (early) → orange (recent). Regression line shown.');
+    const sgrid = document.createElement('div');
+    sgrid.className = 'charts-grid';
+    DATA.wearable_scatters.forEach(sp => renderScatterCard(sgrid, sp));
+    sec2.appendChild(sgrid);
+    panel.appendChild(sec2);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Tab 3: Full matrix table
+// ---------------------------------------------------------------------------
+addTab('🧬 Full Matrix', 'matrix', panel => {
+  const sec = mkSection(
+    'Biomarker × All Covariates — Pearson r',
+    `Every biomarker row vs. all life, fitness, WHOOP, and Strava covariates.
+     Sorted by max |r| vs classic covariates (age/kids/weight/VO₂max). Scroll right for all columns.`
+  );
+
+  const covMeta = DATA.covariate_meta || [];
+  const classicKeys = ['age','kids','weight','vo2max'];
+  const whoopKeys   = covMeta.filter(c => c.source === 'WHOOP').map(c => c.key);
+  const stravaKeys  = covMeta.filter(c => c.source === 'Strava').map(c => c.key);
+  const keyToLabel  = Object.fromEntries(covMeta.map(c => [c.key, c.label]));
+
+  const wrap = document.createElement('div');
+  wrap.className = 'table-wrap';
+  const tbl = document.createElement('table');
+
+  // Header row
+  const thead = document.createElement('thead');
+  let htr = '<tr>';
+  htr += '<th>Biomarker</th><th class="n-col">n</th>';
+  classicKeys.forEach(k => { htr += `<th class="group-classic">${keyToLabel[k] || k}</th>`; });
+  whoopKeys.forEach(k   => { htr += `<th class="group-whoop">${(keyToLabel[k]||k).replace(' avg','').replace(' (ms)','').replace(' (bpm)','')}</th>`; });
+  stravaKeys.forEach(k  => { htr += `<th class="group-strava">${(keyToLabel[k]||k)}</th>`; });
+  htr += '</tr>';
+  thead.innerHTML = htr;
+  tbl.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  (DATA.biomarker_matrix || []).forEach(row => {
+    const tr = document.createElement('tr');
+    let cells = `<td class="bm-name">${row.name}</td><td class="n-col">${row.n}</td>`;
+    [...classicKeys, ...whoopKeys, ...stravaKeys].forEach(k => {
+      const v = row[k];
+      cells += `<td style="min-width:90px">${rBarHtml(v !== undefined ? v : null)}</td>`;
+    });
+    tr.innerHTML = cells;
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+  wrap.appendChild(tbl);
+  sec.appendChild(wrap);
+  panel.appendChild(sec);
+});
+
+// ---------------------------------------------------------------------------
+// Tab 4: Biomarker pairs
+// ---------------------------------------------------------------------------
+addTab('🔗 Biomarker Pairs', 'pairs', panel => {
+  const sec = mkSection(
+    'Top Biomarker–Biomarker Correlations',
+    'Pearson <em>r</em> between all biomarker pairs on shared blood-draw dates (≥4 required). Top 20 by |r|.'
+  );
+  const grid = document.createElement('div');
+  grid.className = 'pair-grid';
+  (DATA.top_bm_pairs || []).forEach(item => {
+    const col = rColor(item.r);
+    const card = document.createElement('div');
+    card.className = 'pair-card';
+    card.style.borderLeft = `3px solid ${col}`;
+    card.innerHTML = `
+      <div class="pair-name">${item.pair}</div>
+      <div class="pair-r" style="color:${col};">r = ${item.r.toFixed(3)}</div>
+      <div class="pair-meta">${rStrength(item.r)} ${item.r > 0 ? 'positive' : 'negative'} · n=${item.n}</div>
+      <div class="pair-bar-track"><div class="pair-bar-fill" style="width:${Math.round(Math.abs(item.r)*100)}%;background:${col};"></div></div>`;
+    grid.appendChild(card);
+  });
+  sec.appendChild(grid);
+  panel.appendChild(sec);
+
+  // Biomarker scatter plots
+  const sec2 = mkSection('Scatter Plots — Key Biomarker Pairs',
+    'Each point = one blood draw. Blue (early) → orange (recent).');
+  const sgrid = document.createElement('div');
+  sgrid.className = 'charts-grid';
+  (DATA.scatter_pairs || []).forEach(sp => renderScatterCard(sgrid, sp));
+  sec2.appendChild(sgrid);
+  panel.appendChild(sec2);
+});
+
+// ---------------------------------------------------------------------------
+// Tab 5: Timeline
+// ---------------------------------------------------------------------------
+addTab('📅 Timeline', 'timeline', panel => {
+  const sec = mkSection(
+    'Wearable Metrics Over Blood-Draw Dates',
+    'Rolling averages of WHOOP and Strava signals plotted at each blood-draw date. Life-event markers shown.'
+  );
+
+  const tl = DATA.timeline || [];
+  const labels = tl.map(r => r.date);
+
+  // Chart builder helper
+  function tlCard(title, datasets, yLabel, yLabel2, height) {
+    const card = document.createElement('div');
+    card.className = 'chart-card full-card';
+    card.innerHTML = `<div class="chart-header"><div class="chart-title">${title}</div></div>`;
+    const wrap = document.createElement('div');
+    wrap.className = 'chart-wrap';
+    wrap.style.height = (height || 180) + 'px';
+    const canvas = document.createElement('canvas');
+    wrap.appendChild(canvas);
+    card.appendChild(wrap);
+
+    // Life-event plugin
+    const lifePlugin = {
+      id: 'lifeEvents',
+      afterDraw(chart) {
+        const { ctx, chartArea: { top, bottom }, scales: { x } } = chart;
+        if (!x) return;
+        (DATA.life_events || []).forEach(ev => {
+          const idx = labels.indexOf(ev.date);
+          if (idx < 0) return;
+          const xPx = x.getPixelForValue(idx);
+          ctx.save();
+          ctx.beginPath(); ctx.moveTo(xPx, top); ctx.lineTo(xPx, bottom);
+          ctx.strokeStyle = 'rgba(234,179,8,0.45)'; ctx.lineWidth = 1.5;
+          ctx.setLineDash([4,3]); ctx.stroke();
+          ctx.fillStyle = '#eab308'; ctx.font = '9px sans-serif';
+          ctx.textAlign = 'center'; ctx.fillText(ev.label, xPx, top - 3);
+          ctx.restore();
+        });
+      },
+    };
+
+    const scales = {
+      x: { grid: { color: 'rgba(46,50,80,0.6)' }, ticks: { color: '#8892a4', maxRotation: 45, maxTicksLimit: 20, font: { size: 9 } } },
+      y: { title: { display: !!yLabel, text: yLabel||'', color:'#8892a4', font:{size:9} }, grid: { color: 'rgba(46,50,80,0.6)' }, ticks: { color: '#8892a4', font: { size: 9 } } },
+    };
+    if (yLabel2) {
+      scales.y2 = { position: 'right', title: { display: true, text: yLabel2, color:'#8892a4', font:{size:9} }, grid: { display: false }, ticks: { color: '#8892a4', font: { size: 9 } } };
+    }
+
+    new Chart(canvas, {
+      type: 'line', plugins: [lifePlugin],
+      data: { labels, datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: { backgroundColor: '#1a1d27', borderColor: '#2e3250', borderWidth: 1, titleColor: '#e2e8f0', bodyColor: '#8892a4' },
+        },
+        scales,
+      },
+    });
+    return card;
+  }
+
+  const grid = document.createElement('div');
+  grid.className = 'charts-grid';
+  grid.style.gridTemplateColumns = '1fr';
+
+  // Chart 1: HRV + Recovery (30d)
+  grid.appendChild(tlCard('WHOOP: HRV & Recovery Score (30-day avg)', [
+    { label: 'HRV rMSSD (ms)', data: tl.map(r => r.whoop_hrv_30d), borderColor: '#22c55e', backgroundColor:'transparent', borderWidth:2.5, pointRadius:5, tension:0.3, fill:false, yAxisID:'y', spanGaps:true },
+    { label: 'Recovery score', data: tl.map(r => r.whoop_recovery_30d), borderColor: '#60a5fa', backgroundColor:'rgba(96,165,250,0.1)', borderWidth:2, pointRadius:4, tension:0.3, fill:true, yAxisID:'y2', spanGaps:true },
+  ], 'HRV (ms)', 'Recovery (0–100)'));
+
+  // Chart 2: RHR + Strain (30d)
+  grid.appendChild(tlCard('WHOOP: Resting HR & Day Strain (30-day avg)', [
+    { label: 'Resting HR (bpm)', data: tl.map(r => r.whoop_rhr_30d), borderColor: '#ef4444', backgroundColor:'transparent', borderWidth:2.5, pointRadius:5, tension:0.3, fill:false, yAxisID:'y', spanGaps:true },
+    { label: 'Day strain', data: tl.map(r => r.whoop_strain_30d), borderColor: '#f97316', backgroundColor:'rgba(249,115,22,0.1)', borderWidth:2, pointRadius:4, tension:0.3, fill:true, yAxisID:'y2', spanGaps:true },
+  ], 'RHR (bpm)', 'Strain (0–21)'));
+
+  // Chart 3: Sleep
+  grid.appendChild(tlCard('WHOOP: Sleep Hours & Performance (30-day avg)', [
+    { label: 'Sleep hrs', data: tl.map(r => r.whoop_sleep_hrs_30d), borderColor: '#a855f7', backgroundColor:'rgba(168,85,247,0.1)', borderWidth:2.5, pointRadius:5, tension:0.3, fill:true, yAxisID:'y', spanGaps:true },
+    { label: 'Sleep performance %', data: tl.map(r => r.whoop_sleep_perf_30d), borderColor: '#818cf8', backgroundColor:'transparent', borderWidth:2, pointRadius:4, tension:0.3, fill:false, yAxisID:'y2', spanGaps:true },
+  ], 'Hours', 'Performance (%)'));
+
+  // Chart 4: Strava load
+  grid.appendChild(tlCard('Strava: Training Load (90-day window)', [
+    { label: 'Total hours', data: tl.map(r => r.strava_hrs_90d), borderColor: '#f97316', backgroundColor:'rgba(249,115,22,0.1)', borderWidth:2.5, pointRadius:5, tension:0.3, fill:true, yAxisID:'y', spanGaps:true },
+    { label: 'Run miles', data: tl.map(r => r.strava_run_miles_90d), borderColor: '#22c55e', backgroundColor:'transparent', borderWidth:2, pointRadius:4, tension:0.3, fill:false, yAxisID:'y2', spanGaps:true },
+  ], 'Training hrs', 'Run miles'));
+
+  // Chart 5: SpO2 + resp rate
+  grid.appendChild(tlCard('WHOOP: SpO₂ & Respiratory Rate (30-day avg)', [
+    { label: 'SpO₂ (%)', data: tl.map(r => r.whoop_spo2_30d), borderColor: '#60a5fa', backgroundColor:'rgba(96,165,250,0.1)', borderWidth:2.5, pointRadius:5, tension:0.3, fill:true, yAxisID:'y', spanGaps:true },
+    { label: 'Resp rate (br/min)', data: tl.map(r => r.whoop_resp_30d), borderColor: '#eab308', backgroundColor:'transparent', borderWidth:2, pointRadius:4, tension:0.3, fill:false, yAxisID:'y2', spanGaps:true },
+  ], 'SpO₂ (%)', 'Breaths/min'));
+
+  sec.appendChild(grid);
+  panel.appendChild(sec);
+});
+
+// ---------------------------------------------------------------------------
+// Shared: render scatter card
+// ---------------------------------------------------------------------------
+function renderScatterCard(container, sp) {
+  const card = document.createElement('div');
+  card.className = 'chart-card';
+  const col = rColor(sp.r);
+  const hdr = document.createElement('div');
+  hdr.className = 'chart-header';
+  hdr.innerHTML = `
+    <div class="chart-title">${sp.x_label}<br><span style="color:var(--muted);font-weight:400">vs</span> ${sp.y_label}</div>
+    <div class="chart-meta">
+      <div class="r-big" style="color:${col};">r = ${sp.r !== null ? sp.r.toFixed(3) : '—'}</div>
+      <div class="n-lbl">n = ${sp.n}</div>
+    </div>`;
+  card.appendChild(hdr);
+  const wrap = document.createElement('div');
+  wrap.className = 'chart-wrap';
+  const canvas = document.createElement('canvas');
+  wrap.appendChild(canvas);
+  card.appendChild(wrap);
+  container.appendChild(card);
+
+  const ptColors = scatterPointColors(sp.points);
+  const datasets = [{
+    label: `${sp.x_label} vs ${sp.y_label}`,
+    data: sp.points.map(p => ({ x: p.x, y: p.y })),
+    backgroundColor: ptColors, borderColor: ptColors.map(c => c.replace('0.9','1')),
+    borderWidth: 1.5, pointRadius: 6, pointHoverRadius: 8, type: 'scatter',
+  }];
+  if (sp.reg_line) {
+    datasets.push({
+      label: 'Trend', data: sp.reg_line, type: 'line',
+      borderColor: 'rgba(129,140,248,0.55)', borderWidth: 1.5,
+      borderDash: [4,3], pointRadius: 0, fill: false,
+    });
+  }
+  new Chart(canvas, {
+    type: 'scatter', data: { datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a1d27', borderColor: '#2e3250', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#8892a4',
+          callbacks: {
+            title:  items => sp.points[items[0].dataIndex]?.date || '',
+            label:  ctx  => `${sp.x_label}: ${ctx.parsed.x},  ${sp.y_label}: ${ctx.parsed.y}`,
+          },
+          filter: item => item.dataset.label !== 'Trend',
+        },
+      },
+      scales: {
+        x: { title: { display: true, text: sp.x_label, color:'#8892a4', font:{size:9} }, grid: { color: 'rgba(46,50,80,0.6)' }, ticks: { color:'#8892a4', font:{size:9} } },
+        y: { title: { display: true, text: sp.y_label, color:'#8892a4', font:{size:9} }, grid: { color: 'rgba(46,50,80,0.6)' }, ticks: { color:'#8892a4', font:{size:9} } },
+      },
+    },
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Section helper
 // ---------------------------------------------------------------------------
-function makeSection(title, descHTML) {
+function mkSection(title, descHTML) {
   const sec = document.createElement('div');
   sec.className = 'section';
   const h2 = document.createElement('h2');
@@ -210,340 +560,12 @@ function makeSection(title, descHTML) {
 }
 
 // ---------------------------------------------------------------------------
-// 1. Insights
-// ---------------------------------------------------------------------------
-(function() {
-  const sec = makeSection('Key Insights', null);
-  const grid = document.createElement('div');
-  grid.className = 'insights-grid';
-  (DATA.insights || []).forEach(ins => {
-    const card = document.createElement('div');
-    card.className = 'insight-card';
-    card.style.borderLeft = `3px solid ${ins.color}`;
-    card.innerHTML = `
-      <div class="ic-emoji">${ins.emoji}</div>
-      <div class="ic-title">${ins.title}</div>
-      <div class="ic-body">${ins.body}</div>
-    `;
-    grid.appendChild(card);
-  });
-  sec.appendChild(grid);
-  app.appendChild(sec);
-})();
-
-// ---------------------------------------------------------------------------
-// 2. Biomarker × covariate matrix
-// ---------------------------------------------------------------------------
-(function() {
-  const sec = makeSection(
-    'Biomarker vs. Age / # Kids / Weight / VO₂max',
-    `Pearson <em>r</em> for each biomarker against four life covariates across all blood-draw dates.
-     Sorted by |r with age|. ▲ = positive correlation, ▼ = negative.`
-  );
-
-  const wrap = document.createElement('div');
-  wrap.className = 'table-wrap';
-  const table = document.createElement('table');
-  table.innerHTML = `
-    <thead>
-      <tr>
-        <th>Biomarker</th>
-        <th class="n-col">n</th>
-        <th>r · Age</th>
-        <th>r · # Kids</th>
-        <th>r · Weight</th>
-        <th>r · VO₂max</th>
-      </tr>
-    </thead>
-  `;
-  const tbody = document.createElement('tbody');
-  (DATA.biomarker_matrix || []).forEach(row => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td class="bm-name">${row.name}</td>
-      <td class="n-col">${row.n}</td>
-      <td class="r-cell">${rBarHtml(row.r_age)}</td>
-      <td class="r-cell">${rBarHtml(row.r_kids)}</td>
-      <td class="r-cell">${row.r_weight !== null ? rBarHtml(row.r_weight) : '<span style="color:var(--muted)">—</span>'}</td>
-      <td class="r-cell">${row.r_vo2 !== null ? rBarHtml(row.r_vo2) : '<span style="color:var(--muted)">—</span>'}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-  table.appendChild(tbody);
-  wrap.appendChild(table);
-  sec.appendChild(wrap);
-  app.appendChild(sec);
-})();
-
-// ---------------------------------------------------------------------------
-// 3. Top pairwise biomarker–biomarker correlations
-// ---------------------------------------------------------------------------
-(function() {
-  const sec = makeSection(
-    'Top Biomarker–Biomarker Correlations',
-    'Pearson <em>r</em> between all biomarker pairs on shared blood-draw dates (≥4 shared draws required). Top 20 by |r|.'
-  );
-  const grid = document.createElement('div');
-  grid.className = 'pair-grid';
-  (DATA.top_correlations || []).forEach(item => {
-    const a   = Math.abs(item.r);
-    const col = rColor(item.r);
-    const card = document.createElement('div');
-    card.className = 'pair-card';
-    card.style.borderLeft = `3px solid ${col}`;
-    card.innerHTML = `
-      <div class="pair-name">${item.pair}</div>
-      <div class="pair-r" style="color:${col};">r = ${item.r.toFixed(3)}</div>
-      <div class="pair-meta">${rStrength(item.r)} ${item.r > 0 ? 'positive' : 'negative'} · n=${item.n}</div>
-      <div class="pair-bar-track"><div class="pair-bar-fill" style="width:${Math.round(a*100)}%;background:${col};"></div></div>
-    `;
-    grid.appendChild(card);
-  });
-  sec.appendChild(grid);
-  app.appendChild(sec);
-})();
-
-// ---------------------------------------------------------------------------
-// 4. Scatter plots
-// ---------------------------------------------------------------------------
-(function() {
-  const sec = makeSection(
-    'Scatter Plots — Key Pairs',
-    'Each point is one blood draw. Colour fades from blue (early) to orange (recent). Regression line shown.'
-  );
-  const grid = document.createElement('div');
-  grid.className = 'charts-grid';
-
-  (DATA.scatter_pairs || []).forEach(sp => {
-    const card = document.createElement('div');
-    card.className = 'chart-card';
-
-    const hdr = document.createElement('div');
-    hdr.className = 'chart-header';
-    const col = rColor(sp.r);
-    hdr.innerHTML = `
-      <div class="chart-title">${sp.x_label} vs ${sp.y_label}</div>
-      <div class="chart-meta">
-        <div class="r-big" style="color:${col};">r = ${sp.r !== null ? sp.r.toFixed(3) : '—'}</div>
-        <div class="n-lbl">n = ${sp.n} draws</div>
-      </div>
-    `;
-    card.appendChild(hdr);
-
-    const wrap = document.createElement('div');
-    wrap.className = 'chart-wrap';
-    const canvas = document.createElement('canvas');
-    wrap.appendChild(canvas);
-    card.appendChild(wrap);
-    grid.appendChild(card);
-
-    // Point colours: blue (early) → orange (recent)
-    const years  = sp.points.map(p => parseInt(p.date.substring(0,4)));
-    const minYr  = Math.min(...years);
-    const maxYr  = Math.max(...years);
-    const ptColors = sp.points.map(p => {
-      const t = maxYr === minYr ? 0.5 : (parseInt(p.date.substring(0,4)) - minYr) / (maxYr - minYr);
-      const r = Math.round(96  + t * (249 - 96));
-      const g = Math.round(165 + t * (115 - 165));
-      const b = Math.round(250 + t * (22  - 250));
-      return `rgba(${r},${g},${b},0.9)`;
-    });
-
-    const datasets = [{
-      label: `${sp.x_label} vs ${sp.y_label}`,
-      data:  sp.points.map(p => ({ x: p.x, y: p.y })),
-      backgroundColor:  ptColors,
-      borderColor:      ptColors.map(c => c.replace('0.9','1')),
-      borderWidth: 1.5,
-      pointRadius: 6,
-      pointHoverRadius: 8,
-      type: 'scatter',
-    }];
-
-    if (sp.reg_line) {
-      datasets.push({
-        label: 'Trend',
-        data:  sp.reg_line,
-        type:  'line',
-        borderColor: 'rgba(129,140,248,0.6)',
-        borderWidth: 1.5,
-        borderDash: [4,3],
-        pointRadius: 0,
-        fill: false,
-      });
-    }
-
-    new Chart(canvas, {
-      type: 'scatter',
-      data: { datasets },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            backgroundColor: '#1a1d27', borderColor: '#2e3250', borderWidth: 1,
-            titleColor: '#e2e8f0', bodyColor: '#8892a4',
-            callbacks: {
-              title:  items => sp.points[items[0].dataIndex]?.date || '',
-              label:  ctx  => `${sp.x_label}: ${ctx.parsed.x},  ${sp.y_label}: ${ctx.parsed.y}`,
-            },
-            filter: item => item.dataset.label !== 'Trend',
-          },
-        },
-        scales: {
-          x: {
-            title: { display: true, text: sp.x_label, color: '#8892a4', font: { size: 10 } },
-            grid: { color: 'rgba(46,50,80,0.6)' }, ticks: { color: '#8892a4', font: { size: 10 } },
-          },
-          y: {
-            title: { display: true, text: sp.y_label, color: '#8892a4', font: { size: 10 } },
-            grid: { color: 'rgba(46,50,80,0.6)' }, ticks: { color: '#8892a4', font: { size: 10 } },
-          },
-        },
-      },
-    });
-  });
-
-  sec.appendChild(grid);
-  app.appendChild(sec);
-})();
-
-// ---------------------------------------------------------------------------
-// 5. Timeline chart (covariates over time)
-// ---------------------------------------------------------------------------
-(function() {
-  const sec = makeSection(
-    'Life Covariates Over Blood-Draw Dates',
-    'Weight and VO₂max (right axis) plotted against every blood-draw date, with # kids shaded (left axis). Life-event markers in grey.'
-  );
-
-  const card = document.createElement('div');
-  card.className = 'chart-card full-card';
-
-  const hdr = document.createElement('div');
-  hdr.className = 'chart-header';
-  hdr.innerHTML = `
-    <div class="chart-title">Weight · VO₂max · # Kids — across ${DATA.n_draws} blood draws</div>
-  `;
-  card.appendChild(hdr);
-
-  const wrap = document.createElement('div');
-  wrap.className = 'timeline-wrap';
-  const canvas = document.createElement('canvas');
-  wrap.appendChild(canvas);
-  card.appendChild(wrap);
-
-  const leg = document.createElement('div');
-  leg.className = 'chart-legend';
-  leg.innerHTML = `
-    <div class="legend-item"><div class="legend-swatch" style="background:#a855f7"></div># Kids (left)</div>
-    <div class="legend-item"><div class="legend-swatch" style="background:#60a5fa"></div>Weight lbs (right)</div>
-    <div class="legend-item"><div class="legend-swatch" style="background:#22c55e"></div>VO₂max ml/kg/min (right)</div>
-  `;
-  card.appendChild(leg);
-
-  const grid = document.createElement('div');
-  grid.className = 'charts-grid';
-  grid.style.gridTemplateColumns = '1fr';
-  grid.appendChild(card);
-  sec.appendChild(grid);
-  app.appendChild(sec);
-
-  const tl     = DATA.timeline || [];
-  const labels = tl.map(r => r.date);
-
-  // Vertical annotation lines for life events
-  const lifeEventPlugin = {
-    id: 'lifeEvents',
-    afterDraw(chart) {
-      const { ctx, chartArea: { top, bottom }, scales: { x } } = chart;
-      if (!x) return;
-      (DATA.life_events || []).forEach(ev => {
-        const idx = labels.indexOf(ev.date);
-        if (idx < 0) return;
-        const xPx = x.getPixelForValue(idx);
-        ctx.save();
-        ctx.beginPath();
-        ctx.moveTo(xPx, top);
-        ctx.lineTo(xPx, bottom);
-        ctx.strokeStyle = 'rgba(234,179,8,0.45)';
-        ctx.lineWidth   = 1.5;
-        ctx.setLineDash([4,3]);
-        ctx.stroke();
-        ctx.fillStyle   = '#eab308';
-        ctx.font        = '10px sans-serif';
-        ctx.textAlign   = 'center';
-        ctx.fillText(ev.label, xPx, top - 4);
-        ctx.restore();
-      });
-    },
-  };
-
-  new Chart(canvas, {
-    type: 'line',
-    plugins: [lifeEventPlugin],
-    data: {
-      labels,
-      datasets: [
-        {
-          label: '# Kids',
-          data:  tl.map(r => r.kids),
-          borderColor: '#a855f7', backgroundColor: 'rgba(168,85,247,0.12)',
-          borderWidth: 2.5, pointRadius: 3, tension: 0.1, fill: true, yAxisID: 'y',
-        },
-        {
-          label: 'Weight (lbs)',
-          data:  tl.map(r => r.weight),
-          borderColor: '#60a5fa', backgroundColor: 'transparent',
-          borderWidth: 2, pointRadius: 3, tension: 0.3, fill: false,
-          yAxisID: 'y2', spanGaps: true,
-        },
-        {
-          label: 'VO₂max',
-          data:  tl.map(r => r.vo2max),
-          borderColor: '#22c55e', backgroundColor: 'transparent',
-          borderWidth: 2.5, pointRadius: 6, tension: 0.3, fill: false,
-          yAxisID: 'y2', spanGaps: true,
-        },
-      ],
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: '#1a1d27', borderColor: '#2e3250', borderWidth: 1,
-          titleColor: '#e2e8f0', bodyColor: '#8892a4',
-        },
-      },
-      scales: {
-        x: {
-          grid: { color: 'rgba(46,50,80,0.6)' },
-          ticks: { color: '#8892a4', maxRotation: 45, maxTicksLimit: 20, font: { size: 9 } },
-        },
-        y: {
-          title: { display: true, text: '# Kids', color: '#a855f7', font: { size: 10 } },
-          min: 0, max: 4, stepSize: 1,
-          grid: { color: 'rgba(46,50,80,0.6)' },
-          ticks: { color: '#8892a4', font: { size: 10 }, stepSize: 1 },
-        },
-        y2: {
-          position: 'right',
-          title: { display: true, text: 'Weight / VO₂max', color: '#60a5fa', font: { size: 10 } },
-          grid: { display: false },
-          ticks: { color: '#8892a4', font: { size: 10 } },
-        },
-      },
-    },
-  });
-})();
-
-// ---------------------------------------------------------------------------
 // Footer
 // ---------------------------------------------------------------------------
 document.getElementById('footer').textContent =
-  `Generated ${DATA.generated} · ${DATA.n_draws} blood draws · ${(DATA.biomarker_matrix||[]).length} biomarkers analysed`;
+  `Generated ${DATA.generated} · ${DATA.n_draws} blood draws · `+
+  `${(DATA.biomarker_matrix||[]).length} biomarkers · `+
+  `${(DATA.covariate_meta||[]).length} covariates (WHOOP + Strava + Life)`;
 </script>
 </body>
 </html>
