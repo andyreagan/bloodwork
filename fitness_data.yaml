@@ -1,39 +1,112 @@
 vo2max:
-  - date: "2023-06-21"
-    value: 55.6
-    unit: "ml/kg/min"
-    source: "UVM Lab (indirect calorimetry, Connie Tompkins PhD)"
-  - date: "2025-02-15"
-    value: 60.6
-    unit: "ml/kg/min"
-    source: "UMass Empatica study (5-sec peak)"
-
+- date: '2023-06-21'
+  value: 55.6
+  unit: ml/kg/min
+  source: UVM Lab (indirect calorimetry, Connie Tompkins PhD)
+- date: '2025-02-15'
+  value: 60.6
+  unit: ml/kg/min
+  source: UMass Empatica study (5-sec peak)
 weight_lbs:
-  # Add entries like: {date: "2025-01-01", value: 175, source: "scale"}
-  - date: "2018-10-10"
-    value: 165
-    source: "MassMutual policy bloodwork"
-  - date: "2022-12-23"
-    value: 187
-    source: "MassMutual policy bloodwork"
-
+- date: '2018-10-10'
+  value: 165
+  source: MassMutual policy bloodwork
+- date: '2022-12-23'
+  value: 187
+  source: MassMutual policy bloodwork
 ftp_watts:
-  # Cycling Functional Threshold Power
-  # Add entries like: {date: "2025-01-01", value: 260, source: "20-min test"}
-
-marathon_times:
-  # Format: {date: "YYYY-MM-DD", time_seconds: 12345, race: "Boston"}
-  # Example: 3:30:00 = 12600 seconds
-
-5k_times:
-  # Format: {date: "YYYY-MM-DD", time_seconds: 1234, race: "Name"}
-  # Example: 20:00 = 1200 seconds
-
-squat_1rm_lbs:
-  # Format: {date: "YYYY-MM-DD", value: 315}
-
-deadlift_1rm_lbs:
-  # Format: {date: "YYYY-MM-DD", value: 365}
-
-bench_1rm_lbs:
-  # Format: {date: "YYYY-MM-DD", value: 225}
+- date: '2011-06-01'
+  value: 193
+  source: TrainerRoad - Other
+- date: '2014-11-12'
+  value: 223
+  source: TrainerRoad - Other
+- date: '2014-11-23'
+  value: 277
+  source: TrainerRoad - Other
+- date: '2015-01-26'
+  value: 284
+  source: TrainerRoad - Other
+- date: '2016-03-07'
+  value: 280
+  source: TrainerRoad - Other
+- date: '2016-03-18'
+  value: 278
+  source: TrainerRoad - Other
+- date: '2020-09-21'
+  value: 236
+  source: TrainerRoad - Manual Entry
+- date: '2022-05-04'
+  value: 246
+  source: TrainerRoad - Ramp Test
+- date: '2022-06-14'
+  value: 286
+  source: TrainerRoad - Ramp Test
+- date: '2022-07-11'
+  value: 295
+  source: TrainerRoad - AI FTP Detection
+- date: '2022-07-27'
+  value: 302
+  source: TrainerRoad - AI FTP Detection
+- date: '2022-11-27'
+  value: 282
+  source: TrainerRoad - AI FTP Detection
+- date: '2023-01-03'
+  value: 290
+  source: TrainerRoad - AI FTP Detection
+- date: '2023-02-08'
+  value: 290
+  source: TrainerRoad - AI FTP Detection
+- date: '2023-03-12'
+  value: 288
+  source: TrainerRoad - AI FTP Detection
+- date: '2023-04-11'
+  value: 278
+  source: TrainerRoad - Ramp Test
+- date: '2023-12-17'
+  value: 262
+  source: TrainerRoad - AI FTP Detection
+- date: '2024-08-01'
+  value: 259
+  source: TrainerRoad - AI FTP Detection
+- date: '2024-09-18'
+  value: 260
+  source: TrainerRoad - AI FTP Detection
+- date: '2024-10-22'
+  value: 269
+  source: TrainerRoad - AI FTP Detection
+- date: '2025-01-22'
+  value: 281
+  source: TrainerRoad - AI FTP Detection
+- date: '2025-03-31'
+  value: 288
+  source: TrainerRoad - AI FTP Detection
+- date: '2025-05-02'
+  value: 293
+  source: TrainerRoad - AI FTP Detection
+- date: '2025-06-04'
+  value: 289
+  source: TrainerRoad - AI FTP Detection
+- date: '2025-07-31'
+  value: 282
+  source: TrainerRoad - AI FTP Detection
+- date: '2025-09-18'
+  value: 271
+  source: TrainerRoad - Ramp Test
+- date: '2025-12-15'
+  value: 278
+  source: TrainerRoad - AI FTP Detection
+- date: '2026-01-09'
+  value: 282
+  source: TrainerRoad - AI FTP Detection
+- date: '2026-02-06'
+  value: 290
+  source: TrainerRoad - AI FTP Detection
+- date: '2026-03-06'
+  value: 307
+  source: TrainerRoad - AI FTP Detection
+marathon_times: null
+5k_times: null
+squat_1rm_lbs: null
+deadlift_1rm_lbs: null
+bench_1rm_lbs: null
