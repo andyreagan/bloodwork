@@ -157,7 +157,7 @@ reference_ranges:
     unit: mg/L
 draws:
 - date: '2013-01-10'
-  source: Lab
+  source: myChart
   measurements:
     A/G Ratio:
       value: 2.0
@@ -261,6 +261,8 @@ draws:
     eGFR:
       value: 90.0
       unit: mL/min/1.73
+  notes: Oldest records found, pulled from myChart when bloodwork done at home on
+    break from college.
 - date: '2018-09-27'
   source: Lab
   measurements:
@@ -330,6 +332,7 @@ draws:
     Triglycerides:
       value: 74.0
       unit: mg/dL
+  notes: MM (Haven) Policy Bloodwork. Taken in Amherst office by mobile tech.
 - date: '2019-01-14'
   source: Lab
   measurements:
@@ -636,6 +639,7 @@ draws:
     hsCRP:
       value: 0.3
       unit: mg/L
+  notes: First InsideTracker ultimate test.
 - date: '2022-09-30'
   source: Lab
   measurements:
@@ -753,6 +757,7 @@ draws:
     Triglycerides:
       value: 75.0
       unit: mg/dL
+  notes: MM Bloodwork for a second policy.
 - date: '2023-01-03'
   source: Lab
   measurements:
@@ -1035,6 +1040,7 @@ draws:
     hsCRP:
       value: 0.6
       unit: mg/L
+  notes: Second InsideTracker ultimate test from the bundle I bought.
 - date: '2023-11-02'
   source: Lab
   measurements:
@@ -1443,3 +1449,4 @@ draws:
     hsCRP:
       value: 0.5
       unit: mg/L
+  notes: Labcorp results from LifeForce. Belchertown, MA walk-in.
