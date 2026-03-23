@@ -1,6 +1,6 @@
 # Bloodwork Dashboard
 
-Personal bloodwork and fitness tracker. Live at **[andyreagan.github.io/bloodwork](https://andyreagan.github.io/bloodwork)**.
+Personal bloodwork and fitness tracker. Live at **[health.andyreagan.com](https://health.andyreagan.com)**.
 
 ## What it does
 
