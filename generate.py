@@ -353,6 +353,29 @@ def build_html(measurements: dict, ref_ranges: dict, fitness: dict | None = None
 
     # Build summary card data
     cards = []
+
+    # VO2max as first top card (from fitness data)
+    fitness_data = fitness or {}
+    vo2_entries = [e for e in fitness_data.get("vo2max", []) if e]
+    if vo2_entries:
+        latest_vo2 = vo2_entries[-1]
+        v = latest_vo2["value"]
+        if v > 58:
+            vo2_status = "optimal"
+        elif v >= 52:
+            vo2_status = "normal"
+        else:
+            vo2_status = "unknown"
+        cards.append({
+            "name": "VO₂max",
+            "value": v,
+            "unit": "ml/kg/min",
+            "date": latest_vo2["date"],
+            "status": vo2_status,
+            "trend": "↑" if len(vo2_entries) >= 2 and vo2_entries[-1]["value"] > vo2_entries[-2]["value"] else ("↓" if len(vo2_entries) >= 2 and vo2_entries[-1]["value"] < vo2_entries[-2]["value"] else "→"),
+            "is_fitness": True,
+        })
+
     for bm in KEY_BIOMARKERS:
         data = measurements.get(bm)
         if not data:
@@ -454,6 +477,27 @@ def build_html(measurements: dict, ref_ranges: dict, fitness: dict | None = None
     margin-bottom: 1.5rem;
     flex-wrap: wrap;
     gap: 0.75rem;
+  }}
+
+  .header-link {{
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--accent);
+    border-radius: 6px;
+    padding: 0.35rem 0.8rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.15s;
+  }}
+
+  .header-link:hover {{
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
   }}
 
   .header-title h1 {{
@@ -698,6 +742,7 @@ def build_html(measurements: dict, ref_ranges: dict, fitness: dict | None = None
     <p>Bloodwork · Fitness · Performance — personal health dashboard</p>
   </div>
   <div class="header-meta" id="header-meta"></div>
+  <a href="correlations.html" class="header-link">🔬 Correlations &amp; Analysis →</a>
 </header>
 
 <div class="summary-section">
