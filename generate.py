@@ -742,7 +742,8 @@ def build_html(measurements: dict, ref_ranges: dict, fitness: dict | None = None
     <p>Bloodwork · Fitness · Performance — personal health dashboard</p>
   </div>
   <div class="header-meta" id="header-meta"></div>
-  <a href="correlations.html" class="header-link">🔬 Correlations &amp; Analysis →</a>
+  <a href="correlations.html" class="header-link">🔬 Correlations →</a>
+  <a href="models.html" class="header-link">📐 Models →</a>
 </header>
 
 <div class="summary-section">
