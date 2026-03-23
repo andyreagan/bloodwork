@@ -10,7 +10,7 @@ from datetime import date
 DB_FILE = os.path.join(os.path.dirname(__file__), "bloodwork.db")
 HTML_FILE = os.path.join(os.path.dirname(__file__), "index.html")
 
-BIRTH_DATE = date(1989, 7, 25)
+BIRTH_YEAR = 1989
 
 # Dashboard panels: (panel_name, [biomarker_list])
 PANELS = [
@@ -107,9 +107,7 @@ def get_trend(data_points: list) -> str:
 
 def build_html(measurements: dict, ref_ranges: dict) -> str:
     today = date.today()
-    age = today.year - BIRTH_DATE.year - (
-        (today.month, today.day) < (BIRTH_DATE.month, BIRTH_DATE.day)
-    )
+    age = today.year - BIRTH_YEAR
 
     # Build summary card data
     cards = []
@@ -474,11 +472,9 @@ const TREND_LABEL = {{ '↑': 'up', '↓': 'down', '→': 'stable' }};
 
 // Compute age
 function computeAge() {{
-  const birth = new Date(1989, 6, 25); // July = month 6 (0-indexed)
+  const birthYear = 1989;
   const today = new Date();
-  let age = today.getFullYear() - birth.getFullYear();
-  if (today < new Date(today.getFullYear(), birth.getMonth(), birth.getDate())) age--;
-  return age;
+  return today.getFullYear() - birthYear;
 }}
 
 // Render header meta

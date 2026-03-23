@@ -309,11 +309,9 @@ const TREND_LABEL = { '↑': 'up', '↓': 'down', '→': 'stable' };
 
 // Compute age
 function computeAge() {
-  const birth = new Date(1989, 6, 25); // July = month 6 (0-indexed)
+  const birthYear = 1989;
   const today = new Date();
-  let age = today.getFullYear() - birth.getFullYear();
-  if (today < new Date(today.getFullYear(), birth.getMonth(), birth.getDate())) age--;
-  return age;
+  return today.getFullYear() - birthYear;
 }
 
 // Render header meta
