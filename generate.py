@@ -4,6 +4,7 @@ Generate static index.html dashboard from bloodwork_data.yaml.
 """
 import json
 import os
+import sqlite3
 from datetime import date
 
 import yaml
@@ -11,6 +12,7 @@ import yaml
 BLOODWORK_FILE = os.path.join(os.path.dirname(__file__), "bloodwork_data.yaml")
 HTML_FILE = os.path.join(os.path.dirname(__file__), "index.html")
 FITNESS_FILE = os.path.join(os.path.dirname(__file__), "fitness_data.yaml")
+STRAVA_DB = os.path.expanduser("~/projects/strava-database/strava.db")
 
 BIRTH_YEAR = 1989
 
@@ -71,6 +73,92 @@ def load_fitness_data(yaml_path: str) -> dict:
         if data[key] is None:
             data[key] = []
     return data
+
+
+def load_strava_data(db_path: str = STRAVA_DB) -> list[dict]:
+    """Load weekly training volume from Strava SQLite DB.
+
+    Returns a list of week dicts sorted by week ascending, only including
+    weeks with total_hours > 0.  Returns empty list if db_path doesn't exist.
+    """
+    if not os.path.exists(db_path):
+        return []
+
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+
+    # strftime('%W') gives 00-53 (Monday-based ISO-ish week).
+    # We reconstruct the ISO week label as YYYY-Www.
+    query = """
+    SELECT
+        strftime('%Y', start_date_local) AS yr,
+        strftime('%W', start_date_local) AS wk,
+        sport_type,
+        type,
+        SUM(moving_time_s)   AS total_time_s,
+        SUM(distance_m)      AS total_dist_m
+    FROM activities
+    WHERE start_date_local IS NOT NULL
+    GROUP BY yr, wk, sport_type, type
+    ORDER BY yr, wk
+    """
+    cur.execute(query)
+    rows = cur.fetchall()
+    conn.close()
+
+    # Aggregate into week -> group buckets
+    from collections import defaultdict
+    weeks: dict[str, dict[str, float]] = defaultdict(lambda: {
+        "run_hours": 0.0,
+        "run_miles": 0.0,
+        "ride_hours": 0.0,
+        "swim_hours": 0.0,
+        "strength_hours": 0.0,
+        "other_hours": 0.0,
+    })
+
+    for row in rows:
+        yr = row["yr"]
+        wk = row["wk"]
+        week_key = f"{yr}-W{int(wk):02d}"
+        sport = row["sport_type"] or ""
+        typ   = row["type"] or ""
+        hours = (row["total_time_s"] or 0) / 3600.0
+        dist_m = row["total_dist_m"] or 0.0
+
+        # Classify
+        if sport in ("Run", "TrailRun", "VirtualRun") or typ == "Run":
+            weeks[week_key]["run_hours"] += hours
+            weeks[week_key]["run_miles"] += dist_m * 0.000621371
+        elif sport in ("Ride", "VirtualRide", "GravelRide", "MountainBikeRide", "EBikeRide", "Velomobile") or typ == "Ride":
+            weeks[week_key]["ride_hours"] += hours
+        elif sport == "Swim" or typ == "Swim":
+            weeks[week_key]["swim_hours"] += hours
+        elif sport in ("WeightTraining", "Crossfit", "Workout") or typ in ("WeightTraining", "Workout"):
+            weeks[week_key]["strength_hours"] += hours
+        else:
+            weeks[week_key]["other_hours"] += hours
+
+    # Build sorted list, compute totals, apply rounding, filter zeros
+    result = []
+    for week_key in sorted(weeks.keys()):
+        w = weeks[week_key]
+        total = w["run_hours"] + w["ride_hours"] + w["swim_hours"] + w["strength_hours"] + w["other_hours"]
+        if total <= 0:
+            continue
+        result.append({
+            "week":           week_key,
+            "run_miles":      round(w["run_miles"], 1),
+            "run_hours":      round(w["run_hours"], 2),
+            "ride_hours":     round(w["ride_hours"], 2),
+            "swim_hours":     round(w["swim_hours"], 2),
+            "strength_hours": round(w["strength_hours"], 2),
+            "other_hours":    round(w["other_hours"], 2),
+            "total_hours":    round(total, 2),
+        })
+
+    return result
 
 
 def fmt_seconds(secs: int) -> str:
@@ -259,7 +347,7 @@ def build_fitness_panel(fitness: dict) -> dict:
     }
 
 
-def build_html(measurements: dict, ref_ranges: dict, fitness: dict | None = None) -> str:
+def build_html(measurements: dict, ref_ranges: dict, fitness: dict | None = None, strava_weeks: list | None = None) -> str:
     today = date.today()
     age = today.year - BIRTH_YEAR
 
@@ -315,6 +403,7 @@ def build_html(measurements: dict, ref_ranges: dict, fitness: dict | None = None
         "cards": cards,
         "panels": panels_data,
         "fitness": fitness_panel,
+        "strava_weeks": strava_weeks or [],
         "generated": today.isoformat(),
         "age": age,
     }, separators=(',', ':'))
@@ -879,6 +968,191 @@ DATA.panels.forEach((panel, pi) => {{
   panelsEl.appendChild(panelDiv);
 }})();
 
+// ---- Training Tab (Strava weekly volumes) ----
+(function() {{
+  const weeks = DATA.strava_weeks;
+  if (!weeks || weeks.length === 0) return;
+
+  const btn = document.createElement('button');
+  btn.className = 'tab-btn';
+  btn.textContent = '📈 Training';
+  btn.dataset.panel = 'training';
+  btn.addEventListener('click', () => {{
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-training').classList.add('active');
+  }});
+  tabsEl.appendChild(btn);
+
+  const panelDiv = document.createElement('div');
+  panelDiv.className = 'panel';
+  panelDiv.id = 'panel-training';
+
+  const h2 = document.createElement('h2');
+  h2.textContent = '📈 Weekly Training Volume';
+  panelDiv.appendChild(h2);
+
+  // Filter to last 2 years by default
+  const cutoff = (() => {{
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 2);
+    return d.getFullYear() + '-W' + String(getISOWeek(d)).padStart(2,'0');
+  }})();
+  const recent = weeks.filter(w => w.week >= cutoff);
+  const display = recent.length >= 20 ? recent : weeks;
+
+  const labels = display.map(w => w.week);
+
+  // --- Stacked bar: hours by sport ---
+  const volCard = document.createElement('div');
+  volCard.className = 'chart-card';
+  volCard.style.cssText = 'grid-column: 1 / -1;';
+
+  const volHeader = document.createElement('div');
+  volHeader.className = 'chart-header';
+  volHeader.innerHTML = `
+    <div class="chart-title">Weekly Volume (hours by sport)</div>
+    <div class="chart-latest unknown">
+      <div class="val">${{display.length}} <span class="val-unit">weeks</span></div>
+      <div class="val-date">${{display[0].week}} – ${{display[display.length-1].week}}</div>
+    </div>`;
+  volCard.appendChild(volHeader);
+
+  const volWrap = document.createElement('div');
+  volWrap.className = 'chart-wrap';
+  volWrap.style.height = '200px';
+  const volCanvas = document.createElement('canvas');
+  volWrap.appendChild(volCanvas);
+  volCard.appendChild(volWrap);
+
+  const volLeg = document.createElement('div');
+  volLeg.className = 'chart-legend';
+  volLeg.innerHTML = `
+    <div class="legend-item"><div class="legend-swatch" style="background:#f97316"></div>Run</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#3b82f6"></div>Ride</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#06b6d4"></div>Swim</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#a855f7"></div>Strength</div>
+    <div class="legend-item"><div class="legend-swatch" style="background:#6b7280"></div>Other</div>`;
+  volCard.appendChild(volLeg);
+
+  // Charts grid for the two full-width charts
+  const grid = document.createElement('div');
+  grid.className = 'charts-grid';
+  grid.style.cssText = 'grid-template-columns: 1fr;';
+  grid.appendChild(volCard);
+
+  // --- Line chart: run miles ---
+  const milesCard = document.createElement('div');
+  milesCard.className = 'chart-card';
+  milesCard.style.cssText = 'grid-column: 1 / -1;';
+
+  const milesHeader = document.createElement('div');
+  milesHeader.className = 'chart-header';
+  const totalRunMiles = display.reduce((s, w) => s + w.run_miles, 0);
+  milesHeader.innerHTML = `
+    <div class="chart-title">Weekly Run Miles</div>
+    <div class="chart-latest unknown">
+      <div class="val">${{totalRunMiles.toFixed(0)}} <span class="val-unit">total mi shown</span></div>
+    </div>`;
+  milesCard.appendChild(milesHeader);
+
+  const milesWrap = document.createElement('div');
+  milesWrap.className = 'chart-wrap';
+  milesWrap.style.height = '160px';
+  const milesCanvas = document.createElement('canvas');
+  milesWrap.appendChild(milesCanvas);
+  milesCard.appendChild(milesWrap);
+  grid.appendChild(milesCard);
+
+  panelDiv.appendChild(grid);
+  panelsEl.appendChild(panelDiv);
+
+  // Render stacked bar
+  new Chart(volCanvas, {{
+    type: 'bar',
+    data: {{
+      labels,
+      datasets: [
+        {{ label: 'Run',      data: display.map(w => w.run_hours),      backgroundColor: '#f97316', stack: 'vol' }},
+        {{ label: 'Ride',     data: display.map(w => w.ride_hours),     backgroundColor: '#3b82f6', stack: 'vol' }},
+        {{ label: 'Swim',     data: display.map(w => w.swim_hours),     backgroundColor: '#06b6d4', stack: 'vol' }},
+        {{ label: 'Strength', data: display.map(w => w.strength_hours), backgroundColor: '#a855f7', stack: 'vol' }},
+        {{ label: 'Other',    data: display.map(w => w.other_hours),    backgroundColor: '#6b7280', stack: 'vol' }},
+      ],
+    }},
+    options: {{
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {{ mode: 'index', intersect: false }},
+      plugins: {{
+        legend: {{ display: false }},
+        tooltip: {{
+          backgroundColor: '#1a1d27',
+          borderColor: '#2e3250',
+          borderWidth: 1,
+          titleColor: '#e2e8f0',
+          bodyColor: '#8892a4',
+          callbacks: {{
+            label: ctx => ` ${{ctx.dataset.label}}: ${{ctx.parsed.y.toFixed(2)}} h`,
+            footer: items => ` Total: ${{items.reduce((s,i)=>s+i.parsed.y,0).toFixed(2)}} h`,
+          }},
+        }},
+      }},
+      scales: {{
+        x: {{ stacked: true, grid: {{ color: 'rgba(46,50,80,0.6)' }}, ticks: {{ color: '#8892a4', maxRotation: 45, maxTicksLimit: 26, font: {{ size: 9 }} }} }},
+        y: {{ stacked: true, grid: {{ color: 'rgba(46,50,80,0.6)' }}, ticks: {{ color: '#8892a4', font: {{ size: 10 }}, callback: v => v + 'h' }} }},
+      }},
+    }},
+  }});
+
+  // Render run miles line
+  new Chart(milesCanvas, {{
+    type: 'line',
+    data: {{
+      labels,
+      datasets: [{{
+        label: 'Run Miles',
+        data: display.map(w => w.run_miles),
+        borderColor: '#f97316',
+        backgroundColor: 'rgba(249,115,22,0.15)',
+        borderWidth: 2,
+        pointRadius: display.length > 60 ? 0 : 3,
+        pointHoverRadius: 5,
+        tension: 0.3,
+        fill: true,
+      }}],
+    }},
+    options: {{
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {{ mode: 'index', intersect: false }},
+      plugins: {{
+        legend: {{ display: false }},
+        tooltip: {{
+          backgroundColor: '#1a1d27',
+          borderColor: '#2e3250',
+          borderWidth: 1,
+          titleColor: '#e2e8f0',
+          bodyColor: '#8892a4',
+          callbacks: {{ label: ctx => ` ${{ctx.parsed.y.toFixed(1)}} miles` }},
+        }},
+      }},
+      scales: {{
+        x: {{ grid: {{ color: 'rgba(46,50,80,0.6)' }}, ticks: {{ color: '#8892a4', maxRotation: 45, maxTicksLimit: 26, font: {{ size: 9 }} }} }},
+        y: {{ min: 0, grid: {{ color: 'rgba(46,50,80,0.6)' }}, ticks: {{ color: '#8892a4', font: {{ size: 10 }}, callback: v => v + ' mi' }} }},
+      }},
+    }},
+  }});
+}})();
+
+function getISOWeek(date) {{
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}}
+
 function renderFitnessChart(canvas, fc) {{
   const labels = fc.data.map(d => d.date);
   const values = fc.data.map(d => d.value);
@@ -1180,8 +1454,15 @@ def main():
     tracked = [k for k, v in fitness.items() if v]
     print(f"  {len(tracked)} fitness metrics with data: {', '.join(tracked)}")
 
+    print(f"Loading Strava data from {STRAVA_DB}...")
+    strava_weeks = load_strava_data(STRAVA_DB)
+    if strava_weeks:
+        print(f"  {len(strava_weeks)} weeks loaded ({strava_weeks[0]['week']} – {strava_weeks[-1]['week']})")
+    else:
+        print("  Strava DB not found or empty — Training tab will be skipped")
+
     print(f"Generating {HTML_FILE}...")
-    html = build_html(measurements, ref_ranges, fitness)
+    html = build_html(measurements, ref_ranges, fitness, strava_weeks)
     with open(HTML_FILE, "w", encoding="utf-8") as f:
         f.write(html)
 
