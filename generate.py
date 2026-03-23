@@ -606,7 +606,7 @@ def build_html(measurements: dict, ref_ranges: dict, fitness: dict | None = None
 <header>
   <div class="header-title">
     <h1>💪 Andy's Health Dashboard</h1>
-    <p>Bloodwork · Fitness · Performance — private & self-hosted</p>
+    <p>Bloodwork · Fitness · Performance — personal health dashboard</p>
   </div>
   <div class="header-meta" id="header-meta"></div>
 </header>
@@ -647,7 +647,7 @@ document.getElementById('header-meta').innerHTML = `
 const biomarkerCount = DATA.panels.reduce((s,p)=>s+p.charts.length,0);
 const fitnessCount = (DATA.fitness?.charts?.length || 0);
 document.getElementById('footer').textContent =
-  `Generated ${{DATA.generated}} · ${{biomarkerCount}} biomarkers · ${{fitnessCount}} fitness metrics · private`;
+  `Generated ${{DATA.generated}} · ${{biomarkerCount}} biomarkers · ${{fitnessCount}} fitness metrics`;
 
 // Summary cards
 const cardsEl = document.getElementById('cards-grid');
