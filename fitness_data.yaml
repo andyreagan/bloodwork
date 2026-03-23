@@ -476,18 +476,38 @@ marathon_times:
   time_seconds: 11716
   race: Virtual Boston Marathon (take 2)
   strava_id: 4053907192
+- date: '2020-12-31'
+  time_seconds: 31294
+  race: Circum Quabbin FKT
+  note: 85km, got the FKT!
+  strava_id: 4546395643
 - date: '2021-10-09'
   time_seconds: 11187
   race: Hartford Marathon
   strava_id: 6087768988
+- date: '2021-12-22'
+  time_seconds: 23206
+  race: Niagara River
+  note: 65km, cold and very windy
+  strava_id: 6416832977
 - date: '2022-04-18'
   time_seconds: 11729
   race: Boston Marathon 2022
   strava_id: 7003274855
+- date: '2023-10-19'
+  time_seconds: 34058
+  race: Morning Run
+  note: 49km solo effort
+  strava_id: 10069211984
 - date: '2024-05-26'
   time_seconds: 11515
   race: VCM Marathon
   strava_id: 11502678743
+- date: '2024-07-25'
+  time_seconds: 23156
+  race: 35 for 35
+  note: 56km birthday run, got it done!
+  strava_id: 11980614729
 - date: '2024-08-25'
   time_seconds: 11159
   race: New England Green River Marathon
