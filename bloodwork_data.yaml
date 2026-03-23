@@ -1450,3 +1450,374 @@ draws:
       value: 0.5
       unit: mg/L
   notes: Labcorp results from LifeForce. Belchertown, MA walk-in.
+- date: '2025-06-05'
+  source: Labcorp / LifeForce
+  measurements:
+    ALT:
+      value: 32.0
+      unit: IU/L
+    AST:
+      value: 32.0
+      unit: IU/L
+    Albumin:
+      value: 4.4
+      unit: g/dL
+    Alkaline Phosphatase:
+      value: 77.0
+      unit: IU/L
+    Apolipoprotein B:
+      value: 59.0
+      unit: mg/dL
+    BUN:
+      value: 22.0
+      unit: mg/dL
+    BUN/Creatinine Ratio:
+      value: 18.0
+      unit: ''
+    Basophils (%):
+      value: 0.0
+      unit: '%'
+    Basophils (Absolute):
+      value: 0.0
+      unit: K/uL
+    CO2:
+      value: 20.0
+      unit: mmol/L
+    Calcium:
+      value: 9.8
+      unit: mg/dL
+    Chloride:
+      value: 104.0
+      unit: mmol/L
+    Cholesterol:
+      value: 133.0
+      unit: mg/dL
+    Creatinine:
+      value: 1.25
+      unit: mg/dL
+    DHEA-S:
+      value: 339.0
+      unit: ug/dL
+    Eosinophils (%):
+      value: 2.0
+      unit: '%'
+    Eosinophils (Absolute):
+      value: 0.1
+      unit: K/uL
+    Estradiol:
+      value: 41.5
+      unit: pg/mL
+    FSH:
+      value: 4.2
+      unit: mIU/mL
+    Free Testosterone:
+      value: 153.5
+      unit: pg/mL
+    Globulin:
+      value: 2.2
+      unit: g/dL
+    Glucose:
+      value: 97.0
+      unit: mg/dL
+    HDL:
+      value: 53.0
+      unit: mg/dL
+    HbA1c:
+      value: 5.7
+      unit: '%'
+    Hematocrit:
+      value: 46.7
+      unit: '%'
+    Hemoglobin:
+      value: 15.6
+      unit: g/dL
+    Homocysteine:
+      value: 7.4
+      unit: umol/L
+    IGF-1:
+      value: 177.0
+      unit: ng/mL
+    Immature Granulocytes:
+      value: 0.0
+      unit: '%'
+    Immature Granulocytes (Absolute):
+      value: 0.0
+      unit: K/uL
+    LDL:
+      value: 65.0
+      unit: mg/dL
+    LH:
+      value: 7.5
+      unit: mIU/mL
+    Lymphocytes (%):
+      value: 26.0
+      unit: '%'
+    Lymphocytes (Absolute):
+      value: 1.5
+      unit: K/uL
+    MCH:
+      value: 30.9
+      unit: pg
+    MCHC:
+      value: 33.4
+      unit: g/dL
+    MCV:
+      value: 93.0
+      unit: fL
+    Magnesium:
+      value: 2.1
+      unit: mg/dL
+    Monocytes (%):
+      value: 6.0
+      unit: '%'
+    Monocytes (Absolute):
+      value: 0.3
+      unit: K/uL
+    Neutrophils (%):
+      value: 66.0
+      unit: '%'
+    Neutrophils (Absolute):
+      value: 3.9
+      unit: K/uL
+    PSA:
+      value: 0.6
+      unit: ng/mL
+    Platelets:
+      value: 306.0
+      unit: K/uL
+    Potassium:
+      value: 4.8
+      unit: mmol/L
+    RBC:
+      value: 5.05
+      unit: M/uL
+    RDW:
+      value: 12.6
+      unit: '%'
+    SHBG:
+      value: 24.0
+      unit: nmol/L
+    Sodium:
+      value: 141.0
+      unit: mmol/L
+    TSH:
+      value: 1.49
+      unit: uIU/mL
+    Testosterone:
+      value: 608.0
+      unit: ng/dL
+    Total Bilirubin:
+      value: 0.5
+      unit: mg/dL
+    Total Protein:
+      value: 6.6
+      unit: g/dL
+    Triglycerides:
+      value: 78.0
+      unit: mg/dL
+    VLDL:
+      value: 15.0
+      unit: mg/dL
+    Vitamin D:
+      value: 44.4
+      unit: ng/mL
+    WBC:
+      value: 5.9
+      unit: K/uL
+    eGFR:
+      value: 77.0
+      unit: mL/min/1.73
+    hsCRP:
+      value: 0.43
+      unit: mg/L
+  notes: LifeForce Labcorp results, June 2025.
+- date: '2025-12-04'
+  source: WHOOP Labs
+  measurements:
+    ALT:
+      value: 35.0
+      unit: U/L
+    AST:
+      value: 32.0
+      unit: U/L
+    Albumin:
+      value: 4.4
+      unit: g/dL
+    Alkaline Phosphatase:
+      value: 64.0
+      unit: U/L
+    Apolipoprotein B:
+      value: 75.0
+      unit: mg/dL
+    BUN:
+      value: 16.0
+      unit: mg/dL
+    Basophils (%):
+      value: 0.5
+      unit: '%'
+    Basophils (Absolute):
+      value: 0.022
+      unit: K/uL
+    CO2:
+      value: 27.0
+      unit: mmol/L
+    Calcium:
+      value: 9.7
+      unit: mg/dL
+    Cardiac Risk Ratio:
+      value: 2.7
+      unit: ''
+    Chloride:
+      value: 104.0
+      unit: mmol/L
+    Cholesterol:
+      value: 174.0
+      unit: mg/dL
+    Cortisol:
+      value: 11.5
+      unit: µg/dL
+    Creatinine:
+      value: 1.17
+      unit: mg/dL
+    DHEA-S:
+      value: 202.0
+      unit: ug/dL
+    Eosinophils (%):
+      value: 3.0
+      unit: '%'
+    Eosinophils (Absolute):
+      value: 0.129
+      unit: K/uL
+    Estradiol:
+      value: 48.0
+      unit: pg/mL
+    FSH:
+      value: 3.8
+      unit: mIU/mL
+    Ferritin:
+      value: 81.0
+      unit: ng/mL
+    Free Testosterone:
+      value: 93.2
+      unit: pg/mL
+    Globulin:
+      value: 2.2
+      unit: g/dL
+    Glucose:
+      value: 98.0
+      unit: mg/dL
+    HDL:
+      value: 64.0
+      unit: mg/dL
+    HbA1c:
+      value: 5.6
+      unit: '%'
+    Hematocrit:
+      value: 47.5
+      unit: '%'
+    Hemoglobin:
+      value: 15.4
+      unit: g/dL
+    Homocysteine:
+      value: 6.8
+      unit: umol/L
+    Insulin:
+      value: 5.1
+      unit: uIU/mL
+    Iron:
+      value: 158.0
+      unit: ug/dL
+    LDL:
+      value: 93.0
+      unit: mg/dL
+    LH:
+      value: 4.1
+      unit: mIU/mL
+    Lipoprotein(a):
+      value: 9.0
+      unit: nmol/L
+    Lymphocytes (%):
+      value: 31.6
+      unit: '%'
+    Lymphocytes (Absolute):
+      value: 1.359
+      unit: K/uL
+    MCH:
+      value: 30.4
+      unit: pg
+    MCHC:
+      value: 32.4
+      unit: g/dL
+    MCV:
+      value: 93.9
+      unit: fL
+    MPV:
+      value: 9.6
+      unit: fL
+    Monocytes (%):
+      value: 6.7
+      unit: '%'
+    Monocytes (Absolute):
+      value: 0.288
+      unit: K/uL
+    Neutrophils (%):
+      value: 58.2
+      unit: '%'
+    Neutrophils (Absolute):
+      value: 2.503
+      unit: K/uL
+    Non-HDL:
+      value: 110.0
+      unit: mg/dL
+    Platelets:
+      value: 342.0
+      unit: K/uL
+    Potassium:
+      value: 4.7
+      unit: mmol/L
+    RBC:
+      value: 5.06
+      unit: M/uL
+    RDW:
+      value: 12.7
+      unit: '%'
+    SHBG:
+      value: 26.0
+      unit: nmol/L
+    Sodium:
+      value: 139.0
+      unit: mmol/L
+    TIBC:
+      value: 262.0
+      unit: ug/dL
+    TSH:
+      value: 1.68
+      unit: mIU/L
+    Testosterone:
+      value: 548.0
+      unit: ng/dL
+    Total Bilirubin:
+      value: 0.8
+      unit: mg/dL
+    Total Protein:
+      value: 6.6
+      unit: g/dL
+    Transferrin Saturation:
+      value: 60.0
+      unit: '%'
+    Triglycerides:
+      value: 80.0
+      unit: mg/dL
+    Vitamin D:
+      value: 29.0
+      unit: ng/mL
+    WBC:
+      value: 4.3
+      unit: K/uL
+    eGFR:
+      value: 83.0
+      unit: mL/min/1.73m2
+    hsCRP:
+      value: 0.2
+      unit: mg/L
+  notes: WHOOP Labs results via Quest Diagnostics, December 2025.
