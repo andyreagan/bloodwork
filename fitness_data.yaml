@@ -8,9 +8,6 @@ vo2max:
   unit: ml/kg/min
   source: UMass Empatica study (5-sec peak)
 weight_lbs:
-# Garmin Connect monthly averages from historical charts (images 1,2,3,4,5,7,8,9,10,11,12)
-# Apple Health monthly averages preferred where available (images 13,14,15)
-# MassMutual bloodwork entries are exact date measurements
 - date: '2011-07-01'
   value: 174.0
   source: Garmin Connect
@@ -442,211 +439,197 @@ ftp_watts:
   value: 307
   source: TrainerRoad - AI FTP Detection
 marathon_times:
-  # Actual race results scraped from andyreagan.com/running.html and race reports.
-  # Future: estimate performance between races based on training volume
-  # (running miles + cycling TSS) using a decay/fitness model.
-  #
-  # Times not found (no explicit time in race reports):
-  #   2011-11-12 Richmond Marathon (result lost, per post)
-  #   2019-09-08 Presque Isle (PR, Boston-bound for 2020, no exact time)
-  #   2020-09-13 Virtual Boston Take 2 (Strava only)
-  #   2021-10-09 Hartford Marathon (narrative only)
-  #   2022-04-18 Boston Marathon (narrative only)
-  #   2024-05-26 VCM Marathon (narrative only)
-  #   2024-08-25 Green River Marathon ("close-to-3", too approximate)
-  #
-  # 5K times not added: all linked to Strava (auth required), no times in race reports.
-  #   See strava activities: 992716544, 1545398263, 1881920587, 2739115365,
-  #   8943018496, 12063998086, 12774114771, 14366529062, 14540653421
-  - date: "2017-09-10"
-    time_seconds: 10804
-    race: "Presque Isle Marathon"
-    source: "andyreagan.com — qualified for Boston with a 3:00:04"
-  - date: "2018-04-16"
-    time_seconds: 10781
-    race: "Boston Marathon"
-    source: "andyreagan.com — got a PR in 2:59:41"
-  - date: "2019-04-15"
-    time_seconds: 12000
-    race: "Boston Marathon 2019"
-    source: "andyreagan.com — 3:20ish finish (approximate)"
-  - date: "2020-04-20"
-    time_seconds: 10250
-    race: "Virtual Boston Marathon"
-    source: "andyreagan.com — finish time was 2:50:50"
-# No 5K times available from andyreagan.com without Strava authentication.
-# Wins listed on running.html but all times require Strava auth to retrieve.
-5k_times: null
+- date: '2017-09-10'
+  time_seconds: 10804
+  race: Presque Isle Marathon
+  source: andyreagan.com — qualified for Boston with a 3:00:04
+- date: '2018-04-16'
+  time_seconds: 10781
+  race: Boston Marathon
+  source: andyreagan.com — got a PR in 2:59:41
+- date: '2019-04-15'
+  time_seconds: 12000
+  race: Boston Marathon 2019
+  source: andyreagan.com — 3:20ish finish (approximate)
+- date: '2020-04-20'
+  time_seconds: 10250
+  race: Virtual Boston Marathon
+  source: andyreagan.com — finish time was 2:50:50
+5k_times:
+- date: '2025-10-28'
+  time_seconds: 1170
+  race: MassMutual Halloween Hustle 5k
+  note: 1st place overall. AI-designed training plan.
 squat_1rm_lbs:
 - date: '2023-11-01'
   value: 228.1
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2023-12-01'
   value: 289.7
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2024-01-01'
   value: 302.0
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2024-09-01'
   value: 252.7
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2024-10-01'
   value: 277.4
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2025-03-01'
   value: 203.4
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2025-04-01'
   value: 215.7
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2025-05-01'
   value: 240.4
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2025-09-01'
   value: 215.7
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2025-10-01'
   value: 234.2
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2025-11-01'
   value: 326.7
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2025-12-01'
   value: 351.4
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2026-01-01'
   value: 289.7
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 deadlift_1rm_lbs:
 - date: '2023-11-01'
   value: 277.4
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2023-12-01'
   value: 339.0
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2024-01-01'
   value: 351.4
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2024-09-01'
   value: 277.4
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2024-10-01'
   value: 425.4
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2025-03-01'
   value: 302.0
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2025-04-01'
   value: 326.7
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2025-05-01'
   value: 376.0
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2025-09-01'
   value: 339.0
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2025-10-01'
   value: 388.4
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2025-11-01'
   value: 450.0
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2025-12-01'
   value: 425.4
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 bench_1rm_lbs:
 - date: '2023-11-01'
   value: 178.7
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2023-12-01'
   value: 209.6
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2024-01-01'
   value: 221.9
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2024-04-01'
   value: 197.2
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2024-06-01'
   value: 203.4
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2024-09-01'
   value: 178.7
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2024-10-01'
   value: 221.9
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2025-03-01'
   value: 154.1
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2025-04-01'
   value: 178.7
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2025-05-01'
   value: 215.7
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2025-09-01'
   value: 191.1
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2025-10-01'
   value: 203.4
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2025-11-01'
   value: 228.1
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2025-12-01'
   value: 246.6
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2026-01-01'
   value: 215.7
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 overhead_press_1rm_lbs:
 - date: '2023-11-01'
   value: 86.3
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2023-12-01'
   value: 117.1
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2024-01-01'
   value: 110.9
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2024-09-01'
   value: 92.4
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 barbell_row_1rm_lbs:
 - date: '2023-11-01'
   value: 86.3
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2023-12-01'
   value: 123.3
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2024-01-01'
   value: 129.4
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2024-09-01'
   value: 117.1
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2024-10-01'
   value: 141.8
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2025-03-01'
   value: 104.8
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2025-04-01'
   value: 104.8
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2025-05-01'
   value: 129.4
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2025-09-01'
   value: 117.1
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2025-10-01'
   value: 123.3
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2025-12-01'
   value: 117.1
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
 - date: '2026-01-01'
   value: 117.1
-  source: 'StrongLifts e1RM (LB)'
+  source: StrongLifts e1RM (LB)
