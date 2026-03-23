@@ -25,6 +25,12 @@ HTML_FILE      = os.path.join(os.path.dirname(__file__), "correlations.html")
 STRAVA_DB = os.path.expanduser("~/projects/2026/strava-database/strava.db")
 WHOOP_DB  = os.path.expanduser("~/projects/2026/whoop-database/whoop.db")
 
+# Lab-measured VO₂max anchors (date, value)
+LAB_VO2MAX = [
+    ("2023-06-21", 55.6),  # UVM Lab indirect calorimetry
+    ("2025-02-15", 60.6),  # UMass Empatica study
+]
+
 BIRTH_YEAR = 1989
 
 LIFE_EVENTS = [
@@ -86,6 +92,224 @@ WEARABLE_COVARIATES = [
     ("weight",                "Weight (lbs)",                "?", "Life"),
     ("vo2max",                "VO₂max (ml/kg/min)",          "+", "Fitness"),
 ]
+
+
+# ---------------------------------------------------------------------------
+# VO₂max estimation
+# ---------------------------------------------------------------------------
+
+def vdot_from_race(dist_m: float, time_s: float) -> float | None:
+    """Jack Daniels VDOT formula. Returns VO₂max equivalent."""
+    import math
+    if time_s <= 0 or dist_m <= 0:
+        return None
+    t = time_s / 60.0          # minutes
+    v = dist_m / t             # m/min
+    pct_max = (0.8 + 0.1894393 * math.exp(-0.012778 * t)
+                   + 0.2989558 * math.exp(-0.1932605 * t))
+    vo2_at_pace = -4.60 + 0.182258 * v + 0.000104 * v ** 2
+    if pct_max <= 0:
+        return None
+    return vo2_at_pace / pct_max
+
+
+def build_vo2max_series(fitness: dict, strava_db: str) -> list[dict]:
+    """
+    Build a dense estimated VO₂max series combining:
+      1. Lab measurements (exact anchors)
+      2. VDOT from marathon / 5K times in fitness_data.yaml
+      3. FTP w/kg via Coggan formula, calibrated to lab anchors
+
+    Returns list of {date, value, source, method} sorted by date.
+    """
+    import math, sqlite3
+
+    points: list[dict] = []
+
+    # -- 1. Lab anchors (highest trust) --
+    for date_str, val in LAB_VO2MAX:
+        points.append({"date": date_str, "value": val,
+                        "source": "Lab", "method": "lab"})
+
+    # -- 2. VDOT from stored race times --
+    MARATHON_M = 42195.0
+    HALF_M     = 21097.5
+
+    for entry in fitness.get("marathon_times", []):
+        secs = entry.get("time_seconds", 0)
+        dist = entry.get("dist_m", MARATHON_M)  # default marathon
+        # skip ultras / very slow efforts (>5h for marathon distance)
+        if dist == MARATHON_M and secs > 5 * 3600:
+            continue
+        if dist == HALF_M and secs > 2.5 * 3600:
+            continue
+        vd = vdot_from_race(dist, secs)
+        if vd and 30 < vd < 80:
+            points.append({"date": entry["date"], "value": round(vd, 1),
+                            "source": entry.get("race", "Race"),
+                            "method": "vdot_marathon"})
+
+    for entry in fitness.get("5k_times", []):
+        secs = entry.get("time_seconds", 0)
+        vd = vdot_from_race(5000, secs)
+        if vd and 30 < vd < 80:
+            points.append({"date": entry["date"], "value": round(vd, 1),
+                            "source": entry.get("race", "5K"),
+                            "method": "vdot_5k"})
+
+    # -- 3. Best race efforts from Strava (workout_type=1 race) --
+    if os.path.exists(strava_db):
+        conn = sqlite3.connect(strava_db)
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        # Get best effort per year-month at classic distances
+        cur.execute("""
+            SELECT date(start_date_local) as dt,
+                   distance_m, moving_time_s, name,
+                   sport_type
+            FROM activities
+            WHERE sport_type IN ('Run','VirtualRun','TrailRun')
+              AND moving_time_s > 0
+              AND distance_m > 3000
+              AND manual = 0
+            ORDER BY dt
+        """)
+        rows = cur.fetchall()
+        conn.close()
+
+        # Per month keep the fastest pace effort at each standard distance band
+        from collections import defaultdict
+        monthly_best: dict[str, dict] = defaultdict(lambda: {
+            "5k": None, "10k": None, "hm": None, "fm": None,
+        })
+        for r in rows:
+            ym = r["dt"][:7]
+            d, t = r["distance_m"], r["moving_time_s"]
+            # 5K band
+            if 4600 <= d <= 5400:
+                cur_best = monthly_best[ym]["5k"]
+                if cur_best is None or t < cur_best[1]:
+                    monthly_best[ym]["5k"] = (r["dt"], t, d)
+            # 10K band
+            if 9500 <= d <= 10500:
+                cur_best = monthly_best[ym]["10k"]
+                if cur_best is None or t < cur_best[1]:
+                    monthly_best[ym]["10k"] = (r["dt"], t, d)
+            # Half marathon band
+            if 20000 <= d <= 22000:
+                cur_best = monthly_best[ym]["hm"]
+                if cur_best is None or t < cur_best[1]:
+                    monthly_best[ym]["hm"] = (r["dt"], t, d)
+            # Marathon band (not ultra)
+            if 41000 <= d <= 43500:
+                cur_best = monthly_best[ym]["fm"]
+                if cur_best is None or t < cur_best[1]:
+                    monthly_best[ym]["fm"] = (r["dt"], t, d)
+
+        for ym, bests in sorted(monthly_best.items()):
+            for band, entry in bests.items():
+                if entry is None:
+                    continue
+                dt, t, d = entry
+                vd = vdot_from_race(d, t)
+                if vd and 30 < vd < 80:
+                    points.append({"date": dt, "value": round(vd, 1),
+                                   "source": f"Strava {band.upper()} best",
+                                   "method": f"vdot_{band}"})
+
+    # -- 4. FTP-based estimates --
+    weight_lookup = make_prior_lookup(fitness.get("weight_lbs", []))
+    for entry in fitness.get("ftp_watts", []):
+        d = entry["date"]
+        w_lbs = weight_lookup(d)
+        if w_lbs is None:
+            continue
+        w_kg   = w_lbs * 0.453592
+        w_per_kg = entry["value"] / w_kg
+        # Coggan: VO₂max ≈ (w/kg × 10.8) + 7
+        ftp_est = w_per_kg * 10.8 + 7
+        points.append({"date": d, "value": round(ftp_est, 1),
+                        "source": entry.get("source", "FTP"),
+                        "method": "ftp_coggan"})
+
+    # -- Calibrate non-lab estimates against lab anchors --
+    # Strategy: for each lab anchor, find the FTP/VDOT estimates within ±180 days,
+    # compute a per-method bias correction, then apply globally.
+    lab_dates  = [p["date"] for p in points if p["method"] == "lab"]
+    lab_vals   = {p["date"]: p["value"] for p in points if p["method"] == "lab"}
+
+    if len(lab_dates) >= 2:
+        # Two lab anchors: compute per-method scale factor at each anchor date,
+        # then linearly interpolate/extrapolate for points between/outside them.
+        lab_sorted = sorted(lab_dates)
+        lab_dt = [datetime.strptime(d, "%Y-%m-%d") for d in lab_sorted]
+
+        from collections import defaultdict
+        # For each anchor, compute per-method ratio using points within ±120 days
+        anchor_ratios: list[dict[str, float]] = []  # one dict per anchor
+        for ld in lab_sorted:
+            ld_dt = datetime.strptime(ld, "%Y-%m-%d")
+            ratios: dict[str, list] = defaultdict(list)
+            for p in points:
+                if p["method"] == "lab":
+                    continue
+                gap = abs((datetime.strptime(p["date"], "%Y-%m-%d") - ld_dt).days)
+                if gap <= 120:
+                    ratios[p["method"]].append(lab_vals[ld] / p["value"])
+            anchor_ratios.append({m: sum(v)/len(v) for m, v in ratios.items()})
+
+        def interp_scale(method: str, date_str: str) -> float:
+            """Linearly interpolate per-method scale between the two lab anchors."""
+            p_dt = datetime.strptime(date_str, "%Y-%m-%d")
+            r0 = anchor_ratios[0].get(method)
+            r1 = anchor_ratios[1].get(method)
+            if r0 is None and r1 is None:
+                return 1.0
+            if r0 is None:
+                return r1
+            if r1 is None:
+                return r0
+            # Linear interpolation
+            span = (lab_dt[1] - lab_dt[0]).days
+            t = (p_dt - lab_dt[0]).days / span if span > 0 else 0.5
+            t = max(0.0, min(1.0, t))  # clamp — don't extrapolate wildly
+            return r0 + t * (r1 - r0)
+
+        for p in points:
+            if p["method"] != "lab":
+                scale = interp_scale(p["method"], p["date"])
+                p["value"] = round(p["value"] * scale, 1)
+                p["calibrated"] = True
+
+    elif len(lab_dates) == 1:
+        # Single anchor: compute per-method ratio within ±180 days
+        ld = lab_dates[0]
+        ld_dt = datetime.strptime(ld, "%Y-%m-%d")
+        from collections import defaultdict
+        method_ratios: dict[str, list] = defaultdict(list)
+        for p in points:
+            if p["method"] == "lab":
+                continue
+            gap = abs((datetime.strptime(p["date"], "%Y-%m-%d") - ld_dt).days)
+            if gap <= 180:
+                method_ratios[p["method"]].append(lab_vals[ld] / p["value"])
+        method_scale = {m: sum(v)/len(v) for m, v in method_ratios.items()}
+        for p in points:
+            if p["method"] != "lab":
+                scale = method_scale.get(p["method"], 1.0)
+                p["value"] = round(p["value"] * scale, 1)
+                p["calibrated"] = True
+
+    # Sort and deduplicate: per date keep highest-trust value
+    # Trust order: lab > vdot_marathon > vdot_5k > vdot_hm > vdot_fm > vdot_10k > ftp_coggan
+    METHOD_TRUST = {
+        "lab": 0, "vdot_marathon": 1, "vdot_5k": 2,
+        "vdot_hm": 3, "vdot_fm": 4, "vdot_10k": 5, "ftp_coggan": 6,
+    }
+    points.sort(key=lambda p: (p["date"], METHOD_TRUST.get(p["method"], 9)))
+
+    # Keep all points but flag them — the caller can choose how to use them
+    return points
 
 
 # ---------------------------------------------------------------------------
@@ -293,10 +517,27 @@ def load_strava_windows(db_path: str, draw_dates: list[str]) -> dict[str, dict]:
 # ---------------------------------------------------------------------------
 
 def build_payload(measurements: dict, fitness: dict,
-                  whoop_windows: dict, strava_windows: dict) -> dict:
+                  whoop_windows: dict, strava_windows: dict,
+                  vo2max_series: list[dict]) -> dict:  # noqa: E501
 
     weight_lookup = make_prior_lookup(fitness.get("weight_lbs", []))
-    vo2_lookup    = make_prior_lookup(fitness.get("vo2max", []))
+
+    # Build a best-estimate VO₂max lookup from the rich series.
+    # Per date keep the highest-trust (lowest METHOD_TRUST) value; then
+    # make_prior_lookup will give the nearest prior value for any draw date.
+    METHOD_TRUST = {
+        "lab": 0, "vdot_marathon": 1, "vdot_5k": 2,
+        "vdot_hm": 3, "vdot_fm": 4, "vdot_10k": 5, "ftp_coggan": 6,
+    }
+    # Collapse to one best point per date
+    best_by_date: dict[str, dict] = {}
+    for p in vo2max_series:
+        d = p["date"]
+        if d not in best_by_date or (METHOD_TRUST.get(p["method"], 9) <
+                                      METHOD_TRUST.get(best_by_date[d]["method"], 9)):
+            best_by_date[d] = p
+    vo2_dense = sorted(best_by_date.values(), key=lambda p: p["date"])
+    vo2_lookup = make_prior_lookup(vo2_dense)
 
     # All blood-draw dates
     all_dates = sorted({pt["date"] for pts in measurements.values() for pt in pts})
@@ -518,6 +759,7 @@ def build_payload(measurements: dict, fitness: dict,
         "timeline":           timeline,
         "life_events":        LIFE_EVENTS,
         "insights":           insights,
+        "vo2max_series":      vo2max_series,
         "generated":          date.today().isoformat(),
         "n_draws":            len(all_dates),
     }
@@ -1123,6 +1365,180 @@ addTab('📅 Timeline', 'timeline', panel => {{
 }});
 
 // ---------------------------------------------------------------------------
+// Tab 6: VO₂max estimated series
+// ---------------------------------------------------------------------------
+addTab('🫁 VO₂max', 'vo2max', panel => {{
+  const sec = mkSection(
+    'Estimated VO₂max — Full History (2011–2026)',
+    `Lab measurements (2 points) anchored to estimated series from:
+     <strong>VDOT</strong> (Jack Daniels formula from race times) and
+     <strong>FTP w/kg</strong> (Coggan formula, calibrated to lab values).
+     Non-lab estimates are scaled so they match the lab anchors within ±180 days.
+     Each method shown in a different colour. Blood-draw dates marked.`
+  );
+
+  const series = DATA.vo2max_series || [];
+  if (series.length === 0) {{ panel.appendChild(sec); return; }}
+
+  // Group by method for separate datasets
+  const METHOD_COLOR = {{
+    'lab':            '#ffffff',
+    'vdot_marathon':  '#22c55e',
+    'vdot_5k':        '#86efac',
+    'vdot_hm':        '#4ade80',
+    'vdot_fm':        '#34d399',
+    'vdot_10k':       '#6ee7b7',
+    'ftp_coggan':     '#60a5fa',
+  }};
+  const METHOD_LABEL = {{
+    'lab':           'Lab (measured)',
+    'vdot_marathon': 'VDOT from marathon',
+    'vdot_5k':       'VDOT from 5K',
+    'vdot_hm':       'VDOT from half marathon',
+    'vdot_fm':       'VDOT from full marathon (Strava)',
+    'vdot_10k':      'VDOT from 10K',
+    'ftp_coggan':    'FTP-based (Coggan, calibrated)',
+  }};
+
+  // All unique dates sorted for x-axis
+  const allDates = [...new Set(series.map(p => p.date))].sort();
+
+  // Build per-method datasets
+  const methods = [...new Set(series.map(p => p.method))];
+  const datasets = methods.map(method => {{
+    const pts = series.filter(p => p.method === method);
+    const ptMap = Object.fromEntries(pts.map(p => [p.date, p.value]));
+    const isLab = method === 'lab';
+    return {{
+      label: METHOD_LABEL[method] || method,
+      data: allDates.map(d => ptMap[d] ?? null),
+      borderColor: METHOD_COLOR[method] || '#818cf8',
+      backgroundColor: isLab ? 'white' : 'transparent',
+      borderWidth: isLab ? 0 : 1.5,
+      pointRadius: isLab ? 10 : (method.startsWith('vdot') ? 4 : 3),
+      pointStyle: isLab ? 'star' : 'circle',
+      pointHoverRadius: 7,
+      tension: 0.3,
+      fill: false,
+      spanGaps: false,
+    }};
+  }});
+
+  // Blood-draw date annotations plugin
+  const drawDates = (DATA.timeline || []).map(r => r.date);
+  const drawPlugin = {{
+    id: 'drawDates',
+    afterDraw(chart) {{
+      const {{ ctx, chartArea: {{ top, bottom }}, scales: {{ x }} }} = chart;
+      if (!x) return;
+      drawDates.forEach(dd => {{
+        const idx = allDates.indexOf(dd);
+        if (idx < 0) return;
+        const xPx = x.getPixelForValue(idx);
+        ctx.save();
+        ctx.beginPath(); ctx.moveTo(xPx, top); ctx.lineTo(xPx, bottom);
+        ctx.strokeStyle = 'rgba(234,179,8,0.35)'; ctx.lineWidth = 1;
+        ctx.setLineDash([3,3]); ctx.stroke();
+        ctx.restore();
+      }});
+    }},
+  }};
+
+  const card = document.createElement('div');
+  card.className = 'chart-card full-card';
+  const hdr = document.createElement('div');
+  hdr.className = 'chart-header';
+  hdr.innerHTML = `<div class="chart-title">VO₂max estimated series — ${{series.length}} data points</div>`;
+  card.appendChild(hdr);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'chart-wrap';
+  wrap.style.height = '280px';
+  const canvas = document.createElement('canvas');
+  wrap.appendChild(canvas);
+  card.appendChild(wrap);
+
+  // Legend
+  const leg = document.createElement('div');
+  leg.className = 'chart-legend';
+  leg.style.marginTop = '0.6rem';
+  methods.forEach(m => {{
+    leg.innerHTML += `<div class="legend-item">
+      <div class="legend-swatch" style="background:${{METHOD_COLOR[m]||'#818cf8'}};border-radius:50%;width:10px;height:10px;"></div>
+      ${{METHOD_LABEL[m]||m}}
+    </div>`;
+  }});
+  leg.innerHTML += `<div class="legend-item">
+    <div style="width:12px;height:2px;background:rgba(234,179,8,0.5);display:inline-block;margin-right:4px;"></div>Blood draw date
+  </div>`;
+  card.appendChild(leg);
+
+  const grid = document.createElement('div');
+  grid.className = 'charts-grid';
+  grid.style.gridTemplateColumns = '1fr';
+  grid.appendChild(card);
+  sec.appendChild(grid);
+  panel.appendChild(sec);
+
+  // Summary stats card
+  const labPts = series.filter(p => p.method === 'lab');
+  const ftpPts = series.filter(p => p.method === 'ftp_coggan');
+  const vdotPts = series.filter(p => p.method.startsWith('vdot'));
+  const statSec = mkSection('Coverage Summary', null);
+  const statGrid = document.createElement('div');
+  statGrid.className = 'pair-grid';
+  [
+    ['🔬 Lab measurements', labPts.length + ' actual VO₂max tests', '#ffffff'],
+    ['🏃 VDOT from races', vdotPts.length + ' race-derived estimates', '#22c55e'],
+    ['🚴 FTP-based (calibrated)', ftpPts.length + ' cycling estimates', '#60a5fa'],
+    ['📅 Total span', (allDates[0]||'?') + ' → ' + (allDates[allDates.length-1]||'?'), '#818cf8'],
+  ].forEach(([name, val, col]) => {{
+    const card2 = document.createElement('div');
+    card2.className = 'pair-card';
+    card2.style.borderLeft = `3px solid ${{col}}`;
+    card2.innerHTML = `<div class="pair-name">${{name}}</div><div class="pair-r" style="color:${{col}};font-size:0.95rem;">${{val}}</div>`;
+    statGrid.appendChild(card2);
+  }});
+  statSec.appendChild(statGrid);
+  panel.appendChild(statSec);
+
+  new Chart(canvas, {{
+    type: 'line',
+    plugins: [drawPlugin],
+    data: {{ labels: allDates, datasets }},
+    options: {{
+      responsive: true, maintainAspectRatio: false,
+      interaction: {{ mode: 'index', intersect: false }},
+      plugins: {{
+        legend: {{ display: false }},
+        tooltip: {{
+          backgroundColor: '#1a1d27', borderColor: '#2e3250', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#8892a4',
+          callbacks: {{
+            label: ctx => ctx.parsed.y !== null
+              ? ` ${{ctx.dataset.label}}: ${{ctx.parsed.y.toFixed(1)}} ml/kg/min`
+              : null,
+          }},
+          filter: item => item.parsed.y !== null,
+        }},
+      }},
+      scales: {{
+        x: {{
+          grid: {{ color: 'rgba(46,50,80,0.6)' }},
+          ticks: {{ color: '#8892a4', maxRotation: 45, maxTicksLimit: 24, font: {{ size: 9 }} }},
+        }},
+        y: {{
+          title: {{ display: true, text: 'VO₂max (ml/kg/min)', color: '#8892a4', font: {{ size: 10 }} }},
+          min: 35, max: 70,
+          grid: {{ color: 'rgba(46,50,80,0.6)' }},
+          ticks: {{ color: '#8892a4', font: {{ size: 10 }} }},
+        }},
+      }},
+    }},
+  }});
+}});
+
+// ---------------------------------------------------------------------------
 // Shared: render scatter card
 // ---------------------------------------------------------------------------
 function renderScatterCard(container, sp) {{
@@ -1237,8 +1653,15 @@ def main():
     scovered = sum(1 for d in all_dates if strava_windows.get(d, {}).get("strava_hrs_90d") is not None)
     print(f"  {scovered}/{len(all_dates)} draw dates have Strava 90-day data")
 
+    print("Building estimated VO₂max series...")
+    vo2max_series = build_vo2max_series(fitness, STRAVA_DB)
+    methods = {}
+    for p in vo2max_series:
+        methods[p["method"]] = methods.get(p["method"], 0) + 1
+    print(f"  {len(vo2max_series)} points: " + ", ".join(f"{k}×{v}" for k, v in sorted(methods.items())))
+
     print("Building correlation payload...")
-    payload = build_payload(measurements, fitness, whoop_windows, strava_windows)
+    payload = build_payload(measurements, fitness, whoop_windows, strava_windows, vo2max_series)
     print(f"  {len(payload['biomarker_matrix'])} biomarkers × {len(payload['covariate_meta'])} covariates")
     print(f"  {len(payload['top_cov_bm'])} top wearable→biomarker pairs")
     print(f"  {len(payload['top_bm_pairs'])} top biomarker–biomarker pairs")
