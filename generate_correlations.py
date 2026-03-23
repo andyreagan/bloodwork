@@ -9,7 +9,18 @@ Data sources:
   - whoop.db             → sleep / recovery / HRV windows before each draw
 
 For each blood-draw date we build 30-day and 90-day rolling averages of
-every wearable / training signal, then correlate those with biomarkers.
+every wearable / training signal.
+
+Statistics used:
+  - Raw Pearson r (between covariate and biomarker)
+  - Age-adjusted partial r (residuals after regressing both variables on age)
+
+Partial correlation is the right tool here: with n=6–17 data points we
+can't fit multivariate models without severe overfitting, but we *can*
+remove the confounding linear trend of age from both sides before
+computing r.  This answers "does sleep predict hsCRP beyond what aging
+alone explains?" rather than "does everything that correlates with age
+also correlate with each other?"
 """
 import json
 import os
@@ -330,6 +341,34 @@ def pearson_r(xs: list[float], ys: list[float]) -> float | None:
     return num / (dx * dy)
 
 
+def residuals(xs: list[float], ys: list[float]) -> list[float]:
+    """OLS residuals of ys regressed on xs. Returns ys unchanged if regression fails."""
+    reg = ols(xs, ys)
+    if reg is None:
+        return list(ys)
+    slope, intercept = reg
+    return [y - (slope * x + intercept) for x, y in zip(xs, ys)]
+
+
+def partial_r(xs: list[float], ys: list[float],
+              control: list[float]) -> float | None:
+    """
+    Partial Pearson r between xs and ys after linearly controlling for `control`.
+
+    Method: regress both xs and ys on `control`, then correlate the residuals.
+    This removes the shared linear trend in `control` from both variables before
+    computing their correlation — equivalent to the textbook partial-r formula.
+
+    Returns None if n < 4 or variance is zero.
+    """
+    n = len(xs)
+    if n < 4 or len(ys) != n or len(control) != n:
+        return None
+    rx = residuals(control, xs)
+    ry = residuals(control, ys)
+    return pearson_r(rx, ry)
+
+
 def ols(xs: list[float], ys: list[float]) -> tuple[float, float] | None:
     n = len(xs)
     if n < 2:
@@ -568,6 +607,7 @@ def build_payload(measurements: dict, fitness: dict,
 
     # ------------------------------------------------------------------
     # 1. Biomarker × covariate correlation matrix
+    #    For each pair: raw r AND age-adjusted partial r
     # ------------------------------------------------------------------
     biomarker_matrix = []
     for bm in BIOMARKERS_FOR_CORR:
@@ -575,38 +615,53 @@ def build_payload(measurements: dict, fitness: dict,
         if not data or len(data) < 3:
             continue
 
-        cov_rs: dict[str, float | None] = {}
+        cov_rs:      dict[str, float | None] = {}  # raw r
+        cov_partial: dict[str, float | None] = {}  # age-adjusted partial r
         bm_vals_by_date = {pt["date"]: pt["value"] for pt in data}
 
         for ckey in covariate_keys:
-            # Age/kids/weight/vo2max: use all draw dates (n can be low but they span 10+ years)
-            # Wearable features: require ≥5 draws to avoid spurious r=1 on 3 points
             min_n = 4 if ckey in ("age", "kids", "weight", "vo2max") else 5
-            pairs = [
-                (cov_rows[d][ckey], bm_vals_by_date[d])
-                for d in all_dates
+            # Shared dates where we have both the covariate AND the biomarker
+            shared = [
+                d for d in all_dates
                 if d in bm_vals_by_date and cov_rows[d].get(ckey) is not None
             ]
-            if len(pairs) >= min_n:
-                r = pearson_r([p[0] for p in pairs], [p[1] for p in pairs])
-                cov_rs[ckey] = round(r, 3) if r is not None else None
+            if len(shared) < min_n:
+                cov_rs[ckey]      = None
+                cov_partial[ckey] = None
+                continue
+
+            cov_vals = [cov_rows[d][ckey]      for d in shared]
+            bm_vals  = [bm_vals_by_date[d]     for d in shared]
+            age_vals = [cov_rows[d]["age"]      for d in shared]
+
+            r = pearson_r(cov_vals, bm_vals)
+            cov_rs[ckey] = round(r, 3) if r is not None else None
+
+            # Age-adjusted: skip if ckey IS age, or if n < 5 (need df for residuals)
+            if ckey == "age" or len(shared) < 5:
+                cov_partial[ckey] = None
             else:
-                cov_rs[ckey] = None
+                pr = partial_r(cov_vals, bm_vals, age_vals)
+                cov_partial[ckey] = round(pr, 3) if pr is not None else None
 
         biomarker_matrix.append({
-            "name": bm,
-            "n":    len(data),
-            **cov_rs,
+            "name":    bm,
+            "n":       len(data),
+            "r":       cov_rs,       # {ckey: raw_r}
+            "partial": cov_partial,  # {ckey: age_adj_r}
+            # keep flat copies of classic covariates for backward compat in JS
+            **{k: cov_rs.get(k) for k in ["age", "kids", "weight", "vo2max"]},
         })
 
-    # Sort by max |r| across classic covariates (age / kids / weight / vo2max)
+    # Sort by max |raw r| across classic covariates
     biomarker_matrix.sort(
         key=lambda x: max(abs(x.get(k) or 0) for k in ["age", "kids", "weight", "vo2max"]),
         reverse=True,
     )
 
     # ------------------------------------------------------------------
-    # 2. Top wearable × biomarker correlations (all pairs, ranked)
+    # 2. Top wearable × biomarker correlations — raw AND age-adjusted
     # ------------------------------------------------------------------
     all_cov_bm_pairs = []
     for bm in BIOMARKERS_FOR_CORR:
@@ -615,27 +670,46 @@ def build_payload(measurements: dict, fitness: dict,
         bm_vals_by_date = bm_date_val[bm]
         for ckey, clabel, _, csource in WEARABLE_COVARIATES:
             min_n = 4 if ckey in ("age", "kids", "weight", "vo2max") else 5
-            pairs = [
-                (cov_rows[d].get(ckey), bm_vals_by_date.get(d))
-                for d in all_dates
+            shared = [
+                d for d in all_dates
                 if bm_vals_by_date.get(d) is not None and cov_rows[d].get(ckey) is not None
             ]
-            if len(pairs) < min_n:
+            if len(shared) < min_n:
                 continue
-            r = pearson_r([p[0] for p in pairs], [p[1] for p in pairs])
+
+            cov_vals = [cov_rows[d][ckey]  for d in shared]
+            bm_vals  = [bm_vals_by_date[d] for d in shared]
+            age_vals = [cov_rows[d]["age"]  for d in shared]
+
+            r = pearson_r(cov_vals, bm_vals)
             if r is None:
                 continue
+
+            # Age-adjusted partial r (skip for age itself, and need n>=5)
+            pr = None
+            if ckey != "age" and len(shared) >= 5:
+                pr = partial_r(cov_vals, bm_vals, age_vals)
+
             all_cov_bm_pairs.append({
-                "biomarker": bm,
-                "covariate": clabel,
-                "cov_key":   ckey,
-                "source":    csource,
-                "r":         round(r, 3),
-                "n":         len(pairs),
+                "biomarker":   bm,
+                "covariate":   clabel,
+                "cov_key":     ckey,
+                "source":      csource,
+                "r":           round(r, 3),
+                "partial_r":   round(pr, 3) if pr is not None else None,
+                "n":           len(shared),
             })
 
+    # Raw ranking
     all_cov_bm_pairs.sort(key=lambda x: abs(x["r"]), reverse=True)
     top_cov_bm = all_cov_bm_pairs[:30]
+
+    # Age-adjusted ranking (only pairs where partial_r exists)
+    top_cov_bm_adj = sorted(
+        [x for x in all_cov_bm_pairs if x["partial_r"] is not None],
+        key=lambda x: abs(x["partial_r"]),
+        reverse=True,
+    )[:30]
 
     # ------------------------------------------------------------------
     # 3. Top pairwise biomarker–biomarker correlations
@@ -746,13 +820,14 @@ def build_payload(measurements: dict, fitness: dict,
     # ------------------------------------------------------------------
     # 7. Auto-generated insights
     # ------------------------------------------------------------------
-    insights = _build_insights(biomarker_matrix, top_cov_bm, top_bm_pairs)
+    insights = _build_insights(biomarker_matrix, top_cov_bm_adj, top_cov_bm, top_bm_pairs)
 
     return {
         "biomarker_matrix":   biomarker_matrix,
         "covariate_meta":     [{"key": c[0], "label": c[1], "higher": c[2], "source": c[3]}
                                for c in WEARABLE_COVARIATES],
         "top_cov_bm":         top_cov_bm,
+        "top_cov_bm_adj":     top_cov_bm_adj,
         "top_bm_pairs":       top_bm_pairs,
         "scatter_pairs":      scatter_pairs,
         "wearable_scatters":  wearable_scatters,
@@ -765,95 +840,94 @@ def build_payload(measurements: dict, fitness: dict,
     }
 
 
-def _build_insights(matrix: list, top_cov_bm: list, top_bm_pairs: list) -> list:
+def _build_insights(matrix: list, top_adj: list, top_raw: list, top_bm_pairs: list) -> list:
+    """
+    top_adj = age-adjusted ranked list (partial r)
+    top_raw = raw r ranked list
+    """
     insights = []
 
     def strongest(rows, key):
         valid = [r for r in rows if r.get(key) is not None]
         return max(valid, key=lambda r: abs(r[key]), default=None)
 
-    # Best wearable predictor overall
-    if top_cov_bm:
-        item = top_cov_bm[0]
+    # Best wearable predictor after age-adjustment
+    if top_adj:
+        item = top_adj[0]
         source_emoji = {"WHOOP": "⌚", "Strava": "🏃", "Life": "👶", "Fitness": "🫁"}.get(item["source"], "📊")
         insights.append({
             "emoji": source_emoji, "color": "#818cf8",
-            "title": f"Strongest predictor: {item['covariate']} → {item['biomarker']} (r = {item['r']:+.3f})",
-            "body":  (f"Across {item['n']} blood draws, {item['covariate']} from {item['source']} "
-                      f"{'positively' if item['r'] > 0 else 'negatively'} correlates with "
-                      f"{item['biomarker']} — the strongest single wearable–biomarker link found."),
+            "title": (f"Strongest age-adjusted predictor: {item['covariate']} → {item['biomarker']} "
+                      f"(partial r = {item['partial_r']:+.3f})"),
+            "body":  (f"After removing the shared linear trend with age, {item['covariate']} "
+                      f"({'WHOOP' if item['source']=='WHOOP' else item['source']}) still "
+                      f"{'positively' if item['partial_r'] > 0 else 'negatively'} correlates with "
+                      f"{item['biomarker']} across {item['n']} draws — this isn't just an age effect."),
         })
 
-    # HRV insight
-    hrv_links = [x for x in top_cov_bm if "hrv" in x["cov_key"].lower()]
-    if hrv_links:
-        item = hrv_links[0]
+    # HRV insight — prefer age-adjusted
+    hrv_adj = [x for x in top_adj if "hrv" in x["cov_key"].lower()]
+    hrv_raw = [x for x in top_raw if "hrv" in x["cov_key"].lower()]
+    if hrv_adj or hrv_raw:
+        item = hrv_adj[0] if hrv_adj else hrv_raw[0]
+        pr = item.get("partial_r")
+        r  = item["r"]
         insights.append({
-            "emoji": "💓", "color": "#22c55e" if item["r"] > 0 else "#ef4444",
-            "title": f"HRV → {item['biomarker']} (r = {item['r']:+.3f})",
-            "body":  (f"Higher HRV (better recovery) tracks with "
-                      f"{'higher' if item['r'] > 0 else 'lower'} {item['biomarker']} "
-                      f"across {item['n']} blood draws. "
-                      f"HRV reflects autonomic nervous system health."),
+            "emoji": "💓", "color": "#22c55e" if (pr or r) > 0 else "#ef4444",
+            "title": (f"HRV → {item['biomarker']}  "
+                      f"(r = {r:+.3f}" + (f", age-adj r = {pr:+.3f}" if pr else "") + ")"),
+            "body":  (f"Higher HRV tracks with {'higher' if r > 0 else 'lower'} {item['biomarker']} "
+                      f"across {item['n']} draws."
+                      + (f" The relationship holds after controlling for age (partial r = {pr:+.3f})."
+                         if pr and abs(pr) > 0.3 else
+                         " But after controlling for age the signal weakens — some of this may be age-driven."
+                         if pr else "")),
         })
 
-    # Sleep insight
-    sleep_links = [x for x in top_cov_bm if "sleep" in x["cov_key"].lower()]
-    if sleep_links:
-        item = sleep_links[0]
+    # Sleep insight — prefer age-adjusted
+    sleep_adj = [x for x in top_adj if "sleep" in x["cov_key"].lower()]
+    sleep_raw = [x for x in top_raw if "sleep" in x["cov_key"].lower()]
+    if sleep_adj or sleep_raw:
+        item = sleep_adj[0] if sleep_adj else sleep_raw[0]
+        pr = item.get("partial_r")
+        r  = item["r"]
         insights.append({
             "emoji": "😴", "color": "#60a5fa",
-            "title": f"Sleep → {item['biomarker']} (r = {item['r']:+.3f})",
-            "body":  (f"{item['covariate']} correlates with "
-                      f"{'higher' if item['r'] > 0 else 'lower'} {item['biomarker']}. "
-                      f"Sleep quality and duration measurably track with blood markers."),
+            "title": (f"Sleep → {item['biomarker']}  "
+                      f"(r = {r:+.3f}" + (f", age-adj r = {pr:+.3f}" if pr else "") + ")"),
+            "body":  (f"{item['covariate']} correlates with {'higher' if r > 0 else 'lower'} "
+                      f"{item['biomarker']}."
+                      + (f" Age-adjusted partial r = {pr:+.3f} — sleep has an independent effect."
+                         if pr and abs(pr) > 0.3 else "")),
         })
 
-    # Training load insight
-    strava_links = [x for x in top_cov_bm if x["source"] == "Strava"]
-    if strava_links:
-        item = strava_links[0]
+    # Training load — prefer age-adjusted
+    strava_adj = [x for x in top_adj if x["source"] == "Strava"]
+    strava_raw = [x for x in top_raw if x["source"] == "Strava"]
+    if strava_adj or strava_raw:
+        item = strava_adj[0] if strava_adj else strava_raw[0]
+        pr = item.get("partial_r")
+        r  = item["r"]
         insights.append({
-            "emoji": "🏋️", "color": "#f97316",
-            "title": f"Training → {item['biomarker']} (r = {item['r']:+.3f})",
+            "emoji": "🏃", "color": "#f97316",
+            "title": (f"Training → {item['biomarker']}  "
+                      f"(r = {r:+.3f}" + (f", age-adj r = {pr:+.3f}" if pr else "") + ")"),
             "body":  (f"{item['covariate']} (90-day window) "
-                      f"{'positively' if item['r'] > 0 else 'negatively'} correlates with "
-                      f"{item['biomarker']} across {item['n']} draws."),
+                      f"{'positively' if r > 0 else 'negatively'} correlates with "
+                      f"{item['biomarker']} across {item['n']} draws."
+                      + (f" Age-adjusted: partial r = {pr:+.3f}." if pr else "")),
         })
 
-    # Recovery score insight
-    rec_links = [x for x in top_cov_bm if "recovery" in x["cov_key"].lower()]
-    if rec_links:
-        item = rec_links[0]
-        insights.append({
-            "emoji": "⚡", "color": "#eab308",
-            "title": f"Recovery score → {item['biomarker']} (r = {item['r']:+.3f})",
-            "body":  (f"WHOOP recovery score tracks with "
-                      f"{'higher' if item['r'] > 0 else 'lower'} {item['biomarker']}. "
-                      f"Recovery integrates HRV, RHR, and sleep — a composite lifestyle signal."),
-        })
-
-    # Age trend
+    # Age trend — strongest raw-r with age
     row = strongest(matrix, "age")
     if row:
         r = row["age"]
         insights.append({
             "emoji": "📈", "color": "#ef4444" if r > 0 else "#22c55e",
-            "title": f"{row['name']} changes most with age (r = {r:+.2f})",
-            "body":  (f"{row['name']} {'rises' if r > 0 else 'falls'} consistently with age — "
-                      f"{'worth monitoring' if r > 0 else 'a positive trend'}."),
-        })
-
-    # Kids
-    row = strongest(matrix, "kids")
-    if row:
-        r = row["kids"]
-        strength = "strongly" if abs(r) >= 0.6 else "moderately"
-        insights.append({
-            "emoji": "👶", "color": "#eab308",
-            "title": f"{row['name']} correlates with # kids (r = {r:+.2f})",
-            "body":  (f"The arrival of children (2017, 2019, 2021) {strength} correlates "
-                      f"with changes in {row['name']} — possibly reflecting lifestyle, sleep, or stress."),
+            "title": f"{row['name']} tracks age most strongly (r = {r:+.2f})",
+            "body":  (f"{row['name']} {'rises' if r > 0 else 'falls'} with age. "
+                      f"This is used as the control variable in age-adjusted correlations — "
+                      f"so other findings above are already independent of this trend."),
         })
 
     # Strongest biomarker-biomarker pair
@@ -861,9 +935,9 @@ def _build_insights(matrix: list, top_cov_bm: list, top_bm_pairs: list) -> list:
         tp = top_bm_pairs[0]
         insights.append({
             "emoji": "🔗", "color": "#818cf8",
-            "title": f"Strongest biomarker link: {tp['pair']} (r = {tp['r']:+.3f})",
+            "title": f"Strongest biomarker–biomarker link: {tp['pair']} (r = {tp['r']:+.3f})",
             "body":  (f"These two markers move {'together' if tp['r'] > 0 else 'in opposite directions'} "
-                      f"across {tp['n']} shared blood draws."),
+                      f"across {tp['n']} shared blood draws. Note: biomarker pairs are not yet age-adjusted."),
         })
 
     return insights
@@ -1140,32 +1214,58 @@ addTab('💡 Insights', 'insights', panel => {{
 // Tab 2: Wearable × Biomarker top correlations
 // ---------------------------------------------------------------------------
 addTab('⌚ Wearable × Biomarker', 'wearable', panel => {{
+
+  // Helper: render a ranked pair-card grid
+  function pairGrid(items, usePartial) {{
+    const grid = document.createElement('div');
+    grid.className = 'pair-grid';
+    items.forEach(item => {{
+      const r   = usePartial ? (item.partial_r ?? item.r) : item.r;
+      const col = rColor(r);
+      const card = document.createElement('div');
+      card.className = 'pair-card';
+      card.style.borderLeft = `3px solid ${{col}}`;
+      // Show both values when available
+      const rawPart  = `<span style="color:var(--muted);font-size:0.7rem;">raw r = ${{item.r.toFixed(3)}}</span>`;
+      const adjPart  = item.partial_r !== null && item.partial_r !== undefined
+        ? `<span style="color:${{rColor(item.partial_r)}};font-size:0.7rem;">age-adj r = ${{item.partial_r.toFixed(3)}}</span>`
+        : '';
+      card.innerHTML = `
+        <div class="pair-name">${{item.covariate}} ${{badgeHtml(item.source)}}<br>→ ${{item.biomarker}}</div>
+        <div class="pair-r" style="color:${{col}};">${{usePartial ? 'partial ' : ''}}r = ${{r.toFixed(3)}}</div>
+        <div class="pair-meta" style="display:flex;gap:0.5rem;flex-wrap:wrap;">${{rawPart}}${{adjPart}}</div>
+        <div class="pair-meta" style="margin-top:2px;">${{rStrength(r)}} ${{r > 0 ? 'positive' : 'negative'}} · n=${{item.n}}</div>
+        <div class="pair-bar-track"><div class="pair-bar-fill" style="width:${{Math.round(Math.abs(r)*100)}}%;background:${{col}};"></div></div>`;
+      grid.appendChild(card);
+    }});
+    return grid;
+  }}
+
+  // Age-adjusted section (primary)
+  const adjItems = DATA.top_cov_bm_adj || [];
   const sec = mkSection(
-    'Top Wearable / Training → Biomarker Correlations',
-    `Pearson <em>r</em> between WHOOP sleep/recovery metrics and Strava training load windows
-     (30-day and 90-day averages before each blood draw) versus every biomarker. Top 30 by |r|.`
+    'Top Correlations — Age-Adjusted (partial r)',
+    `Ranked by <strong>partial r</strong> after removing the shared linear trend with age from both
+     the covariate and the biomarker. This answers "does this metric predict the biomarker
+     <em>beyond what aging alone explains</em>?" — the more meaningful question given that
+     many things change with age simultaneously. n ≥ 5 required.`
   );
-  const grid = document.createElement('div');
-  grid.className = 'pair-grid';
-  (DATA.top_cov_bm || []).forEach(item => {{
-    const col = rColor(item.r);
-    const card = document.createElement('div');
-    card.className = 'pair-card';
-    card.style.borderLeft = `3px solid ${{col}}`;
-    card.innerHTML = `
-      <div class="pair-name">${{item.covariate}} ${{badgeHtml(item.source)}}<br>→ ${{item.biomarker}}</div>
-      <div class="pair-r" style="color:${{col}};">r = ${{item.r.toFixed(3)}}</div>
-      <div class="pair-meta">${{rStrength(item.r)}} ${{item.r > 0 ? 'positive' : 'negative'}} · n=${{item.n}}</div>
-      <div class="pair-bar-track"><div class="pair-bar-fill" style="width:${{Math.round(Math.abs(item.r)*100)}}%;background:${{col}};"></div></div>`;
-    grid.appendChild(card);
-  }});
-  sec.appendChild(grid);
+  sec.appendChild(pairGrid(adjItems, true));
   panel.appendChild(sec);
 
-  // Scatter plots for top wearable pairs
+  // Raw section (secondary, collapsible)
+  const rawSec = mkSection(
+    'Raw Correlations (unadjusted, for reference)',
+    `Pearson r without age-adjustment. Ranked by |r|. Anything that also has a large
+     age trend may be partially or fully confounded.`
+  );
+  rawSec.appendChild(pairGrid(DATA.top_cov_bm || [], false));
+  panel.appendChild(rawSec);
+
+  // Scatter plots for top age-adjusted pairs
   if (DATA.wearable_scatters && DATA.wearable_scatters.length > 0) {{
-    const sec2 = mkSection('Scatter Plots — Top Wearable Pairs',
-      'Each point is one blood draw. Colour: blue (early) → orange (recent). Regression line shown.');
+    const sec2 = mkSection('Scatter Plots — Top Pairs (raw)',
+      'Each point is one blood draw (blue = early, orange = recent). Regression line shown. Age not removed from axes.');
     const sgrid = document.createElement('div');
     sgrid.className = 'charts-grid';
     DATA.wearable_scatters.forEach(sp => renderScatterCard(sgrid, sp));
@@ -1178,26 +1278,48 @@ addTab('⌚ Wearable × Biomarker', 'wearable', panel => {{
 // Tab 3: Full matrix table
 // ---------------------------------------------------------------------------
 addTab('🧬 Full Matrix', 'matrix', panel => {{
-  const sec = mkSection(
-    'Biomarker × All Covariates — Pearson r',
-    `Every biomarker row vs. all life, fitness, WHOOP, and Strava covariates.
-     Sorted by max |r| vs classic covariates (age/kids/weight/VO₂max). Scroll right for all columns.`
-  );
-
-  const covMeta = DATA.covariate_meta || [];
+  const covMeta     = DATA.covariate_meta || [];
   const classicKeys = ['age','kids','weight','vo2max'];
   const whoopKeys   = covMeta.filter(c => c.source === 'WHOOP').map(c => c.key);
   const stravaKeys  = covMeta.filter(c => c.source === 'Strava').map(c => c.key);
+  const allKeys     = [...classicKeys, ...whoopKeys, ...stravaKeys];
   const keyToLabel  = Object.fromEntries(covMeta.map(c => [c.key, c.label]));
+
+  // Toggle: raw vs age-adjusted
+  let showPartial = false;
+  const toggleBar = document.createElement('div');
+  toggleBar.style.cssText = 'display:flex;gap:0.5rem;margin-bottom:1rem;align-items:center;';
+  toggleBar.innerHTML = `<span style="font-size:0.8rem;color:var(--muted);">Show:</span>`;
+  ['Raw r', 'Age-adjusted partial r'].forEach((label, i) => {{
+    const btn = document.createElement('button');
+    btn.className = 'tab-btn' + (i === 0 ? ' active' : '');
+    btn.textContent = label;
+    btn.addEventListener('click', () => {{
+      showPartial = i === 1;
+      toggleBar.querySelectorAll('.tab-btn').forEach((b,j) => b.classList.toggle('active', j===i));
+      rebuildBody();
+    }});
+    toggleBar.appendChild(btn);
+  }});
+
+  const sec = mkSection(
+    'Biomarker × All Covariates',
+    `Every biomarker row vs. all covariates.
+     <strong>Raw r</strong>: plain Pearson correlation.
+     <strong>Age-adjusted partial r</strong>: residuals after regressing both variables on age —
+     measures the relationship <em>independent of aging</em>.
+     Age-adjusted is blank for the age column itself and where n &lt; 5.
+     Scroll right for all columns.`
+  );
+  sec.appendChild(toggleBar);
 
   const wrap = document.createElement('div');
   wrap.className = 'table-wrap';
   const tbl = document.createElement('table');
 
-  // Header row
+  // Header
   const thead = document.createElement('thead');
-  let htr = '<tr>';
-  htr += '<th>Biomarker</th><th class="n-col">n</th>';
+  let htr = '<tr><th>Biomarker</th><th class="n-col">n</th>';
   classicKeys.forEach(k => {{ htr += `<th class="group-classic">${{keyToLabel[k] || k}}</th>`; }});
   whoopKeys.forEach(k   => {{ htr += `<th class="group-whoop">${{(keyToLabel[k]||k).replace(' avg','').replace(' (ms)','').replace(' (bpm)','')}}</th>`; }});
   stravaKeys.forEach(k  => {{ htr += `<th class="group-strava">${{(keyToLabel[k]||k)}}</th>`; }});
@@ -1206,17 +1328,28 @@ addTab('🧬 Full Matrix', 'matrix', panel => {{
   tbl.appendChild(thead);
 
   const tbody = document.createElement('tbody');
-  (DATA.biomarker_matrix || []).forEach(row => {{
-    const tr = document.createElement('tr');
-    let cells = `<td class="bm-name">${{row.name}}</td><td class="n-col">${{row.n}}</td>`;
-    [...classicKeys, ...whoopKeys, ...stravaKeys].forEach(k => {{
-      const v = row[k];
-      cells += `<td style="min-width:90px">${{rBarHtml(v !== undefined ? v : null)}}</td>`;
-    }});
-    tr.innerHTML = cells;
-    tbody.appendChild(tr);
-  }});
   tbl.appendChild(tbody);
+
+  function rebuildBody() {{
+    tbody.innerHTML = '';
+    (DATA.biomarker_matrix || []).forEach(row => {{
+      const tr = document.createElement('tr');
+      let cells = `<td class="bm-name">${{row.name}}</td><td class="n-col">${{row.n}}</td>`;
+      allKeys.forEach(k => {{
+        let v;
+        if (showPartial) {{
+          v = (row.partial && row.partial[k] !== undefined) ? row.partial[k] : null;
+        }} else {{
+          v = (row.r && row.r[k] !== undefined) ? row.r[k] : (row[k] !== undefined ? row[k] : null);
+        }}
+        cells += `<td style="min-width:90px">${{rBarHtml(v)}}</td>`;
+      }});
+      tr.innerHTML = cells;
+      tbody.appendChild(tr);
+    }});
+  }}
+  rebuildBody();
+
   wrap.appendChild(tbl);
   sec.appendChild(wrap);
   panel.appendChild(sec);
