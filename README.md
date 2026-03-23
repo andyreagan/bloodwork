@@ -1,53 +1,50 @@
 # Bloodwork Dashboard
 
-Private personal bloodwork tracker for Andy Reagan.
+Personal bloodwork and fitness tracker. Live at **[andyreagan.github.io/bloodwork](https://andyreagan.github.io/bloodwork)**.
 
 ## What it does
 
-Parses `bloodwork.org` (17 blood draws, 2013–2025) → SQLite → static HTML dashboard.
+Tracks 19 blood draws (2013–2026) across 89 biomarkers, plus fitness metrics (VO₂max, FTP, weight).
 
-- **88 distinct biomarkers** tracked
 - InsideTracker-inspired design with dark theme
 - Color-coded status: 🟢 optimal / 🟡 normal / 🔴 out of range
 - Trend arrows per biomarker (↑↓→)
 - Line charts with reference range bands
-- Grouped into panels: Metabolic, Lipids, Liver, Blood Count, Hormones, Inflammation, Vitamins, Electrolytes
-- Mobile-friendly
-- Self-contained HTML, no server required
+- Panels: Metabolic, Lipids, Liver, Blood Count, Hormones, Inflammation, Vitamins, Electrolytes, Fitness
+- Mobile-friendly, self-contained HTML
 
-## Usage
+## Adding new data
+
+All data lives in two human-editable YAML files. To add a new blood draw, edit `bloodwork_data.yaml` directly (or ask an LLM to do it):
+
+```yaml
+draws:
+  - date: "2026-06-01"
+    source: "Labcorp / LifeForce"
+    notes: "Annual LifeForce panel."
+    measurements:
+      Glucose: {value: 95, unit: mg/dL}
+      HbA1c: {value: 5.5, unit: '%'}
+      # ... etc
+```
+
+Then regenerate:
 
 ```bash
-# Full rebuild from Synology
-make all
-
-# Or step by step:
-make fetch    # rsync bloodwork.org from Synology
-make parse    # parse.py → bloodwork.db
-make generate # generate.py → index.html
-
-# Rebuild and push to GitHub
-make deploy
+cd ~/projects/bloodwork
+python3 generate.py
+git add -A && git commit -m "Add June 2026 bloodwork" && git push
 ```
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `bloodwork.org` | Source data (not committed — pull from Synology) |
-| `parse.py` | Parses org file → SQLite DB |
-| `generate.py` | Generates index.html from DB |
-| `bloodwork.db` | SQLite database (not committed) |
+| `bloodwork_data.yaml` | All bloodwork data (draws + reference ranges) |
+| `fitness_data.yaml` | Fitness metrics (VO₂max, FTP, weight, race times, lifts) |
+| `generate.py` | Reads both YAMLs → generates `index.html` |
 | `index.html` | Static dashboard (committed for GitHub Pages) |
-| `Makefile` | Build automation |
-
-## Schema
-
-```sql
-measurements(id, date, biomarker, value, unit)
-reference_ranges(biomarker, low, high, optimal_low, optimal_high, unit)
-```
 
 ## Privacy
 
-All private. The source `.org` file and `.db` are gitignored. The HTML embeds the data as JSON — keep this repo private.
+This repo is public. The HTML embeds all data as JSON — **do not commit sensitive non-health data here**. Health data (bloodwork, fitness) is intentionally shared. No full date of birth is included — only birth year (1989) for age calculation.
