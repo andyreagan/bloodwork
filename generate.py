@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 """
-Generate static index.html dashboard from bloodwork.db.
+Generate static index.html dashboard from bloodwork_data.yaml.
 """
 import json
-import sqlite3
 import os
 from datetime import date
 
 import yaml
 
-DB_FILE = os.path.join(os.path.dirname(__file__), "bloodwork.db")
+BLOODWORK_FILE = os.path.join(os.path.dirname(__file__), "bloodwork_data.yaml")
 HTML_FILE = os.path.join(os.path.dirname(__file__), "index.html")
 FITNESS_FILE = os.path.join(os.path.dirname(__file__), "fitness_data.yaml")
 
@@ -35,38 +34,29 @@ KEY_BIOMARKERS = [
 ]
 
 
-def load_data(db_path: str) -> tuple[dict, dict]:
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
+def load_data(yaml_path: str) -> tuple[dict, dict]:
+    with open(yaml_path, "r", encoding="utf-8") as f:
+        bw = yaml.safe_load(f)
 
-    # Load all measurements
-    cur = conn.execute(
-        "SELECT date, biomarker, value, unit FROM measurements ORDER BY date"
-    )
+    ref_ranges = bw["reference_ranges"]
+    draws = bw["draws"]
+
+    # Build measurements dict: {biomarker: [{date, value, unit}, ...]}
     measurements = {}
-    for row in cur:
-        b = row["biomarker"]
-        if b not in measurements:
-            measurements[b] = []
-        measurements[b].append({
-            "date": row["date"],
-            "value": row["value"],
-            "unit": row["unit"],
-        })
+    for draw in draws:
+        for biomarker, m in draw["measurements"].items():
+            if biomarker not in measurements:
+                measurements[biomarker] = []
+            measurements[biomarker].append({
+                "date": draw["date"],
+                "value": m["value"],
+                "unit": m["unit"],
+            })
 
-    # Load reference ranges
-    cur = conn.execute("SELECT * FROM reference_ranges")
-    ref_ranges = {}
-    for row in cur:
-        ref_ranges[row["biomarker"]] = {
-            "low": row["low"],
-            "high": row["high"],
-            "optimal_low": row["optimal_low"],
-            "optimal_high": row["optimal_high"],
-            "unit": row["unit"],
-        }
+    # Sort each biomarker's measurements by date
+    for k in measurements:
+        measurements[k].sort(key=lambda x: x["date"])
 
-    conn.close()
     return measurements, ref_ranges
 
 
@@ -1181,8 +1171,8 @@ function getStatus(value, ref) {{
 
 
 def main():
-    print(f"Loading data from {DB_FILE}...")
-    measurements, ref_ranges = load_data(DB_FILE)
+    print(f"Loading data from {BLOODWORK_FILE}...")
+    measurements, ref_ranges = load_data(BLOODWORK_FILE)
     print(f"  {len(measurements)} biomarkers loaded")
 
     print(f"Loading fitness data from {FITNESS_FILE}...")

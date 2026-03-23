@@ -1,0 +1,1445 @@
+reference_ranges:
+  ALT:
+    low: 7.0
+    high: 56.0
+    optimal_low: 7.0
+    optimal_high: 30.0
+    unit: U/L
+  AST:
+    low: 10.0
+    high: 40.0
+    optimal_low: 10.0
+    optimal_high: 30.0
+    unit: U/L
+  Cholesterol:
+    low: null
+    high: 200.0
+    optimal_low: null
+    optimal_high: 150.0
+    unit: mg/dL
+  Cortisol:
+    low: 6.0
+    high: 23.0
+    optimal_low: 10.0
+    optimal_high: 18.0
+    unit: µg/dL
+  Creatinine:
+    low: 0.7
+    high: 1.2
+    optimal_low: 0.8
+    optimal_high: 1.1
+    unit: mg/dL
+  Ferritin:
+    low: 12.0
+    high: 300.0
+    optimal_low: 50.0
+    optimal_high: 150.0
+    unit: ng/mL
+  Free Testosterone:
+    low: 5.0
+    high: 21.0
+    optimal_low: 9.0
+    optimal_high: 18.0
+    unit: ng/dL
+  Glucose:
+    low: 70.0
+    high: 99.0
+    optimal_low: 72.0
+    optimal_high: 85.0
+    unit: mg/dL
+  HDL:
+    low: 40.0
+    high: null
+    optimal_low: 60.0
+    optimal_high: null
+    unit: mg/dL
+  HbA1c:
+    low: null
+    high: 5.7
+    optimal_low: null
+    optimal_high: 5.2
+    unit: '%'
+  Hematocrit:
+    low: 40.0
+    high: 52.0
+    optimal_low: 42.0
+    optimal_high: 48.0
+    unit: '%'
+  Hemoglobin:
+    low: 13.5
+    high: 17.5
+    optimal_low: 14.5
+    optimal_high: 16.5
+    unit: g/dL
+  Homocysteine:
+    low: null
+    high: 15.0
+    optimal_low: null
+    optimal_high: 9.0
+    unit: umol/L
+  LDL:
+    low: null
+    high: 100.0
+    optimal_low: null
+    optimal_high: 70.0
+    unit: mg/dL
+  Magnesium:
+    low: 1.7
+    high: 2.2
+    optimal_low: 1.9
+    optimal_high: 2.1
+    unit: mg/dL
+  Platelets:
+    low: 150.0
+    high: 400.0
+    optimal_low: 180.0
+    optimal_high: 350.0
+    unit: K/uL
+  RBC:
+    low: 4.5
+    high: 5.9
+    optimal_low: 4.7
+    optimal_high: 5.5
+    unit: M/uL
+  SHBG:
+    low: 10.0
+    high: 57.0
+    optimal_low: 20.0
+    optimal_high: 45.0
+    unit: nmol/L
+  TSH:
+    low: 0.4
+    high: 4.0
+    optimal_low: 0.5
+    optimal_high: 2.5
+    unit: uIU/mL
+  Testosterone:
+    low: 300.0
+    high: 1000.0
+    optimal_low: 500.0
+    optimal_high: 900.0
+    unit: ng/dL
+  Triglycerides:
+    low: null
+    high: 150.0
+    optimal_low: null
+    optimal_high: 80.0
+    unit: mg/dL
+  Vitamin B12:
+    low: 200.0
+    high: 900.0
+    optimal_low: 400.0
+    optimal_high: 800.0
+    unit: pg/mL
+  Vitamin D:
+    low: 20.0
+    high: 50.0
+    optimal_low: 40.0
+    optimal_high: 60.0
+    unit: ng/mL
+  WBC:
+    low: 4.0
+    high: 11.0
+    optimal_low: 4.5
+    optimal_high: 8.0
+    unit: K/uL
+  eGFR:
+    low: 60.0
+    high: null
+    optimal_low: 90.0
+    optimal_high: null
+    unit: mL/min/1.73m2
+  hsCRP:
+    low: null
+    high: 3.0
+    optimal_low: null
+    optimal_high: 1.0
+    unit: mg/L
+draws:
+- date: '2013-01-10'
+  source: Lab
+  measurements:
+    A/G Ratio:
+      value: 2.0
+      unit: ''
+    ALT:
+      value: 16.0
+      unit: U/L
+    AST:
+      value: 25.0
+      unit: U/L
+    Albumin:
+      value: 4.7
+      unit: g/dL
+    Alkaline Phosphatase:
+      value: 74.0
+      unit: U/L
+    Anion Gap:
+      value: 9.0
+      unit: mmol/L
+    BUN:
+      value: 13.0
+      unit: mg/dL
+    BUN/Creatinine Ratio:
+      value: 14.0
+      unit: ''
+    Bicarbonate:
+      value: 27.0
+      unit: mmol/L
+    Calcium:
+      value: 9.8
+      unit: mg/dL
+    Chloride:
+      value: 102.0
+      unit: mmol/L
+    Cholesterol:
+      value: 157.0
+      unit: mg/dL
+    Creatinine:
+      value: 0.9
+      unit: mg/dL
+    Glucose:
+      value: 95.0
+      unit: mg/dL
+    HDL:
+      value: 64.0
+      unit: mg/dL
+    Hematocrit:
+      value: 44.4
+      unit: '%'
+    Hemoglobin:
+      value: 15.3
+      unit: g/dL
+    LDL:
+      value: 83.0
+      unit: mg/dL
+    MCH:
+      value: 31.0
+      unit: pg
+    MCHC:
+      value: 34.5
+      unit: '%'
+    MCV:
+      value: 89.9
+      unit: fL
+    Non-HDL:
+      value: 93.0
+      unit: mg/dL
+    Osmolality:
+      value: 286.0
+      unit: mOsm/kg
+    Platelets:
+      value: 280.0
+      unit: K/uL
+    Potassium:
+      value: 5.0
+      unit: mmol/L
+    RBC:
+      value: 4.94
+      unit: M/uL
+    RDW:
+      value: 12.4
+      unit: '%'
+    Sodium:
+      value: 138.0
+      unit: mmol/L
+    Total Bilirubin:
+      value: 0.9
+      unit: mg/dL
+    Total Protein:
+      value: 7.1
+      unit: g/dL
+    Triglycerides:
+      value: 50.0
+      unit: mg/dL
+    VLDL:
+      value: 10.0
+      unit: mg/dL
+    WBC:
+      value: 5.1
+      unit: K/uL
+    eGFR:
+      value: 90.0
+      unit: mL/min/1.73
+- date: '2018-09-27'
+  source: Lab
+  measurements:
+    Cardiac Risk Ratio:
+      value: 1.8
+      unit: ''
+    Cholesterol:
+      value: 127.0
+      unit: mg/dL
+    HDL:
+      value: 70.0
+      unit: mg/dL
+    LDL:
+      value: 47.0
+      unit: mg/dL
+    Triglycerides:
+      value: 48.0
+      unit: mg/dL
+- date: '2018-10-10'
+  source: MassMutual policy bloodwork
+  measurements:
+    ALT:
+      value: 11.0
+      unit: U/L
+    AST:
+      value: 18.0
+      unit: U/L
+    Albumin:
+      value: 4.8
+      unit: g/dL
+    Alkaline Phosphatase:
+      value: 61.0
+      unit: U/L
+    BUN:
+      value: 17.0
+      unit: mg/dL
+    Cholesterol:
+      value: 135.0
+      unit: mg/dL
+    Creatinine:
+      value: 1.0
+      unit: mg/dL
+    GGT:
+      value: 23.0
+      unit: U/L
+    Globulin:
+      value: 2.2
+      unit: g/dL
+    Glucose:
+      value: 76.0
+      unit: mg/dL
+    HDL:
+      value: 65.0
+      unit: mg/dL
+    HbA1c:
+      value: 5.1
+      unit: '%'
+    LDL:
+      value: 55.0
+      unit: mg/dL
+    Total Bilirubin:
+      value: 1.1
+      unit: mg/dL
+    Total Protein:
+      value: 7.0
+      unit: g/dL
+    Triglycerides:
+      value: 74.0
+      unit: mg/dL
+- date: '2019-01-14'
+  source: Lab
+  measurements:
+    ALT:
+      value: 24.0
+      unit: U/L
+    AST:
+      value: 39.0
+      unit: U/L
+    Albumin:
+      value: 4.4
+      unit: g/dL
+    Alkaline Phosphatase:
+      value: 64.0
+      unit: U/L
+    Anion Gap:
+      value: 14.0
+      unit: mmol/L
+    BUN:
+      value: 17.0
+      unit: mg/dL
+    CO2:
+      value: 29.0
+      unit: mmol/L
+    Calcium:
+      value: 9.7
+      unit: mg/dL
+    Cardiac Risk Ratio:
+      value: 2.0
+      unit: ''
+    Chloride:
+      value: 101.0
+      unit: mmol/L
+    Cholesterol:
+      value: 119.0
+      unit: mg/dL
+    Creatinine:
+      value: 0.8
+      unit: mg/dL
+    Globulin:
+      value: 2.4
+      unit: g/dL
+    Glucose:
+      value: 93.0
+      unit: mg/dL
+    HDL:
+      value: 60.0
+      unit: mg/dL
+    LDL:
+      value: 51.0
+      unit: mg/dL
+    Potassium:
+      value: 4.6
+      unit: mmol/L
+    Sodium:
+      value: 139.0
+      unit: mmol/L
+    Total Bilirubin:
+      value: 0.6
+      unit: mg/dL
+    Total Protein:
+      value: 6.8
+      unit: g/dL
+    Triglycerides:
+      value: 39.0
+      unit: mg/dL
+    eGFR:
+      value: 120.0
+      unit: mL/min/1.73m2
+- date: '2021-07-22'
+  source: Lab
+  measurements:
+    ALT:
+      value: 20.0
+      unit: U/L
+    AST:
+      value: 30.0
+      unit: U/L
+    Albumin:
+      value: 4.9
+      unit: g/dL
+    Alkaline Phosphatase:
+      value: 69.0
+      unit: U/L
+    Anion Gap:
+      value: 19.0
+      unit: mmol/L
+    BUN:
+      value: 21.0
+      unit: mg/dL
+    CO2:
+      value: 24.0
+      unit: mmol/L
+    Calcium:
+      value: 10.1
+      unit: mg/dL
+    Chloride:
+      value: 103.0
+      unit: mmol/L
+    Creatinine:
+      value: 0.9
+      unit: mg/dL
+    Globulin:
+      value: 2.9
+      unit: g/dL
+    Glucose:
+      value: 92.0
+      unit: mg/dL
+    Potassium:
+      value: 4.0
+      unit: mmol/L
+    Sodium:
+      value: 142.0
+      unit: mmol/L
+    Total Bilirubin:
+      value: 0.5
+      unit: mg/dL
+    Total Protein:
+      value: 7.8
+      unit: g/dL
+    eGFR:
+      value: 113.0
+      unit: mL/min/1.73m2
+- date: '2021-08-10'
+  source: Lab
+  measurements:
+    Basophils (%):
+      value: 0.3
+      unit: '%'
+    Eosinophils (%):
+      value: 4.3
+      unit: '%'
+    Hematocrit:
+      value: 43.3
+      unit: '%'
+    Hemoglobin:
+      value: 15.0
+      unit: g/dL
+    Immature Granulocytes:
+      value: 0.2
+      unit: '%'
+    Lymphocytes (%):
+      value: 27.2
+      unit: '%'
+    MCH:
+      value: 30.9
+      unit: pg
+    MCHC:
+      value: 34.6
+      unit: g/dL
+    MCV:
+      value: 89.1
+      unit: fL
+    MPV:
+      value: 10.2
+      unit: fL
+    Monocytes (%):
+      value: 6.3
+      unit: '%'
+    Neutrophils (%):
+      value: 61.7
+      unit: '%'
+    Platelets:
+      value: 346.0
+      unit: K/uL
+    RBC:
+      value: 4.86
+      unit: M/uL
+    RDW:
+      value: 11.7
+      unit: '%'
+    WBC:
+      value: 6.02
+      unit: K/uL
+- date: '2021-10-29'
+  source: InsideTracker
+  measurements:
+    ALT:
+      value: 19.0
+      unit: U/L
+    AST:
+      value: 26.0
+      unit: U/L
+    Albumin:
+      value: 4.7
+      unit: g/dL
+    Basophils (%):
+      value: 0.9
+      unit: '%'
+    Calcium:
+      value: 10.2
+      unit: mg/dL
+    Cholesterol:
+      value: 160.0
+      unit: mg/dL
+    Cortisol:
+      value: 18.0
+      unit: µg/dL
+    Creatine Kinase:
+      value: 150.0
+      unit: U/L
+    Eosinophils (%):
+      value: 4.3
+      unit: '%'
+    Ferritin:
+      value: 60.0
+      unit: ng/mL
+    Folate:
+      value: 24.0
+      unit: ng/mL
+    Free Testosterone:
+      value: 10.02
+      unit: ng/dL
+    GGT:
+      value: 15.0
+      unit: U/L
+    Glucose:
+      value: 96.0
+      unit: mg/dL
+    HDL:
+      value: 59.0
+      unit: mg/dL
+    HbA1c:
+      value: 5.3
+      unit: '%'
+    Hematocrit:
+      value: 46.9
+      unit: '%'
+    Hemoglobin:
+      value: 15.4
+      unit: g/dL
+    Iron:
+      value: 134.0
+      unit: ug/dL
+    LDL:
+      value: 82.0
+      unit: mg/dL
+    Lymphocytes (%):
+      value: 35.1
+      unit: '%'
+    MCH:
+      value: 30.1
+      unit: pg
+    MCHC:
+      value: 32.8
+      unit: g/dL
+    MCV:
+      value: 91.8
+      unit: fL
+    MPV:
+      value: 10.4
+      unit: fL
+    Magnesium:
+      value: 2.1
+      unit: mg/dL
+    Monocytes (%):
+      value: 8.2
+      unit: '%'
+    Neutrophils (%):
+      value: 51.5
+      unit: '%'
+    Platelets:
+      value: 256.0
+      unit: K/uL
+    Potassium:
+      value: 4.3
+      unit: mmol/L
+    RBC:
+      value: 5.11
+      unit: x10E6/µL
+    RBC Magnesium:
+      value: 5.5
+      unit: mg/dL
+    RDW:
+      value: 11.9
+      unit: '%'
+    SHBG:
+      value: 40.0
+      unit: nmol/L
+    Sodium:
+      value: 143.0
+      unit: mmol/L
+    TIBC:
+      value: 305.0
+      unit: ug/dL
+    Testosterone:
+      value: 725.0
+      unit: ng/dL
+    Transferrin Saturation:
+      value: 44.0
+      unit: '%'
+    Triglycerides:
+      value: 96.0
+      unit: mg/dL
+    Vitamin B12:
+      value: 369.0
+      unit: pg/mL
+    Vitamin D:
+      value: 41.0
+      unit: ng/mL
+    WBC:
+      value: 4.6
+      unit: K/uL
+    hsCRP:
+      value: 0.3
+      unit: mg/L
+- date: '2022-09-30'
+  source: Lab
+  measurements:
+    ALT:
+      value: 26.0
+      unit: U/L
+    AST:
+      value: 38.0
+      unit: U/L
+    Albumin:
+      value: 4.8
+      unit: g/dL
+    Alkaline Phosphatase:
+      value: 65.0
+      unit: U/L
+    Anion Gap:
+      value: 11.0
+      unit: mmol/L
+    BUN:
+      value: 15.0
+      unit: mmol/L
+    CO2:
+      value: 29.0
+      unit: mmol/L
+    Calcium:
+      value: 9.7
+      unit: mg/dL
+    Chloride:
+      value: 104.0
+      unit: mmol/L
+    Cholesterol:
+      value: 142.0
+      unit: mg/dL
+    Creatinine:
+      value: 1.0
+      unit: mg/dL
+    Globulin:
+      value: 2.2
+      unit: g/dL
+    Glucose:
+      value: 100.0
+      unit: mg/dL
+    HDL:
+      value: 57.0
+      unit: mg/dL
+    LDL:
+      value: 71.0
+      unit: mg/dL
+    Potassium:
+      value: 4.2
+      unit: mmol/L
+    Sodium:
+      value: 140.0
+      unit: mmol/L
+    Total Bilirubin:
+      value: 0.9
+      unit: mg/dL
+    Total Protein:
+      value: 7.0
+      unit: g/dL
+    Triglycerides:
+      value: 68.0
+      unit: mg/dL
+    eGFR:
+      value: 102.0
+      unit: mL/min/1.73m2
+- date: '2022-12-23'
+  source: MassMutual policy bloodwork
+  measurements:
+    ALT:
+      value: 20.0
+      unit: U/L
+    AST:
+      value: 24.0
+      unit: U/L
+    Albumin:
+      value: 4.5
+      unit: g/dL
+    Alkaline Phosphatase:
+      value: 79.0
+      unit: U/L
+    BUN:
+      value: 19.0
+      unit: mg/dL
+    Cholesterol:
+      value: 137.0
+      unit: mg/dL
+    Creatinine:
+      value: 1.0
+      unit: mg/dL
+    GGT:
+      value: 29.0
+      unit: U/L
+    Globulin:
+      value: 2.2
+      unit: g/dL
+    Glucose:
+      value: 94.0
+      unit: mg/dL
+    HDL:
+      value: 56.0
+      unit: mg/dL
+    HbA1c:
+      value: 5.5
+      unit: '%'
+    LDL:
+      value: 66.0
+      unit: mg/dL
+    Total Bilirubin:
+      value: 0.4
+      unit: mg/dL
+    Total Protein:
+      value: 6.7
+      unit: g/dL
+    Triglycerides:
+      value: 75.0
+      unit: mg/dL
+- date: '2023-01-03'
+  source: Lab
+  measurements:
+    ALT:
+      value: 34.0
+      unit: U/L
+    AST:
+      value: 42.0
+      unit: U/L
+    Absolute Basophils:
+      value: 0.03
+      unit: K/uL
+    Absolute Eosinophils:
+      value: 0.18
+      unit: K/uL
+    Absolute Immature Granulocytes:
+      value: 0.0
+      unit: K/uL
+    Absolute Lymphocytes:
+      value: 1.39
+      unit: K/uL
+    Absolute Monocytes:
+      value: 0.4
+      unit: K/uL
+    Absolute Neutrophils:
+      value: 2.46
+      unit: K/uL
+    Albumin:
+      value: 4.5
+      unit: g/dL
+    Alkaline Phosphatase:
+      value: 92.0
+      unit: U/L
+    Anion Gap:
+      value: 14.0
+      unit: mmol/L
+    BUN:
+      value: 19.0
+      unit: mg/dL
+    Basophils (%):
+      value: 0.7
+      unit: '%'
+    CO2:
+      value: 28.0
+      unit: mmol/L
+    Calcium:
+      value: 10.0
+      unit: mg/dL
+    Cardiac Risk Ratio:
+      value: 2.8
+      unit: ''
+    Chloride:
+      value: 105.0
+      unit: mmol/L
+    Cholesterol:
+      value: 153.0
+      unit: mg/dL
+    Creatinine:
+      value: 0.9
+      unit: mg/dL
+    Eosinophils (%):
+      value: 4.0
+      unit: '%'
+    Globulin:
+      value: 2.8
+      unit: g/dL
+    Glucose:
+      value: 97.0
+      unit: mg/dL
+    HDL:
+      value: 54.0
+      unit: mg/dL
+    Hematocrit:
+      value: 45.4
+      unit: '%'
+    Hemoglobin:
+      value: 15.3
+      unit: g/dL
+    Immature Granulocytes:
+      value: 0.0
+      unit: '%'
+    LDL:
+      value: 88.0
+      unit: mg/dL
+    Lymphocytes (%):
+      value: 31.2
+      unit: '%'
+    MCH:
+      value: 29.5
+      unit: pg
+    MCHC:
+      value: 33.7
+      unit: g/dL
+    MCV:
+      value: 87.6
+      unit: fL
+    MPV:
+      value: 9.9
+      unit: fL
+    Monocytes (%):
+      value: 9.0
+      unit: '%'
+    Neutrophils (%):
+      value: 55.1
+      unit: '%'
+    Platelets:
+      value: 318.0
+      unit: K/uL
+    Potassium:
+      value: 4.7
+      unit: mmol/L
+    RBC:
+      value: 5.18
+      unit: M/uL
+    RDW:
+      value: 12.1
+      unit: '%'
+    Sodium:
+      value: 142.0
+      unit: mmol/L
+    Total Bilirubin:
+      value: 0.6
+      unit: mg/dL
+    Total Protein:
+      value: 7.3
+      unit: g/dL
+    Triglycerides:
+      value: 57.0
+      unit: mg/dL
+    WBC:
+      value: 4.46
+      unit: K/uL
+    eGFR:
+      value: 116.0
+      unit: mL/min/1.73m2
+- date: '2023-07-10'
+  source: InsideTracker
+  measurements:
+    ALT:
+      value: 18.0
+      unit: U/L
+    AST:
+      value: 25.0
+      unit: U/L
+    Albumin:
+      value: 4.4
+      unit: g/dL
+    Basophil Count:
+      value: 20.0
+      unit: cells/µL
+    Basophils (%):
+      value: 0.4
+      unit: '%'
+    Calcium:
+      value: 9.8
+      unit: mg/dL
+    Cholesterol:
+      value: 129.0
+      unit: mg/dL
+    Cortisol:
+      value: 15.4
+      unit: µg/dL
+    Creatine Kinase:
+      value: 272.0
+      unit: U/L
+    Eosinophil Count:
+      value: 220.0
+      unit: cells/µL
+    Eosinophils (%):
+      value: 4.4
+      unit: '%'
+    Ferritin:
+      value: 78.0
+      unit: ng/mL
+    Folate:
+      value: 21.2
+      unit: ng/mL
+    Free Testosterone:
+      value: 7.81
+      unit: ng/dL
+    GGT:
+      value: 42.0
+      unit: U/L
+    Glucose:
+      value: 97.0
+      unit: mg/dL
+    HDL:
+      value: 53.0
+      unit: mg/dL
+    HbA1c:
+      value: 5.5
+      unit: '%'
+    Hematocrit:
+      value: 44.0
+      unit: '%'
+    Hemoglobin:
+      value: 14.8
+      unit: g/dL
+    Iron:
+      value: 88.0
+      unit: ug/dL
+    LDL:
+      value: 62.0
+      unit: mg/dL
+    Lymphocyte Count:
+      value: 1835.0
+      unit: cells/µL
+    Lymphocytes (%):
+      value: 36.7
+      unit: '%'
+    MCH:
+      value: 30.7
+      unit: pg
+    MCHC:
+      value: 33.6
+      unit: g/dL
+    MCV:
+      value: 91.3
+      unit: fL
+    MPV:
+      value: 9.8
+      unit: fL
+    Magnesium:
+      value: 2.1
+      unit: mg/dL
+    Monocyte Count:
+      value: 385.0
+      unit: cells/µL
+    Monocytes (%):
+      value: 7.7
+      unit: '%'
+    Neutrophil Count:
+      value: 2540.0
+      unit: cells/µL
+    Neutrophils (%):
+      value: 50.8
+      unit: '%'
+    Platelets:
+      value: 319.0
+      unit: K/uL
+    Potassium:
+      value: 4.6
+      unit: mmol/L
+    RBC:
+      value: 4.82
+      unit: x10E6/µL
+    RBC Magnesium:
+      value: 4.6
+      unit: mg/dL
+    RDW:
+      value: 11.9
+      unit: '%'
+    SHBG:
+      value: 28.0
+      unit: nmol/L
+    Sodium:
+      value: 138.0
+      unit: mmol/L
+    TIBC:
+      value: 298.0
+      unit: ug/dL
+    Testosterone:
+      value: 495.0
+      unit: ng/dL
+    Transferrin Saturation:
+      value: 30.0
+      unit: '%'
+    Triglycerides:
+      value: 67.0
+      unit: mg/dL
+    Vitamin B12:
+      value: 351.0
+      unit: pg/mL
+    Vitamin D:
+      value: 37.0
+      unit: ng/mL
+    WBC:
+      value: 5.0
+      unit: K/uL
+    hsCRP:
+      value: 0.6
+      unit: mg/L
+- date: '2023-11-02'
+  source: Lab
+  measurements:
+    ALT:
+      value: 43.0
+      unit: U/L
+    AST:
+      value: 31.0
+      unit: U/L
+    Albumin:
+      value: 5.2
+      unit: g/dL
+    Alkaline Phosphatase:
+      value: 74.0
+      unit: U/L
+    Anion Gap:
+      value: 16.0
+      unit: mmol/L
+    BUN:
+      value: 20.0
+      unit: mg/dL
+    CO2:
+      value: 26.0
+      unit: mmol/L
+    Calcium:
+      value: 10.4
+      unit: mg/dL
+    Chloride:
+      value: 101.0
+      unit: mmol/L
+    Cholesterol:
+      value: 179.0
+      unit: mg/dL
+    Creatinine:
+      value: 1.1
+      unit: mg/dL
+    Free Testosterone:
+      value: 20.7
+      unit: ng/dL
+    Globulin:
+      value: 2.3
+      unit: g/dL
+    Glucose:
+      value: 102.0
+      unit: mg/dL
+    HDL:
+      value: 61.0
+      unit: mg/dL
+    LDL:
+      value: 94.0
+      unit: mg/dL
+    Potassium:
+      value: 4.2
+      unit: mmol/L
+    Sodium:
+      value: 139.0
+      unit: mmol/L
+    Testosterone:
+      value: 669.0
+      unit: ng/dL
+    Total Bilirubin:
+      value: 0.5
+      unit: mg/dL
+    Total Protein:
+      value: 7.5
+      unit: g/dL
+    Triglycerides:
+      value: 120.0
+      unit: mg/dL
+    eGFR:
+      value: 90.0
+      unit: mL/min/1.73m2
+- date: '2023-11-16'
+  source: Lab
+  measurements:
+    ALT:
+      value: 36.0
+      unit: U/L
+    AST:
+      value: 45.0
+      unit: U/L
+    Albumin:
+      value: 5.2
+      unit: g/dL
+    Alkaline Phosphatase:
+      value: 73.0
+      unit: U/L
+    Anion Gap:
+      value: 15.0
+      unit: mmol/L
+    BUN:
+      value: 16.0
+      unit: mg/dL
+    CO2:
+      value: 29.0
+      unit: mmol/L
+    Calcium:
+      value: 10.3
+      unit: mg/dL
+    Chloride:
+      value: 102.0
+      unit: mmol/L
+    Creatinine:
+      value: 1.0
+      unit: mg/dL
+    Globulin:
+      value: 2.6
+      unit: g/dL
+    Glucose:
+      value: 97.0
+      unit: mg/dL
+    Potassium:
+      value: 4.6
+      unit: mmol/L
+    Sodium:
+      value: 141.0
+      unit: mmol/L
+    Total Bilirubin:
+      value: 0.8
+      unit: mg/dL
+    Total Protein:
+      value: 7.8
+      unit: g/dL
+    eGFR:
+      value: 101.0
+      unit: mL/min/1.73m2
+- date: '2024-11-27'
+  source: Lab
+  measurements:
+    ALT:
+      value: 28.0
+      unit: U/L
+    AST:
+      value: 40.0
+      unit: U/L
+    Albumin:
+      value: 4.6
+      unit: g/dL
+    Alkaline Phosphatase:
+      value: 68.0
+      unit: U/L
+    Anion Gap:
+      value: 15.0
+      unit: mmol/L
+    BUN:
+      value: 20.0
+      unit: mg/dL
+    CO2:
+      value: 27.0
+      unit: mmol/L
+    Calcium:
+      value: 9.8
+      unit: mg/dL
+    Cardiac Risk Ratio:
+      value: 2.2
+      unit: ''
+    Chloride:
+      value: 102.0
+      unit: mmol/L
+    Cholesterol:
+      value: 146.0
+      unit: mg/dL
+    Creatinine:
+      value: 1.0
+      unit: mg/dL
+    Globulin:
+      value: 2.5
+      unit: g/dL
+    Glucose:
+      value: 98.0
+      unit: mg/dL
+    HDL:
+      value: 67.0
+      unit: mg/dL
+    Hematocrit:
+      value: 45.0
+      unit: '%'
+    Hemoglobin:
+      value: 14.9
+      unit: g/dL
+    LDL:
+      value: 67.0
+      unit: mg/dL
+    MCH:
+      value: 29.2
+      unit: pg
+    MCHC:
+      value: 33.1
+      unit: g/dL
+    MCV:
+      value: 88.1
+      unit: fL
+    MPV:
+      value: 9.2
+      unit: fL
+    Platelets:
+      value: 307.0
+      unit: K/uL
+    Potassium:
+      value: 4.9
+      unit: mmol/L
+    RBC:
+      value: 5.11
+      unit: M/uL
+    RDW:
+      value: 12.3
+      unit: '%'
+    Sodium:
+      value: 139.0
+      unit: mmol/L
+    Total Bilirubin:
+      value: 0.6
+      unit: mg/dL
+    Total Protein:
+      value: 7.1
+      unit: g/dL
+    Triglycerides:
+      value: 59.0
+      unit: mg/dL
+    WBC:
+      value: 4.92
+      unit: K/uL
+    eGFR:
+      value: 101.0
+      unit: mL/min/1.73m2
+- date: '2025-03-06'
+  source: Labcorp / LifeForce
+  measurements:
+    ALT:
+      value: 42.0
+      unit: IU/L
+    AST:
+      value: 43.0
+      unit: IU/L
+    Albumin:
+      value: 4.5
+      unit: g/dL
+    Alkaline Phosphatase:
+      value: 74.0
+      unit: IU/L
+    Apolipoprotein B:
+      value: 72.0
+      unit: mg/dL
+    BUN:
+      value: 20.0
+      unit: mg/dL
+    BUN/Creatinine Ratio:
+      value: 17.0
+      unit: ''
+    Basophils (%):
+      value: 1.0
+      unit: '%'
+    Basophils (Absolute):
+      value: 0.0
+      unit: K/uL
+    CO2:
+      value: 23.0
+      unit: mmol/L
+    Calcium:
+      value: 9.8
+      unit: mg/dL
+    Chloride:
+      value: 102.0
+      unit: mmol/L
+    Cholesterol:
+      value: 157.0
+      unit: mg/dL
+    Creatinine:
+      value: 1.16
+      unit: mg/dL
+    DHEA-S:
+      value: 266.0
+      unit: ug/dL
+    Eosinophils (%):
+      value: 4.0
+      unit: '%'
+    Eosinophils (Absolute):
+      value: 0.2
+      unit: K/uL
+    Estradiol:
+      value: 30.4
+      unit: pg/mL
+    FSH:
+      value: 4.1
+      unit: mIU/mL
+    Free Testosterone:
+      value: 127.7
+      unit: pg/mL
+    Globulin:
+      value: 2.3
+      unit: g/dL
+    Glucose:
+      value: 104.0
+      unit: mg/dL
+    HDL:
+      value: 58.0
+      unit: mg/dL
+    HbA1c:
+      value: 6.0
+      unit: '%'
+    Hematocrit:
+      value: 45.6
+      unit: '%'
+    Hemoglobin:
+      value: 15.7
+      unit: g/dL
+    Homocysteine:
+      value: 8.2
+      unit: umol/L
+    IGF-1:
+      value: 194.0
+      unit: ng/mL
+    Immature Granulocytes:
+      value: 0.0
+      unit: '%'
+    Immature Granulocytes (Absolute):
+      value: 0.0
+      unit: K/uL
+    LDL:
+      value: 84.0
+      unit: mg/dL
+    LH:
+      value: 9.1
+      unit: mIU/mL
+    Lipoprotein(a):
+      value: 9.0
+      unit: nmol/L
+    Lymphocytes (%):
+      value: 35.0
+      unit: '%'
+    Lymphocytes (Absolute):
+      value: 1.6
+      unit: K/uL
+    MCH:
+      value: 30.3
+      unit: pg
+    MCHC:
+      value: 34.4
+      unit: g/dL
+    MCV:
+      value: 88.0
+      unit: fL
+    Magnesium:
+      value: 2.0
+      unit: mg/dL
+    Monocytes (%):
+      value: 8.0
+      unit: '%'
+    Monocytes (Absolute):
+      value: 0.4
+      unit: K/uL
+    Neutrophils (%):
+      value: 52.0
+      unit: '%'
+    Neutrophils (Absolute):
+      value: 2.3
+      unit: K/uL
+    PSA:
+      value: 0.6
+      unit: ng/mL
+    Platelets:
+      value: 302.0
+      unit: K/uL
+    Potassium:
+      value: 4.6
+      unit: mmol/L
+    RBC:
+      value: 5.18
+      unit: M/uL
+    RDW:
+      value: 12.0
+      unit: '%'
+    SHBG:
+      value: 29.1
+      unit: nmol/L
+    Sodium:
+      value: 139.0
+      unit: mmol/L
+    TSH:
+      value: 2.08
+      unit: uIU/mL
+    Testosterone:
+      value: 570.0
+      unit: ng/dL
+    Total Bilirubin:
+      value: 0.4
+      unit: mg/dL
+    Total Protein:
+      value: 6.8
+      unit: g/dL
+    Triglycerides:
+      value: 80.0
+      unit: mg/dL
+    VLDL:
+      value: 15.0
+      unit: mg/dL
+    Vitamin D:
+      value: 34.4
+      unit: ng/mL
+    WBC:
+      value: 4.5
+      unit: K/uL
+    eGFR:
+      value: 84.0
+      unit: mL/min/1.73
+    hsCRP:
+      value: 0.5
+      unit: mg/L
