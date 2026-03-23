@@ -8,12 +8,348 @@ vo2max:
   unit: ml/kg/min
   source: UMass Empatica study (5-sec peak)
 weight_lbs:
+# Garmin Connect monthly averages from historical charts (images 1,2,3,4,5,7,8,9,10,11,12)
+# Apple Health monthly averages preferred where available (images 13,14,15)
+# MassMutual bloodwork entries are exact date measurements
+- date: '2011-07-01'
+  value: 174.0
+  source: Garmin Connect
+- date: '2011-08-01'
+  value: 171.0
+  source: Garmin Connect
+- date: '2011-09-01'
+  value: 173.0
+  source: Garmin Connect
+- date: '2011-10-01'
+  value: 171.0
+  source: Garmin Connect
+- date: '2011-11-01'
+  value: 173.5
+  source: Garmin Connect
+- date: '2011-12-01'
+  value: 173.0
+  source: Garmin Connect
+- date: '2012-01-01'
+  value: 171.5
+  source: Garmin Connect
+- date: '2012-02-01'
+  value: 175.0
+  source: Garmin Connect
+- date: '2012-05-01'
+  value: 175.5
+  source: Garmin Connect
+- date: '2012-06-01'
+  value: 175.0
+  source: Garmin Connect
+- date: '2012-07-01'
+  value: 174.0
+  source: Garmin Connect
+- date: '2012-08-01'
+  value: 173.0
+  source: Garmin Connect
+- date: '2012-09-01'
+  value: 171.5
+  source: Garmin Connect
+- date: '2012-10-01'
+  value: 171.5
+  source: Garmin Connect
+- date: '2012-11-01'
+  value: 172.0
+  source: Garmin Connect
+- date: '2012-12-01'
+  value: 173.0
+  source: Garmin Connect
+- date: '2013-01-01'
+  value: 172.0
+  source: Garmin Connect
+- date: '2015-08-01'
+  value: 170.4
+  source: Garmin Connect
+- date: '2015-09-01'
+  value: 171.0
+  source: Garmin Connect
+- date: '2015-10-01'
+  value: 172.2
+  source: Garmin Connect
+- date: '2015-11-01'
+  value: 172.2
+  source: Garmin Connect
+- date: '2015-12-01'
+  value: 172.2
+  source: Garmin Connect
+- date: '2016-01-01'
+  value: 172.2
+  source: Garmin Connect
+- date: '2016-02-01'
+  value: 172.2
+  source: Garmin Connect
+- date: '2016-03-01'
+  value: 172.2
+  source: Garmin Connect
+- date: '2016-04-01'
+  value: 172.2
+  source: Garmin Connect
+- date: '2016-06-01'
+  value: 172.0
+  source: Garmin Connect
+- date: '2016-07-01'
+  value: 173.0
+  source: Garmin Connect
+- date: '2016-08-01'
+  value: 165.0
+  source: Garmin Connect
+- date: '2016-09-01'
+  value: 167.0
+  source: Garmin Connect
+- date: '2016-10-01'
+  value: 166.0
+  source: Garmin Connect
+- date: '2016-11-01'
+  value: 167.0
+  source: Garmin Connect
+- date: '2016-12-01'
+  value: 167.5
+  source: Garmin Connect
+- date: '2017-01-01'
+  value: 168.5
+  source: Garmin Connect
+- date: '2017-02-01'
+  value: 169.0
+  source: Garmin Connect
+- date: '2017-03-01'
+  value: 168.0
+  source: Garmin Connect
+- date: '2017-04-01'
+  value: 169.0
+  source: Garmin Connect
+- date: '2017-05-01'
+  value: 170.0
+  source: Garmin Connect
+- date: '2017-06-01'
+  value: 169.0
+  source: Garmin Connect
+- date: '2017-07-01'
+  value: 167.5
+  source: Garmin Connect
+- date: '2017-08-01'
+  value: 167.5
+  source: Garmin Connect
+- date: '2017-09-01'
+  value: 168.0
+  source: Garmin Connect
+- date: '2017-10-01'
+  value: 167.0
+  source: Garmin Connect
+- date: '2017-11-01'
+  value: 170.0
+  source: Garmin Connect
+- date: '2017-12-01'
+  value: 171.0
+  source: Garmin Connect
+- date: '2018-01-01'
+  value: 171.0
+  source: Garmin Connect
+- date: '2018-02-01'
+  value: 171.0
+  source: Garmin Connect
+- date: '2018-03-01'
+  value: 171.0
+  source: Garmin Connect
+- date: '2018-04-01'
+  value: 170.8
+  source: Garmin Connect
+- date: '2018-05-01'
+  value: 167.5
+  source: Garmin Connect
+- date: '2018-06-01'
+  value: 167.4
+  source: Garmin Connect
+- date: '2018-07-01'
+  value: 167.3
+  source: Garmin Connect
+- date: '2018-08-01'
+  value: 167.3
+  source: Garmin Connect
+- date: '2018-09-01'
+  value: 167.2
+  source: Garmin Connect
 - date: '2018-10-10'
   value: 165
   source: MassMutual policy bloodwork
+- date: '2018-11-01'
+  value: 167.1
+  source: Garmin Connect
+- date: '2018-12-01'
+  value: 167.0
+  source: Garmin Connect
+- date: '2019-01-01'
+  value: 167.0
+  source: Garmin Connect
+- date: '2019-02-01'
+  value: 166.9
+  source: Garmin Connect
+- date: '2019-03-01'
+  value: 166.8
+  source: Garmin Connect
+- date: '2019-04-01'
+  value: 166.7
+  source: Garmin Connect
+- date: '2019-09-01'
+  value: 171.0
+  source: Garmin Connect
+- date: '2019-10-01'
+  value: 170.5
+  source: Garmin Connect
+- date: '2019-11-01'
+  value: 170.0
+  source: Garmin Connect
+- date: '2019-12-01'
+  value: 168.0
+  source: Garmin Connect
+- date: '2020-01-01'
+  value: 171.0
+  source: Garmin Connect
+- date: '2020-02-01'
+  value: 172.0
+  source: Garmin Connect
+- date: '2020-03-01'
+  value: 175.0
+  source: Garmin Connect
+- date: '2021-07-01'
+  value: 172.0
+  source: Garmin Connect
+- date: '2022-06-01'
+  value: 183.0
+  source: Garmin Connect
+- date: '2022-07-01'
+  value: 184.0
+  source: Garmin Connect
+- date: '2022-08-01'
+  value: 183.0
+  source: Garmin Connect
+- date: '2022-09-01'
+  value: 183.0
+  source: Garmin Connect
+- date: '2022-10-01'
+  value: 183.5
+  source: Garmin Connect
+- date: '2022-11-01'
+  value: 185.5
+  source: Garmin Connect
 - date: '2022-12-23'
   value: 187
   source: MassMutual policy bloodwork
+- date: '2023-01-01'
+  value: 188.0
+  source: Apple Health
+- date: '2023-02-01'
+  value: 189.0
+  source: Apple Health
+- date: '2023-03-01'
+  value: 192.0
+  source: Apple Health
+- date: '2023-04-01'
+  value: 191.0
+  source: Apple Health
+- date: '2023-05-01'
+  value: 190.0
+  source: Apple Health
+- date: '2023-06-01'
+  value: 190.0
+  source: Apple Health
+- date: '2023-07-01'
+  value: 192.0
+  source: Apple Health
+- date: '2023-08-01'
+  value: 191.0
+  source: Apple Health
+- date: '2023-09-01'
+  value: 189.0
+  source: Apple Health
+- date: '2023-10-01'
+  value: 188.0
+  source: Apple Health
+- date: '2023-11-01'
+  value: 189.0
+  source: Apple Health
+- date: '2023-12-01'
+  value: 194.0
+  source: Apple Health
+- date: '2024-01-01'
+  value: 196.0
+  source: Apple Health
+- date: '2024-02-01'
+  value: 195.0
+  source: Apple Health
+- date: '2024-03-01'
+  value: 189.0
+  source: Apple Health
+- date: '2024-04-01'
+  value: 189.0
+  source: Apple Health
+- date: '2024-05-01'
+  value: 191.0
+  source: Apple Health
+- date: '2024-06-01'
+  value: 191.0
+  source: Apple Health
+- date: '2024-07-01'
+  value: 191.0
+  source: Apple Health
+- date: '2024-08-01'
+  value: 190.0
+  source: Apple Health
+- date: '2024-09-01'
+  value: 190.0
+  source: Apple Health
+- date: '2024-10-01'
+  value: 190.0
+  source: Apple Health
+- date: '2024-11-01'
+  value: 194.0
+  source: Apple Health
+- date: '2024-12-01'
+  value: 198.5
+  source: Apple Health
+- date: '2025-03-01'
+  value: 192.0
+  source: Garmin Connect
+- date: '2025-04-01'
+  value: 191.0
+  source: Apple Health
+- date: '2025-05-01'
+  value: 193.0
+  source: Apple Health
+- date: '2025-06-01'
+  value: 194.0
+  source: Apple Health
+- date: '2025-07-01'
+  value: 194.0
+  source: Apple Health
+- date: '2025-08-01'
+  value: 193.5
+  source: Apple Health
+- date: '2025-09-01'
+  value: 193.5
+  source: Apple Health
+- date: '2025-10-01'
+  value: 193.0
+  source: Apple Health
+- date: '2025-11-01'
+  value: 200.5
+  source: Apple Health
+- date: '2025-12-01'
+  value: 200.0
+  source: Apple Health
+- date: '2026-01-01'
+  value: 198.0
+  source: Apple Health
+- date: '2026-02-01'
+  value: 195.0
+  source: Apple Health
+- date: '2026-03-01'
+  value: 191.0
+  source: Apple Health
 ftp_watts:
 - date: '2011-06-01'
   value: 193
