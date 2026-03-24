@@ -44,8 +44,9 @@ FITNESS_FILE   = os.path.join(os.path.dirname(__file__), "fitness_data.yaml")
 CORR_HTML      = os.path.join(os.path.dirname(__file__), "correlations.html")
 HTML_FILE      = os.path.join(os.path.dirname(__file__), "models.html")
 
-STRAVA_DB = os.path.expanduser("~/projects/2026/strava-database/strava.db")
-WHOOP_DB  = os.path.expanduser("~/projects/2026/whoop-database/whoop.db")
+STRAVA_DB  = os.path.expanduser("~/projects/2026/strava-database/strava.db")
+WHOOP_DB   = os.path.expanduser("~/projects/2026/whoop-database/whoop.db")
+GARMIN_DB  = os.path.expanduser("~/projects/2026/connect-database/garmin-database/garmin.db")
 
 BIRTH_YEAR = 1989
 
@@ -85,6 +86,10 @@ WEARABLE_COVARIATES = [
     ("strava_run_hrs_90d",    "Run hours 90d",                "Strava"),
     ("strava_avg_hr_90d",     "Avg workout HR 90d (bpm)",     "Strava"),
     ("strava_avg_watts_90d",  "Avg cycling watts 90d",        "Strava"),
+    ("garmin_steps_90d",      "Steps 90d avg",                "Garmin"),
+    ("garmin_stress_90d",     "Stress 90d avg",               "Garmin"),
+    ("garmin_bb_hi_90d",      "Body battery hi 90d avg",      "Garmin"),
+    ("garmin_intensity_90d",  "Intensity mins 90d avg",       "Garmin"),
     ("weight",                "Weight (lbs)",                 "Life"),
     ("vo2max",                "VO₂max (ml/kg/min)",           "Fitness"),
 ]
@@ -371,14 +376,53 @@ def load_strava_windows(db_path, draw_dates):
     return result
 
 
-def get_current_wearable_values(whoop_db, strava_db, weight_lookup, vo2_lookup):
+def load_garmin_windows(db_path: str, draw_dates: list[str]) -> dict[str, dict]:
+    """90-day averages of Garmin daily metrics before each blood draw."""
+    if not os.path.exists(db_path):
+        return {}
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cur  = conn.cursor()
+    result = {}
+    for draw in draw_dates:
+        since = (datetime.strptime(draw, "%Y-%m-%d") - timedelta(days=90)).strftime("%Y-%m-%d")
+        cur.execute("""
+            SELECT AVG(total_steps)                                          AS steps,
+                   AVG(avg_stress_level)                                     AS stress,
+                   AVG(body_battery_highest)                                 AS bb_hi,
+                   AVG(moderate_intensity_mins + vigorous_intensity_mins*2)  AS intensity,
+                   COUNT(*)                                                   AS n_days
+            FROM daily
+            WHERE date >= ? AND date < ?
+              AND total_steps IS NOT NULL AND total_steps > 0
+        """, (since, draw))
+        r = cur.fetchone()
+        if r and r["n_days"] and r["n_days"] >= 7:
+            result[draw] = {
+                "garmin_steps_90d":     r["steps"],
+                "garmin_stress_90d":    r["stress"],
+                "garmin_bb_hi_90d":     r["bb_hi"],
+                "garmin_intensity_90d": r["intensity"],
+            }
+        else:
+            result[draw] = {k: None for k in [
+                "garmin_steps_90d", "garmin_stress_90d",
+                "garmin_bb_hi_90d", "garmin_intensity_90d",
+            ]}
+    conn.close()
+    return result
+
+
+def get_current_wearable_values(whoop_db, strava_db, garmin_db, weight_lookup, vo2_lookup):
     """Pull today's 30-day and 90-day wearable averages for the prediction card."""
     today = date.today().isoformat()
-    whoop_now = load_whoop_windows(whoop_db, [today]).get(today, {})
+    whoop_now  = load_whoop_windows(whoop_db,   [today]).get(today, {})
     strava_now = load_strava_windows(strava_db, [today]).get(today, {})
+    garmin_now = load_garmin_windows(garmin_db, [today]).get(today, {})
     return {
         **whoop_now,
         **strava_now,
+        **garmin_now,
         "age":    date.today().year - BIRTH_YEAR,
         "kids":   kids_count_at(today),
         "weight": weight_lookup(today),
@@ -501,7 +545,7 @@ def build_vo2max_lookup(fitness, strava_db):
 # ---------------------------------------------------------------------------
 
 def build_models(measurements, ref_ranges, fitness,
-                 whoop_windows, strava_windows):
+                 whoop_windows, strava_windows, garmin_windows):
 
     weight_lookup = make_prior_lookup(fitness.get("weight_lbs", []))
     vo2_lookup    = build_vo2max_lookup(fitness, STRAVA_DB)
@@ -517,10 +561,11 @@ def build_models(measurements, ref_ranges, fitness,
         }
         row.update(whoop_windows.get(d, {}))
         row.update(strava_windows.get(d, {}))
+        row.update(garmin_windows.get(d, {}))
         return row
 
     cov_rows = {d: cov_row(d) for d in all_dates}
-    today_covs = get_current_wearable_values(WHOOP_DB, STRAVA_DB, weight_lookup, vo2_lookup)
+    today_covs = get_current_wearable_values(WHOOP_DB, STRAVA_DB, GARMIN_DB, weight_lookup, vo2_lookup)
 
     models = []
 
@@ -1167,9 +1212,14 @@ def main():
     scovered = sum(1 for d in all_dates if strava_windows.get(d, {}).get("strava_hrs_90d") is not None)
     print(f"  {scovered}/{len(all_dates)} draws covered")
 
+    print("Loading Garmin windows...")
+    garmin_windows = load_garmin_windows(GARMIN_DB, all_dates)
+    gcovered = sum(1 for d in all_dates if garmin_windows.get(d, {}).get("garmin_steps_90d") is not None)
+    print(f"  {gcovered}/{len(all_dates)} draws covered")
+
     print("Building models...")
     models, today_covs = build_models(
-        measurements, ref_ranges, fitness, whoop_windows, strava_windows)
+        measurements, ref_ranges, fitness, whoop_windows, strava_windows, garmin_windows)
 
     n_b = sum(1 for m in models if m.get("model_b"))
     print(f"  {len(models)} models built · {n_b} with wearable predictor")

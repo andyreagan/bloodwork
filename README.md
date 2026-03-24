@@ -1,21 +1,47 @@
-# Bloodwork Dashboard
+# Health Dashboard
 
-Personal bloodwork and fitness tracker. Live at **[health.andyreagan.com](https://health.andyreagan.com)**.
+Personal bloodwork, fitness, and recovery tracker.
+Live at **[health.andyreagan.com](https://health.andyreagan.com)**.
 
-## What it does
+## Pages
 
-Tracks 19 blood draws (2013–2026) across 89 biomarkers, plus fitness metrics (VO₂max, FTP, weight).
+| Page | URL | What it shows |
+|------|-----|---------------|
+| **Dashboard** | `/` | Latest values for 89 biomarkers + VO₂max top card, trend arrows, panel charts |
+| **Fitness Sources** | `/fitness.html` | Garmin vs WHOOP head-to-head comparison, combined monthly trends, source coverage |
+| **Correlations** | `/correlations.html` | Raw + age-adjusted partial r between all biomarkers and 29 covariates (WHOOP/Strava/Garmin/Life) |
+| **Models** | `/models.html` | LOO cross-validated OLS models: age-only + age + best wearable predictor, next-draw predictions |
 
-- InsideTracker-inspired design with dark theme
-- Color-coded status: 🟢 optimal / 🟡 normal / 🔴 out of range
-- Trend arrows per biomarker (↑↓→)
-- Line charts with reference range bands
-- Panels: Metabolic, Lipids, Liver, Blood Count, Hormones, Inflammation, Vitamins, Electrolytes, Fitness
-- Mobile-friendly, self-contained HTML
+## Data sources
 
-## Adding new data
+| Source | Signal | Coverage |
+|--------|--------|----------|
+| `bloodwork_data.yaml` | 89 biomarkers across 17 blood draws | 2013–2026 |
+| `fitness_data.yaml` | VO₂max (lab), FTP, weight, race times, lifts | 2011–2026 |
+| `~/projects/2026/strava-database/strava.db` | Weekly training: run miles, ride/run/swim hours, avg HR, watts | 2011–2026 |
+| `~/projects/2026/whoop-database/whoop.db` | Daily: HRV, recovery, RHR, strain, sleep, SpO₂, skin temp | Oct 2020–today |
+| `~/projects/2026/connect-database/garmin-database/garmin.db` | Daily: steps, stress, body battery, intensity mins, sleep, RHR | 2015–today |
 
-All data lives in two human-editable YAML files. To add a new blood draw, edit `bloodwork_data.yaml` directly (or ask an LLM to do it):
+## Regenerating
+
+```bash
+cd ~/projects/2026/bloodwork
+make          # rebuild everything
+make update   # alias for make (rebuild all + push)
+```
+
+Or individually:
+
+```bash
+python generate.py              # → index.html
+python generate_fitness.py      # → fitness.html
+python generate_correlations.py # → correlations.html
+python generate_models.py       # → models.html
+```
+
+## Adding a new blood draw
+
+Edit `bloodwork_data.yaml` directly (or ask an LLM):
 
 ```yaml
 draws:
@@ -28,11 +54,10 @@ draws:
       # ... etc
 ```
 
-Then regenerate:
+Then:
 
 ```bash
-cd ~/projects/bloodwork
-python3 generate.py
+make update
 git add -A && git commit -m "Add June 2026 bloodwork" && git push
 ```
 
@@ -40,11 +65,31 @@ git add -A && git commit -m "Add June 2026 bloodwork" && git push
 
 | File | Purpose |
 |------|---------|
-| `bloodwork_data.yaml` | All bloodwork data (draws + reference ranges) |
-| `fitness_data.yaml` | Fitness metrics (VO₂max, FTP, weight, race times, lifts) |
-| `generate.py` | Reads both YAMLs → generates `index.html` |
-| `index.html` | Static dashboard (committed for GitHub Pages) |
+| `bloodwork_data.yaml` | All bloodwork (draws + reference ranges) |
+| `fitness_data.yaml` | VO₂max, FTP, weight, race times, lifts |
+| `generate.py` | Main dashboard → `index.html` |
+| `generate_fitness.py` | Fitness source comparison → `fitness.html` |
+| `generate_correlations.py` | Correlation analysis → `correlations.html` |
+| `generate_models.py` | Predictive models → `models.html` |
+| `Makefile` | `make` rebuilds all four pages |
+
+## Statistical approach
+
+**Correlations page:**
+- Raw Pearson *r* for every biomarker × covariate pair
+- Age-adjusted partial *r*: regress both variables on age first, then correlate residuals — removes the shared aging trend before measuring the relationship
+- Minimum n≥5 for wearable covariates to avoid spurious r=1 on tiny samples
+
+**Models page:**
+- Model A: age-only OLS (baseline)
+- Model B: age + best wearable predictor, chosen by |partial r| ≥ 0.3
+- Hard limit: max 2 predictors (n=5–15 doesn't support more)
+- Leave-One-Out cross-validation throughout — LOO-R² is the headline metric
+- Prediction intervals are ±1 LOO-MAE (honest, not formal confidence intervals)
 
 ## Privacy
 
-This repo is public. The HTML embeds all data as JSON — **do not commit sensitive non-health data here**. Health data (bloodwork, fitness) is intentionally shared. No full date of birth is included — only birth year (1989) for age calculation.
+This repo is public. The HTML embeds all data as JSON —
+**do not commit sensitive non-health data here**.
+Health data (bloodwork, fitness) is intentionally shared.
+No full date of birth — only birth year (1989) for age calculation.

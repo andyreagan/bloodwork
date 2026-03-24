@@ -12,7 +12,7 @@ import yaml
 BLOODWORK_FILE = os.path.join(os.path.dirname(__file__), "bloodwork_data.yaml")
 HTML_FILE = os.path.join(os.path.dirname(__file__), "index.html")
 FITNESS_FILE = os.path.join(os.path.dirname(__file__), "fitness_data.yaml")
-STRAVA_DB = os.path.expanduser("~/projects/strava-database/strava.db")
+STRAVA_DB = os.path.expanduser("~/projects/2026/strava-database/strava.db")
 
 BIRTH_YEAR = 1989
 
