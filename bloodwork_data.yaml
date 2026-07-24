@@ -1821,3 +1821,340 @@ draws:
       value: 0.2
       unit: mg/L
   notes: WHOOP Labs results via Quest Diagnostics, December 2025.
+- date: '2026-04-15'
+  source: Function Health / Quest
+  measurements:
+    A/G Ratio:
+      value: 2.5
+      unit: ''
+    AA/EPA Ratio:
+      value: 21.6
+      unit: ''
+    ALT:
+      value: 27.0
+      unit: U/L
+    AST:
+      value: 26.0
+      unit: U/L
+    Albumin:
+      value: 4.8
+      unit: g/dL
+    Albumin (Urine):
+      value: 0.3
+      unit: mg/dL
+      note: random urine, without creatinine
+    Alkaline Phosphatase:
+      value: 65.0
+      unit: U/L
+    Amylase:
+      value: 48.0
+      unit: U/L
+    Apolipoprotein B:
+      value: 64.0
+      unit: mg/dL
+    Arachidonic Acid:
+      value: 11.9
+      unit: '% by wt'
+    BUN:
+      value: 20.0
+      unit: mg/dL
+    Basophils (%):
+      value: 0.4
+      unit: '%'
+    Basophils (Absolute):
+      value: 0.018
+      unit: K/uL
+    CO2:
+      value: 24.0
+      unit: mmol/L
+    Calcium:
+      value: 9.7
+      unit: mg/dL
+    Cardiac Risk Ratio:
+      value: 2.5
+      unit: ''
+    Chloride:
+      value: 105.0
+      unit: mmol/L
+    Cholesterol:
+      value: 158.0
+      unit: mg/dL
+    Cortisol:
+      value: 9.3
+      unit: µg/dL
+    Creatinine:
+      value: 1.1
+      unit: mg/dL
+    DHA:
+      value: 2.0
+      unit: '% by wt'
+    DHEA-S:
+      value: 181.0
+      unit: ug/dL
+    DPA:
+      value: 1.3
+      unit: '% by wt'
+    EPA:
+      value: 0.5
+      unit: '% by wt'
+    Eosinophils (%):
+      value: 2.0
+      unit: '%'
+    Eosinophils (Absolute):
+      value: 0.09
+      unit: K/uL
+    Estradiol:
+      value: 45.0
+      unit: pg/mL
+    FSH:
+      value: 4.5
+      unit: mIU/mL
+    Ferritin:
+      value: 88.0
+      unit: ng/mL
+    Free PSA:
+      value: 0.3
+      unit: ng/mL
+    Free PSA (%):
+      value: 43.0
+      unit: '%'
+    Free T3:
+      value: 3.6
+      unit: pg/mL
+    Free T4:
+      value: 1.1
+      unit: ng/dL
+    Free Testosterone:
+      value: 113.1
+      unit: pg/mL
+    GGT:
+      value: 57.0
+      unit: U/L
+    Globulin:
+      value: 1.9
+      unit: g/dL
+    Glucose:
+      value: 95.0
+      unit: mg/dL
+    HDL:
+      value: 64.0
+      unit: mg/dL
+    HDL Large:
+      value: 6147.0
+      unit: nmol/L
+    HbA1c:
+      value: 5.6
+      unit: '%'
+    Hematocrit:
+      value: 46.2
+      unit: '%'
+    Hemoglobin:
+      value: 15.0
+      unit: g/dL
+    Homocysteine:
+      value: 8.9
+      unit: umol/L
+    Insulin:
+      value: 6.8
+      unit: uIU/mL
+    Iron:
+      value: 179.0
+      unit: ug/dL
+    LDL:
+      value: 78.0
+      unit: mg/dL
+    LDL Medium:
+      value: 264.0
+      unit: nmol/L
+    LDL Particle Number:
+      value: 1178.0
+      unit: nmol/L
+    LDL Peak Size:
+      value: 219.4
+      unit: Angstrom
+    LDL Small:
+      value: 193.0
+      unit: nmol/L
+    LH:
+      value: 4.6
+      unit: mIU/mL
+    Lead:
+      value: 1.0
+      unit: ug/dL
+      note: reported as <1.0; value is the assay reporting limit
+    Leptin:
+      value: 0.9
+      unit: ng/mL
+    Linoleic Acid:
+      value: 26.1
+      unit: '% by wt'
+    Lipase:
+      value: 24.0
+      unit: U/L
+    Lipoprotein(a):
+      value: 10.0
+      unit: nmol/L
+      note: reported as <10; value is the assay reporting limit
+    Lymphocytes (%):
+      value: 34.1
+      unit: '%'
+    Lymphocytes (Absolute):
+      value: 1.535
+      unit: K/uL
+    MCH:
+      value: 30.1
+      unit: pg
+    MCHC:
+      value: 32.5
+      unit: g/dL
+    MCV:
+      value: 92.6
+      unit: fL
+    MMA:
+      value: 131.0
+      unit: nmol/L
+    MPV:
+      value: 9.7
+      unit: fL
+    Mercury:
+      value: 4.0
+      unit: ug/L
+      note: reported as <4; value is the assay reporting limit
+    Monocytes (%):
+      value: 6.2
+      unit: '%'
+    Monocytes (Absolute):
+      value: 0.279
+      unit: K/uL
+    Neutrophils (%):
+      value: 57.3
+      unit: '%'
+    Neutrophils (Absolute):
+      value: 2.579
+      unit: K/uL
+    Non-HDL:
+      value: 94.0
+      unit: mg/dL
+    Omega-3 Total:
+      value: 3.8
+      unit: '% by wt'
+    Omega-6 Total:
+      value: 41.6
+      unit: '% by wt'
+    Omega-6/Omega-3 Ratio:
+      value: 10.8
+      unit: ''
+    PSA:
+      value: 0.7
+      unit: ng/mL
+    Platelets:
+      value: 284.0
+      unit: K/uL
+    Potassium:
+      value: 4.5
+      unit: mmol/L
+    Prolactin:
+      value: 5.1
+      unit: ng/mL
+    RBC:
+      value: 4.99
+      unit: M/uL
+    RBC Magnesium:
+      value: 5.8
+      unit: mg/dL
+    RDW:
+      value: 12.4
+      unit: '%'
+    Rheumatoid Factor:
+      value: 10.0
+      unit: IU/mL
+      note: reported as <10; value is the assay reporting limit
+    SHBG:
+      value: 28.0
+      unit: nmol/L
+    Sodium:
+      value: 141.0
+      unit: mmol/L
+    TIBC:
+      value: 272.0
+      unit: ug/dL
+    TPO Antibodies:
+      value: 1.0
+      unit: IU/mL
+      note: reported as <1; value is the assay reporting limit
+    TSH:
+      value: 0.97
+      unit: mIU/L
+    Testosterone:
+      value: 583.0
+      unit: ng/dL
+    Thyroglobulin Antibodies:
+      value: 2.0
+      unit: IU/mL
+      note: reported as <2; value is the assay reporting limit
+    Total Bilirubin:
+      value: 1.1
+      unit: mg/dL
+    Total Protein:
+      value: 6.7
+      unit: g/dL
+    Transferrin Saturation:
+      value: 66.0
+      unit: '%'
+    Triglycerides:
+      value: 75.0
+      unit: mg/dL
+    Uric Acid:
+      value: 6.9
+      unit: mg/dL
+    Vitamin D:
+      value: 26.0
+      unit: ng/mL
+    WBC:
+      value: 4.5
+      unit: K/uL
+    Zinc:
+      value: 82.0
+      unit: ug/dL
+    eGFR:
+      value: 89.0
+      unit: mL/min/1.73m2
+    hsCRP:
+      value: 0.2
+      unit: mg/L
+      note: reported as <0.2; value is the assay reporting limit
+  qualitative:
+    ANA Screen: Negative
+    LDL Pattern: A
+    ABO Group: A
+    Rh Factor: Rh(D) Positive
+    Urinalysis:
+      Color: Yellow
+      Appearance: Clear
+      Specific Gravity: '1.023'
+      pH: '7.0'
+      Glucose: Negative
+      Bilirubin: Negative
+      Ketones: Negative
+      Occult Blood: Negative
+      Protein: Negative
+      Nitrite: Negative
+      Leukocyte Esterase: Negative
+      WBC: None Seen
+      RBC: None Seen
+      Squamous Epithelial Cells: None Seen
+      Bacteria: None Seen
+      Hyaline Casts: None Seen
+  notes: |-
+    Function Health panel, drawn at Quest Diagnostics 2026-04-15 (fasting).
+    Ordering physician Joshua A. Emdur, D.O. via Function Health.
+    Flagged out of range by the lab: Vitamin D 26 (low), Omega-3 Total 3.8% (low),
+    Transferrin Saturation 66% (high), LDL Particle Number 1178 (high), LDL Small 193
+    (high), LDL Medium 264 (high), LDL Peak Size 219.4 (low), HDL Large 6147 (low),
+    Estradiol 45 (high vs Quest male range <=39).
+    Values reported as "less than" the assay limit (Lp(a), hsCRP, TPO, TgAb,
+    Rheumatoid Factor, Lead, Mercury) are stored at that limit -- see per-marker
+    notes. They are ceilings, not measurements.
+    Function Health dashboard extras, not lab values: Biological Age -8.4 years;
+    30-day wearable averages VO2max 53 mL/kg/min, resting HR 50 bpm, HRV 50 ms,
+    sleep 8.3 h at 87% consistency, 7,834 steps, 3,612 cal, 228 min exercise/day.
