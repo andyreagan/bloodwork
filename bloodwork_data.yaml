@@ -1408,7 +1408,7 @@ draws:
     Triglycerides:
       value: 48.0
       unit: mg/dL
-- date: '2018-10-10'
+- date: '2018-10-20'
   source: MassMutual policy bloodwork
   measurements:
     ALT:
