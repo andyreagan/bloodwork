@@ -39,6 +39,8 @@ from datetime import date, datetime, timedelta
 
 import yaml
 
+from ranges import resolve_active
+
 BLOODWORK_FILE = os.path.join(os.path.dirname(__file__), "bloodwork_data.yaml")
 FITNESS_FILE   = os.path.join(os.path.dirname(__file__), "fitness_data.yaml")
 CORR_HTML      = os.path.join(os.path.dirname(__file__), "correlations.html")
@@ -253,7 +255,7 @@ def partial_r(xs, ys, control):
 def load_bloodwork(path):
     with open(path, encoding="utf-8") as f:
         bw = yaml.safe_load(f)
-    ref_ranges = bw["reference_ranges"]
+    ref_ranges = resolve_active(bw["reference_ranges"])
     measurements = {}
     for draw in bw["draws"]:
         for bm, m in draw["measurements"].items():

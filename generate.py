@@ -9,6 +9,8 @@ from datetime import date
 
 import yaml
 
+from ranges import resolve_active
+
 BLOODWORK_FILE = os.path.join(os.path.dirname(__file__), "bloodwork_data.yaml")
 HTML_FILE = os.path.join(os.path.dirname(__file__), "index.html")
 FITNESS_FILE = os.path.join(os.path.dirname(__file__), "fitness_data.yaml")
@@ -40,7 +42,7 @@ def load_data(yaml_path: str) -> tuple[dict, dict]:
     with open(yaml_path, "r", encoding="utf-8") as f:
         bw = yaml.safe_load(f)
 
-    ref_ranges = bw["reference_ranges"]
+    ref_ranges = resolve_active(bw["reference_ranges"])
     draws = bw["draws"]
 
     # Build measurements dict: {biomarker: [{date, value, unit}, ...]}
@@ -690,6 +692,24 @@ def build_html(measurements: dict, ref_ranges: dict, fitness: dict | None = None
     border-radius: 2px;
   }}
 
+  /* Per-source reference range comparison */
+  .ref-sources {{
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.65rem;
+  }}
+  .ref-src-row {{
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    color: var(--text-muted);
+    padding: 1px 0;
+  }}
+  .ref-src-row.active {{ color: var(--text); }}
+  .ref-src-row.active .ref-src-name {{ font-weight: 600; }}
+  .ref-src-val {{ font-variant-numeric: tabular-nums; text-align: right; }}
+
   /* Nav tabs */
   .tabs {{
     display: flex;
@@ -872,6 +892,37 @@ DATA.panels.forEach((panel, pi) => {{
         leg.innerHTML += `<div class="legend-item"><div class="legend-swatch" style="background:rgba(99,102,241,0.15)"></div>Normal</div>`;
       }}
       card.appendChild(leg);
+    }}
+
+    // Per-source reference-range comparison (everyone has their own ranges)
+    if (bm.ref && bm.ref.sources && Object.keys(bm.ref.sources).length > 1) {{
+      const SRC_LABEL = {{ curated: 'My ranges', insidetracker: 'InsideTracker', lab: 'Lab (Quest)' }};
+      const band = (lo, hi) => {{
+        if (lo === null && hi === null) return null;
+        if (lo !== null && hi !== null) return `${{lo}}–${{hi}}`;
+        return hi !== null ? `≤${{hi}}` : `≥${{lo}}`;
+      }};
+      const fmt = (b) => {{
+        const opt = band(b.optimal_low, b.optimal_high);
+        const norm = band(b.low, b.high);
+        const parts = [];
+        if (opt) parts.push(`opt ${{opt}}`);
+        if (norm) parts.push(`normal ${{norm}}`);
+        return parts.join(' · ') || '—';
+      }};
+      const box = document.createElement('div');
+      box.className = 'ref-sources';
+      ['curated', 'insidetracker', 'lab'].forEach(sk => {{
+        const b = bm.ref.sources[sk];
+        if (!b) return;
+        const isActive = sk === bm.ref.active_source;
+        const row = document.createElement('div');
+        row.className = 'ref-src-row' + (isActive ? ' active' : '');
+        const name = SRC_LABEL[sk] + (isActive ? ' ●' : '');
+        row.innerHTML = `<span class="ref-src-name">${{name}}</span><span class="ref-src-val">${{fmt(b)}}</span>`;
+        box.appendChild(row);
+      }});
+      card.appendChild(box);
     }}
 
     grid.appendChild(card);

@@ -1,159 +1,1286 @@
 reference_ranges:
+  A/G Ratio:
+    active: lab
+    sources:
+      lab:
+        high: 2.5
+        low: 1
+        optimal_high: null
+        optimal_low: null
+    unit: ''
+  AA/EPA Ratio:
+    active: lab
+    sources:
+      lab:
+        high: 40.7
+        low: 3.7
+        optimal_high: null
+        optimal_low: null
+    unit: ''
   ALT:
-    low: 7.0
-    high: 56.0
-    optimal_low: 7.0
-    optimal_high: 30.0
+    active: curated
+    sources:
+      curated:
+        high: 56
+        low: 7
+        optimal_high: 30
+        optimal_low: 7
+      insidetracker:
+        high: 46
+        low: 9
+        optimal_high: 23
+        optimal_low: 9
+      lab:
+        high: 46
+        low: 9
+        optimal_high: null
+        optimal_low: null
     unit: U/L
   AST:
-    low: 10.0
-    high: 40.0
-    optimal_low: 10.0
-    optimal_high: 30.0
+    active: curated
+    sources:
+      curated:
+        high: 40
+        low: 10
+        optimal_high: 30
+        optimal_low: 10
+      insidetracker:
+        high: 40
+        low: 10
+        optimal_high: 25
+        optimal_low: 10
+      lab:
+        high: 40
+        low: 10
+        optimal_high: null
+        optimal_low: null
     unit: U/L
+  Albumin:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 5.1
+        low: 3.6
+        optimal_high: 5.1
+        optimal_low: 3.6
+      lab:
+        high: 5.1
+        low: 3.6
+        optimal_high: null
+        optimal_low: null
+    unit: g/dL
+  Alkaline Phosphatase:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 130
+        low: 36
+        optimal_high: 113
+        optimal_low: 37
+      lab:
+        high: 130
+        low: 36
+        optimal_high: null
+        optimal_low: null
+    unit: U/L
+  Amylase:
+    active: lab
+    sources:
+      lab:
+        high: 101
+        low: 21
+        optimal_high: null
+        optimal_low: null
+    unit: U/L
+  Anion Gap:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 12
+        low: 4
+        optimal_high: 12
+        optimal_low: 10
+    unit: mmol/L
+  Apolipoprotein B:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 119
+        low: 0.0
+        optimal_high: 90
+        optimal_low: 0.0
+      lab:
+        high: 90
+        low: null
+        optimal_high: null
+        optimal_low: null
+    unit: mg/dL
+  Arachidonic Acid:
+    active: lab
+    sources:
+      lab:
+        high: 15.6
+        low: 8.6
+        optimal_high: null
+        optimal_low: null
+    unit: '% by wt'
+  BUN:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 25
+        low: 7
+        optimal_high: 20
+        optimal_low: 7
+      lab:
+        high: 25
+        low: 7
+        optimal_high: null
+        optimal_low: null
+    unit: mg/dL
+  BUN/Creatinine Ratio:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 22
+        low: 6
+        optimal_high: 20
+        optimal_low: 9
+    unit: ''
+  Basophil Count:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 200
+        low: 0.0
+        optimal_high: 200
+        optimal_low: 0.0
+    unit: cells/µL
+  Basophils (Absolute):
+    active: lab
+    sources:
+      lab:
+        high: 0.2
+        low: 0.0
+        optimal_high: null
+        optimal_low: null
+    unit: K/uL
+  CO2:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 32
+        low: 20
+        optimal_high: 32
+        optimal_low: 21
+      lab:
+        high: 32
+        low: 20
+        optimal_high: null
+        optimal_low: null
+    unit: mmol/L
+  Calcium:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 10.3
+        low: 8.6
+        optimal_high: 10.3
+        optimal_low: 8.6
+      lab:
+        high: 10.3
+        low: 8.6
+        optimal_high: null
+        optimal_low: null
+    unit: mg/dL
+  Cardiac Risk Ratio:
+    active: lab
+    sources:
+      lab:
+        high: 5
+        low: null
+        optimal_high: null
+        optimal_low: null
+    unit: ''
+  Chloride:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 110
+        low: 98
+        optimal_high: 110
+        optimal_low: 98
+      lab:
+        high: 110
+        low: 98
+        optimal_high: null
+        optimal_low: null
+    unit: mmol/L
   Cholesterol:
-    low: null
-    high: 200.0
-    optimal_low: null
-    optimal_high: 150.0
+    active: curated
+    sources:
+      curated:
+        high: 200
+        low: null
+        optimal_high: 150
+        optimal_low: null
+      insidetracker:
+        high: 200
+        low: 125
+        optimal_high: 183
+        optimal_low: 125
+      lab:
+        high: 200
+        low: null
+        optimal_high: null
+        optimal_low: null
     unit: mg/dL
   Cortisol:
-    low: 6.0
-    high: 23.0
-    optimal_low: 10.0
-    optimal_high: 18.0
+    active: curated
+    sources:
+      curated:
+        high: 23
+        low: 6
+        optimal_high: 18
+        optimal_low: 10
+      insidetracker:
+        high: 22
+        low: 4
+        optimal_high: 18.2
+        optimal_low: 5
+      lab:
+        high: 22
+        low: 4
+        optimal_high: null
+        optimal_low: null
     unit: µg/dL
+  Creatine Kinase:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 1083
+        low: 44
+        optimal_high: 196
+        optimal_low: 44
+    unit: U/L
   Creatinine:
-    low: 0.7
-    high: 1.2
-    optimal_low: 0.8
-    optimal_high: 1.1
+    active: curated
+    sources:
+      curated:
+        high: 1.2
+        low: 0.7
+        optimal_high: 1.1
+        optimal_low: 0.8
+      insidetracker:
+        high: 1.26
+        low: 0.6
+        optimal_high: 1.2
+        optimal_low: 0.6
+      lab:
+        high: 1.26
+        low: 0.6
+        optimal_high: null
+        optimal_low: null
     unit: mg/dL
+  DHA:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 3.9
+        low: 1.2
+        optimal_high: 3.9
+        optimal_low: 1.2
+      lab:
+        high: 5.1
+        low: 1.4
+        optimal_high: null
+        optimal_low: null
+    unit: '% by wt'
+  DHEA-S:
+    active: lab
+    sources:
+      lab:
+        high: 415
+        low: 93
+        optimal_high: null
+        optimal_low: null
+    unit: ug/dL
+  DPA:
+    active: lab
+    sources:
+      lab:
+        high: 1.8
+        low: 0.8
+        optimal_high: null
+        optimal_low: null
+    unit: '% by wt'
+  EPA:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 1.5
+        low: 0.2
+        optimal_high: 1.5
+        optimal_low: 0.2
+      lab:
+        high: 2.3
+        low: 0.2
+        optimal_high: null
+        optimal_low: null
+    unit: '% by wt'
+  Eosinophil Count:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 500
+        low: 15
+        optimal_high: 500
+        optimal_low: 15
+    unit: cells/µL
+  Eosinophils (Absolute):
+    active: lab
+    sources:
+      lab:
+        high: 0.5
+        low: 0.015
+        optimal_high: null
+        optimal_low: null
+    unit: K/uL
+  Estradiol:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 42.6
+        low: 7.6
+        optimal_high: 42.6
+        optimal_low: 7.6
+      lab:
+        high: 39
+        low: null
+        optimal_high: null
+        optimal_low: null
+    unit: pg/mL
+  FSH:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 12.8
+        low: 1.4
+        optimal_high: 12.8
+        optimal_low: 1.4
+      lab:
+        high: 12.8
+        low: 1.4
+        optimal_high: null
+        optimal_low: null
+    unit: mIU/mL
   Ferritin:
-    low: 12.0
-    high: 300.0
-    optimal_low: 50.0
-    optimal_high: 150.0
+    active: curated
+    sources:
+      curated:
+        high: 300
+        low: 12
+        optimal_high: 150
+        optimal_low: 50
+      insidetracker:
+        high: 345
+        low: 20
+        optimal_high: 150
+        optimal_low: 60
+      lab:
+        high: 380
+        low: 38
+        optimal_high: null
+        optimal_low: null
     unit: ng/mL
-  Free Testosterone:
-    low: 5.0
-    high: 21.0
-    optimal_low: 9.0
-    optimal_high: 18.0
+  Folate:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 40
+        low: 3.4
+        optimal_high: 40
+        optimal_low: 5.3
+    unit: ng/mL
+  Free PSA (%):
+    active: lab
+    sources:
+      lab:
+        high: null
+        low: 25
+        optimal_high: null
+        optimal_low: null
+    unit: '%'
+  Free T3:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 4.2
+        low: 2.3
+        optimal_high: 4.2
+        optimal_low: 2.3
+      lab:
+        high: 4.2
+        low: 2.3
+        optimal_high: null
+        optimal_low: null
+    unit: pg/mL
+  Free T4:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 1.8
+        low: 0.8
+        optimal_high: 1.8
+        optimal_low: 0.8
+      lab:
+        high: 1.8
+        low: 0.8
+        optimal_high: null
+        optimal_low: null
     unit: ng/dL
+  Free Testosterone:
+    active: curated
+    sources:
+      curated:
+        high: 21
+        low: 5
+        optimal_high: 18
+        optimal_low: 9
+      insidetracker:
+        high: 22.4
+        low: 4.6
+        optimal_high: 22.4
+        optimal_low: 8.3
+      lab:
+        high: 155
+        low: 35
+        optimal_high: null
+        optimal_low: null
+    unit: ng/dL
+  GGT:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 90
+        low: 3
+        optimal_high: 21
+        optimal_low: 3
+      lab:
+        high: 90
+        low: 3
+        optimal_high: null
+        optimal_low: null
+    unit: U/L
+  Globulin:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 3.7
+        low: 1.9
+        optimal_high: 3.7
+        optimal_low: 1.9
+      lab:
+        high: 3.7
+        low: 1.9
+        optimal_high: null
+        optimal_low: null
+    unit: g/dL
   Glucose:
-    low: 70.0
-    high: 99.0
-    optimal_low: 72.0
-    optimal_high: 85.0
+    active: curated
+    sources:
+      curated:
+        high: 99
+        low: 70
+        optimal_high: 85
+        optimal_low: 72
+      insidetracker:
+        high: 99
+        low: 65
+        optimal_high: 88
+        optimal_low: 65
+      lab:
+        high: 99
+        low: 65
+        optimal_high: null
+        optimal_low: null
     unit: mg/dL
   HDL:
-    low: 40.0
-    high: null
-    optimal_low: 60.0
-    optimal_high: null
+    active: curated
+    sources:
+      curated:
+        high: null
+        low: 40
+        optimal_high: null
+        optimal_low: 60
+      insidetracker:
+        high: 200
+        low: 40
+        optimal_high: 77
+        optimal_low: 54
+      lab:
+        high: null
+        low: 40
+        optimal_high: null
+        optimal_low: null
     unit: mg/dL
+  HDL Large:
+    active: lab
+    sources:
+      lab:
+        high: null
+        low: 6729
+        optimal_high: null
+        optimal_low: null
+    unit: nmol/L
   HbA1c:
-    low: null
-    high: 5.7
-    optimal_low: null
-    optimal_high: 5.2
+    active: curated
+    sources:
+      curated:
+        high: 5.7
+        low: null
+        optimal_high: 5.2
+        optimal_low: null
+      insidetracker:
+        high: 5.7
+        low: 3
+        optimal_high: 5.2
+        optimal_low: 3
+      lab:
+        high: 5.7
+        low: null
+        optimal_high: null
+        optimal_low: null
     unit: '%'
   Hematocrit:
-    low: 40.0
-    high: 52.0
-    optimal_low: 42.0
-    optimal_high: 48.0
+    active: curated
+    sources:
+      curated:
+        high: 52
+        low: 40
+        optimal_high: 48
+        optimal_low: 42
+      insidetracker:
+        high: 50
+        low: 38.5
+        optimal_high: 50
+        optimal_low: 38.5
+      lab:
+        high: 51.1
+        low: 39.4
+        optimal_high: null
+        optimal_low: null
     unit: '%'
   Hemoglobin:
-    low: 13.5
-    high: 17.5
-    optimal_low: 14.5
-    optimal_high: 16.5
+    active: curated
+    sources:
+      curated:
+        high: 17.5
+        low: 13.5
+        optimal_high: 16.5
+        optimal_low: 14.5
+      insidetracker:
+        high: 17.1
+        low: 13.2
+        optimal_high: 17.1
+        optimal_low: 14.9
+      lab:
+        high: 17.1
+        low: 13.2
+        optimal_high: null
+        optimal_low: null
     unit: g/dL
   Homocysteine:
-    low: null
-    high: 15.0
-    optimal_low: null
-    optimal_high: 9.0
+    active: curated
+    sources:
+      curated:
+        high: 15
+        low: null
+        optimal_high: 9
+        optimal_low: null
+      insidetracker:
+        high: 11.4
+        low: 0.0
+        optimal_high: 11.4
+        optimal_low: 0.0
+      lab:
+        high: 13.5
+        low: null
+        optimal_high: null
+        optimal_low: null
     unit: umol/L
+  Insulin:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 18.4
+        low: 0.0
+        optimal_high: 10.18
+        optimal_low: 3.57
+      lab:
+        high: 18.4
+        low: null
+        optimal_high: null
+        optimal_low: null
+    unit: uIU/mL
+  Iron:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 180
+        low: 50
+        optimal_high: 113
+        optimal_low: 81
+      lab:
+        high: 180
+        low: 50
+        optimal_high: null
+        optimal_low: null
+    unit: ug/dL
   LDL:
-    low: null
-    high: 100.0
-    optimal_low: null
-    optimal_high: 70.0
+    active: curated
+    sources:
+      curated:
+        high: 100
+        low: null
+        optimal_high: 70
+        optimal_low: null
+      insidetracker:
+        high: 100
+        low: 0.0
+        optimal_high: 87
+        optimal_low: 0.0
+      lab:
+        high: 100
+        low: null
+        optimal_high: null
+        optimal_low: null
     unit: mg/dL
-  Magnesium:
-    low: 1.7
-    high: 2.2
-    optimal_low: 1.9
-    optimal_high: 2.1
-    unit: mg/dL
-  Platelets:
-    low: 150.0
-    high: 400.0
-    optimal_low: 180.0
-    optimal_high: 350.0
-    unit: K/uL
-  RBC:
-    low: 4.5
-    high: 5.9
-    optimal_low: 4.7
-    optimal_high: 5.5
-    unit: M/uL
-  SHBG:
-    low: 10.0
-    high: 57.0
-    optimal_low: 20.0
-    optimal_high: 45.0
+  LDL Medium:
+    active: lab
+    sources:
+      lab:
+        high: 215
+        low: null
+        optimal_high: null
+        optimal_low: null
     unit: nmol/L
+  LDL Particle Number:
+    active: lab
+    sources:
+      lab:
+        high: 1138
+        low: null
+        optimal_high: null
+        optimal_low: null
+    unit: nmol/L
+  LDL Peak Size:
+    active: lab
+    sources:
+      lab:
+        high: null
+        low: 222.9
+        optimal_high: null
+        optimal_low: null
+    unit: Angstrom
+  LDL Small:
+    active: lab
+    sources:
+      lab:
+        high: 142
+        low: null
+        optimal_high: null
+        optimal_low: null
+    unit: nmol/L
+  LH:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 9.3
+        low: 1.5
+        optimal_high: 9.3
+        optimal_low: 1.7
+      lab:
+        high: 9.3
+        low: 1.5
+        optimal_high: null
+        optimal_low: null
+    unit: mIU/mL
+  Lead:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 3.5
+        low: 0.0
+        optimal_high: 3.5
+        optimal_low: 0.0
+      lab:
+        high: 3.5
+        low: null
+        optimal_high: null
+        optimal_low: null
+    unit: ug/dL
+  Linoleic Acid:
+    active: lab
+    sources:
+      lab:
+        high: 29.5
+        low: 18.6
+        optimal_high: null
+        optimal_low: null
+    unit: '% by wt'
+  Lipase:
+    active: lab
+    sources:
+      lab:
+        high: 60
+        low: 7
+        optimal_high: null
+        optimal_low: null
+    unit: U/L
+  Lymphocyte Count:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 3900
+        low: 850
+        optimal_high: 3900
+        optimal_low: 850
+    unit: cells/µL
+  Lymphocytes (Absolute):
+    active: lab
+    sources:
+      lab:
+        high: 3.9
+        low: 0.85
+        optimal_high: null
+        optimal_low: null
+    unit: K/uL
+  MCH:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 33
+        low: 27
+        optimal_high: 33
+        optimal_low: 27
+      lab:
+        high: 33
+        low: 27
+        optimal_high: null
+        optimal_low: null
+    unit: pg
+  MCHC:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 36
+        low: 32
+        optimal_high: 36
+        optimal_low: 32
+      lab:
+        high: 35.4
+        low: 31.6
+        optimal_high: null
+        optimal_low: null
+    unit: '%'
+  MCV:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 100
+        low: 80
+        optimal_high: 100
+        optimal_low: 80
+      lab:
+        high: 101.7
+        low: 81.4
+        optimal_high: null
+        optimal_low: null
+    unit: fL
+  MMA:
+    active: lab
+    sources:
+      lab:
+        high: 335
+        low: 55
+        optimal_high: null
+        optimal_low: null
+    unit: nmol/L
+  MPV:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 12.5
+        low: 7.5
+        optimal_high: 11.5
+        optimal_low: 7.5
+      lab:
+        high: 12.5
+        low: 7.5
+        optimal_high: null
+        optimal_low: null
+    unit: fL
+  Magnesium:
+    active: curated
+    sources:
+      curated:
+        high: 2.2
+        low: 1.7
+        optimal_high: 2.1
+        optimal_low: 1.9
+      insidetracker:
+        high: 2.5
+        low: 1.5
+        optimal_high: 2.5
+        optimal_low: 2
+    unit: mg/dL
+  Mercury:
+    active: lab
+    sources:
+      lab:
+        high: 10
+        low: null
+        optimal_high: null
+        optimal_low: null
+    unit: ug/L
+  Monocyte Count:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 950
+        low: 200
+        optimal_high: 950
+        optimal_low: 200
+    unit: cells/µL
+  Monocytes (Absolute):
+    active: lab
+    sources:
+      lab:
+        high: 0.95
+        low: 0.2
+        optimal_high: null
+        optimal_low: null
+    unit: K/uL
+  Neutrophil Count:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 7800
+        low: 1500
+        optimal_high: 7800
+        optimal_low: 1500
+    unit: cells/µL
+  Neutrophils (Absolute):
+    active: lab
+    sources:
+      lab:
+        high: 7.8
+        low: 1.5
+        optimal_high: null
+        optimal_low: null
+    unit: K/uL
+  Non-HDL:
+    active: lab
+    sources:
+      lab:
+        high: 130
+        low: null
+        optimal_high: null
+        optimal_low: null
+    unit: mg/dL
+  Omega-6/Omega-3 Ratio:
+    active: lab
+    sources:
+      lab:
+        high: 14.4
+        low: 3.7
+        optimal_high: null
+        optimal_low: null
+    unit: ''
+  PSA:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 4
+        low: 0.0
+        optimal_high: 4
+        optimal_low: 0.0
+      lab:
+        high: 4
+        low: null
+        optimal_high: null
+        optimal_low: null
+    unit: ng/mL
+  Platelets:
+    active: curated
+    sources:
+      curated:
+        high: 400
+        low: 150
+        optimal_high: 350
+        optimal_low: 180
+      insidetracker:
+        high: 400
+        low: 140
+        optimal_high: 400
+        optimal_low: 140
+      lab:
+        high: 400
+        low: 140
+        optimal_high: null
+        optimal_low: null
+    unit: K/uL
+  Potassium:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 5.3
+        low: 3.5
+        optimal_high: 4.8
+        optimal_low: 3.6
+      lab:
+        high: 5.3
+        low: 3.5
+        optimal_high: null
+        optimal_low: null
+    unit: mmol/L
+  Prolactin:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 18
+        low: 2
+        optimal_high: 18
+        optimal_low: 4.6
+      lab:
+        high: 18
+        low: 2
+        optimal_high: null
+        optimal_low: null
+    unit: ng/mL
+  RBC:
+    active: curated
+    sources:
+      curated:
+        high: 5.9
+        low: 4.5
+        optimal_high: 5.5
+        optimal_low: 4.7
+      insidetracker:
+        high: 5.8
+        low: 4.2
+        optimal_high: 5.8
+        optimal_low: 4.2
+      lab:
+        high: 5.8
+        low: 4.2
+        optimal_high: null
+        optimal_low: null
+    unit: M/uL
+  RBC Magnesium:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 2.5
+        low: 1.5
+        optimal_high: 2.5
+        optimal_low: 2
+      lab:
+        high: 6.4
+        low: 4
+        optimal_high: null
+        optimal_low: null
+    unit: mg/dL
+  RDW:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 15
+        low: 11
+        optimal_high: 15
+        optimal_low: 11
+      lab:
+        high: 15
+        low: 11
+        optimal_high: null
+        optimal_low: null
+    unit: '%'
+  Rheumatoid Factor:
+    active: lab
+    sources:
+      lab:
+        high: 14
+        low: null
+        optimal_high: null
+        optimal_low: null
+    unit: IU/mL
+  SHBG:
+    active: curated
+    sources:
+      curated:
+        high: 57
+        low: 10
+        optimal_high: 45
+        optimal_low: 20
+      insidetracker:
+        high: 50
+        low: 10
+        optimal_high: 45
+        optimal_low: 24
+      lab:
+        high: 50
+        low: 10
+        optimal_high: null
+        optimal_low: null
+    unit: nmol/L
+  Sodium:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 146
+        low: 135
+        optimal_high: 145
+        optimal_low: 137
+      lab:
+        high: 146
+        low: 135
+        optimal_high: null
+        optimal_low: null
+    unit: mmol/L
+  TIBC:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 425
+        low: 250
+        optimal_high: 425
+        optimal_low: 250
+      lab:
+        high: 425
+        low: 250
+        optimal_high: null
+        optimal_low: null
+    unit: ug/dL
+  TPO Antibodies:
+    active: lab
+    sources:
+      lab:
+        high: 9
+        low: null
+        optimal_high: null
+        optimal_low: null
+    unit: IU/mL
   TSH:
-    low: 0.4
-    high: 4.0
-    optimal_low: 0.5
-    optimal_high: 2.5
+    active: curated
+    sources:
+      curated:
+        high: 4
+        low: 0.4
+        optimal_high: 2.5
+        optimal_low: 0.5
+      insidetracker:
+        high: 4.15
+        low: 0.5
+        optimal_high: 4.15
+        optimal_low: 0.5
+      lab:
+        high: 4.5
+        low: 0.4
+        optimal_high: null
+        optimal_low: null
     unit: uIU/mL
   Testosterone:
-    low: 300.0
-    high: 1000.0
-    optimal_low: 500.0
-    optimal_high: 900.0
+    active: curated
+    sources:
+      curated:
+        high: 1000
+        low: 300
+        optimal_high: 900
+        optimal_low: 500
+      insidetracker:
+        high: 1100
+        low: 250
+        optimal_high: 1100
+        optimal_low: 549.5
+      lab:
+        high: 1100
+        low: 250
+        optimal_high: null
+        optimal_low: null
     unit: ng/dL
+  Thyroglobulin Antibodies:
+    active: lab
+    sources:
+      lab:
+        high: 2
+        low: null
+        optimal_high: null
+        optimal_low: null
+    unit: IU/mL
+  Total Bilirubin:
+    active: lab
+    sources:
+      lab:
+        high: 1.2
+        low: 0.2
+        optimal_high: null
+        optimal_low: null
+    unit: mg/dL
+  Total Protein:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 8.1
+        low: 6.1
+        optimal_high: 8.1
+        optimal_low: 6.2
+      lab:
+        high: 8.1
+        low: 6.1
+        optimal_high: null
+        optimal_low: null
+    unit: g/dL
+  Transferrin Saturation:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 60
+        low: 15
+        optimal_high: 22
+        optimal_low: 17
+      lab:
+        high: 48
+        low: 20
+        optimal_high: null
+        optimal_low: null
+    unit: '%'
   Triglycerides:
-    low: null
-    high: 150.0
-    optimal_low: null
-    optimal_high: 80.0
+    active: curated
+    sources:
+      curated:
+        high: 150
+        low: null
+        optimal_high: 80
+        optimal_low: null
+      insidetracker:
+        high: 150
+        low: 0.0
+        optimal_high: 82
+        optimal_low: 0.0
+      lab:
+        high: 150
+        low: null
+        optimal_high: null
+        optimal_low: null
+    unit: mg/dL
+  Uric Acid:
+    active: lab
+    sources:
+      lab:
+        high: 8
+        low: 4
+        optimal_high: null
+        optimal_low: null
     unit: mg/dL
   Vitamin B12:
-    low: 200.0
-    high: 900.0
-    optimal_low: 400.0
-    optimal_high: 800.0
+    active: curated
+    sources:
+      curated:
+        high: 900
+        low: 200
+        optimal_high: 800
+        optimal_low: 400
+      insidetracker:
+        high: 1100
+        low: 200
+        optimal_high: 766
+        optimal_low: 488
     unit: pg/mL
   Vitamin D:
-    low: 20.0
-    high: 50.0
-    optimal_low: 40.0
-    optimal_high: 60.0
+    active: curated
+    sources:
+      curated:
+        high: 50
+        low: 20
+        optimal_high: 60
+        optimal_low: 40
+      insidetracker:
+        high: 100
+        low: 30
+        optimal_high: 100
+        optimal_low: 32
+      lab:
+        high: 100
+        low: 30
+        optimal_high: null
+        optimal_low: null
     unit: ng/mL
   WBC:
-    low: 4.0
-    high: 11.0
-    optimal_low: 4.5
-    optimal_high: 8.0
+    active: curated
+    sources:
+      curated:
+        high: 11
+        low: 4
+        optimal_high: 8
+        optimal_low: 4.5
+      insidetracker:
+        high: 10.8
+        low: 3.8
+        optimal_high: 7
+        optimal_low: 3.8
+      lab:
+        high: 10.8
+        low: 3.8
+        optimal_high: null
+        optimal_low: null
     unit: K/uL
+  Zinc:
+    active: insidetracker
+    sources:
+      insidetracker:
+        high: 130
+        low: 60
+        optimal_high: 130
+        optimal_low: 60
+      lab:
+        high: 130
+        low: 60
+        optimal_high: null
+        optimal_low: null
+    unit: ug/dL
   eGFR:
-    low: 60.0
-    high: null
-    optimal_low: 90.0
-    optimal_high: null
-    unit: mL/min/1.73m2
+    active: curated
+    sources:
+      curated:
+        high: null
+        low: 60
+        optimal_high: null
+        optimal_low: 90
+      insidetracker:
+        high: 200
+        low: 90
+        optimal_high: 200
+        optimal_low: 90
+      lab:
+        high: null
+        low: 60
+        optimal_high: null
+        optimal_low: null
+    unit: mL/min/1.73
   hsCRP:
-    low: null
-    high: 3.0
-    optimal_low: null
-    optimal_high: 1.0
+    active: curated
+    sources:
+      curated:
+        high: 3
+        low: null
+        optimal_high: 1
+        optimal_low: null
+      insidetracker:
+        high: 3
+        low: 0.0
+        optimal_high: 0.6
+        optimal_low: 0.0
     unit: mg/L
 draws:
 - date: '2013-01-10'
