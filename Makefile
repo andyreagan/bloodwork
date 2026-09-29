@@ -1,4 +1,5 @@
-PYTHON = python3
+# uv supplies pyyaml so the build does not depend on which python3 is on PATH.
+PYTHON ?= uv run --no-project --with pyyaml python3
 
 .PHONY: all update clean
 

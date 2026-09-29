@@ -20,7 +20,7 @@ Live at **[health.andyreagan.com](https://health.andyreagan.com)**.
 | `fitness_data.yaml` | VO₂max (lab), FTP, weight, race times, lifts | 2011–2026 |
 | `~/projects/2026/strava-database/strava.db` | Weekly training: run miles, ride/run/swim hours, avg HR, watts | 2011–2026 |
 | `~/projects/2026/whoop-database/whoop.db` | Daily: HRV, recovery, RHR, strain, sleep, SpO₂, skin temp | Oct 2020–today |
-| `~/projects/2026/connect-database/garmin-database/garmin.db` | Daily: steps, stress, body battery, intensity mins, sleep, RHR | 2015–today |
+| `~/projects/2026/garmin-database/garmin.db` | Daily: steps, stress, body battery, intensity mins, sleep, RHR | 2015–today |
 
 ## Regenerating
 

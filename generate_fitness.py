@@ -32,7 +32,7 @@ from collections import defaultdict
 
 HTML_FILE  = os.path.join(os.path.dirname(__file__), "fitness.html")
 
-GARMIN_DB = os.path.expanduser("~/projects/2026/connect-database/garmin-database/garmin.db")
+GARMIN_DB = os.path.expanduser("~/projects/2026/garmin-database/garmin.db")
 WHOOP_DB  = os.path.expanduser("~/projects/2026/whoop-database/whoop.db")
 STRAVA_DB = os.path.expanduser("~/projects/2026/strava-database/strava.db")
 

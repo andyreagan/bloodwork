@@ -48,7 +48,7 @@ HTML_FILE      = os.path.join(os.path.dirname(__file__), "models.html")
 
 STRAVA_DB  = os.path.expanduser("~/projects/2026/strava-database/strava.db")
 WHOOP_DB   = os.path.expanduser("~/projects/2026/whoop-database/whoop.db")
-GARMIN_DB  = os.path.expanduser("~/projects/2026/connect-database/garmin-database/garmin.db")
+GARMIN_DB  = os.path.expanduser("~/projects/2026/garmin-database/garmin.db")
 
 BIRTH_YEAR = 1989
 
