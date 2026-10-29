@@ -3326,4 +3326,6 @@ draws:
   notes: |-
     Annual physical labs (primary care; physical was 2026-08-26, blood drawn 2026-10-22).
     Transcribed from patient-portal screenshots (CBC, lipid panel, CMP).
-    Flagged out of range by the lab: Glucose 107 (high vs 70-99).
+    Fasting except for black coffee before the draw.
+    Flagged out of range by the lab: Glucose 107 (high vs 70-99); caffeine may have
+    nudged it up.
