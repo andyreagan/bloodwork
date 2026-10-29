@@ -3285,3 +3285,44 @@ draws:
     Function Health dashboard extras, not lab values: Biological Age -8.4 years;
     30-day wearable averages VO2max 53 mL/kg/min, resting HR 50 bpm, HRV 50 ms,
     sleep 8.3 h at 87% consistency, 7,834 steps, 3,612 cal, 228 min exercise/day.
+- date: '2026-10-22'
+  source: Lab
+  measurements:
+    WBC: {value: 4.85, unit: K/uL}
+    RBC: {value: 5.19, unit: M/uL}
+    Hemoglobin: {value: 15.1, unit: g/dL}
+    Hematocrit: {value: 46.3, unit: '%'}
+    MCV: {value: 89.2, unit: fL}
+    MCH: {value: 29.1, unit: pg}
+    MCHC: {value: 32.6, unit: g/dL}
+    Platelets: {value: 285.0, unit: K/uL}
+    MPV: {value: 9.7, unit: fL}
+    RDW: {value: 11.9, unit: '%'}
+    NRBC: {value: 0.0, unit: /100 WBC}
+    NRBC (Absolute): {value: 0.0, unit: K/uL}
+    Cholesterol: {value: 172.0, unit: mg/dL}
+    HDL: {value: 61.0, unit: mg/dL}
+    LDL: {value: 100.0, unit: mg/dL, note: calculated (Sampson-NIH equation)}
+    Non-HDL: {value: 111.0, unit: mg/dL}
+    Cardiac Risk Ratio: {value: 2.8, unit: ''}
+    Triglycerides: {value: 54.0, unit: mg/dL}
+    Sodium: {value: 138.0, unit: mmol/L}
+    Potassium: {value: 5.0, unit: mmol/L}
+    Chloride: {value: 105.0, unit: mmol/L}
+    CO2: {value: 26.0, unit: mmol/L}
+    BUN: {value: 18.0, unit: mg/dL}
+    Creatinine: {value: 1.0, unit: mg/dL}
+    Glucose: {value: 107.0, unit: mg/dL}
+    Calcium: {value: 10.1, unit: mg/dL}
+    AST: {value: 32.0, unit: U/L}
+    ALT: {value: 30.0, unit: U/L}
+    Alkaline Phosphatase: {value: 81.0, unit: U/L}
+    Total Bilirubin: {value: 0.4, unit: mg/dL}
+    Total Protein: {value: 6.9, unit: g/dL}
+    Albumin: {value: 4.6, unit: g/dL}
+    Globulin: {value: 2.3, unit: g/dL}
+    eGFR: {value: 99.0, unit: mL/min/1.73m2, note: CKD-EPI refit equation}
+    Anion Gap: {value: 7.0, unit: mmol/L}
+  notes: |-
+    Lab results transcribed from patient-portal screenshots (CBC, lipid panel, CMP).
+    Flagged out of range by the lab: Glucose 107 (high vs 70-99).
