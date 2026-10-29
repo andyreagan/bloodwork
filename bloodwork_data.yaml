@@ -3286,7 +3286,7 @@ draws:
     30-day wearable averages VO2max 53 mL/kg/min, resting HR 50 bpm, HRV 50 ms,
     sleep 8.3 h at 87% consistency, 7,834 steps, 3,612 cal, 228 min exercise/day.
 - date: '2026-10-22'
-  source: Lab
+  source: Primary care
   measurements:
     WBC: {value: 4.85, unit: K/uL}
     RBC: {value: 5.19, unit: M/uL}
@@ -3324,5 +3324,6 @@ draws:
     eGFR: {value: 99.0, unit: mL/min/1.73m2, note: CKD-EPI refit equation}
     Anion Gap: {value: 7.0, unit: mmol/L}
   notes: |-
-    Lab results transcribed from patient-portal screenshots (CBC, lipid panel, CMP).
+    Annual physical labs (primary care; physical was 2026-08-26, blood drawn 2026-10-22).
+    Transcribed from patient-portal screenshots (CBC, lipid panel, CMP).
     Flagged out of range by the lab: Glucose 107 (high vs 70-99).
