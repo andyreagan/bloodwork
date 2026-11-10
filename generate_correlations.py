@@ -29,6 +29,7 @@ from datetime import date, datetime, timedelta
 
 import yaml
 
+import shell
 from ranges import resolve_active
 
 BLOODWORK_FILE = os.path.join(os.path.dirname(__file__), "bloodwork_data.yaml")
@@ -902,7 +903,7 @@ def _build_insights(matrix: list, top_adj: list, top_raw: list, top_bm_pairs: li
         item = top_adj[0]
         source_emoji = {"WHOOP": "⌚", "Strava": "🏃", "Life": "👶", "Fitness": "🫁"}.get(item["source"], "📊")
         insights.append({
-            "emoji": source_emoji, "color": "#818cf8",
+            "emoji": source_emoji, "color": "var(--accent)",
             "title": (f"Strongest age-adjusted predictor: {item['covariate']} → {item['biomarker']} "
                       f"(partial r = {item['partial_r']:+.3f})"),
             "body":  (f"After removing the shared linear trend with age, {item['covariate']} "
@@ -919,7 +920,7 @@ def _build_insights(matrix: list, top_adj: list, top_raw: list, top_bm_pairs: li
         pr = item.get("partial_r")
         r  = item["r"]
         insights.append({
-            "emoji": "💓", "color": "#22c55e" if (pr or r) > 0 else "#ef4444",
+            "emoji": "💓", "color": "var(--blue)" if (pr or r) > 0 else "var(--red)",
             "title": (f"HRV → {item['biomarker']}  "
                       f"(r = {r:+.3f}" + (f", age-adj r = {pr:+.3f}" if pr else "") + ")"),
             "body":  (f"Higher HRV tracks with {'higher' if r > 0 else 'lower'} {item['biomarker']} "
@@ -938,7 +939,7 @@ def _build_insights(matrix: list, top_adj: list, top_raw: list, top_bm_pairs: li
         pr = item.get("partial_r")
         r  = item["r"]
         insights.append({
-            "emoji": "😴", "color": "#60a5fa",
+            "emoji": "😴", "color": "var(--teal)",
             "title": (f"Sleep → {item['biomarker']}  "
                       f"(r = {r:+.3f}" + (f", age-adj r = {pr:+.3f}" if pr else "") + ")"),
             "body":  (f"{item['covariate']} correlates with {'higher' if r > 0 else 'lower'} "
@@ -955,7 +956,7 @@ def _build_insights(matrix: list, top_adj: list, top_raw: list, top_bm_pairs: li
         pr = item.get("partial_r")
         r  = item["r"]
         insights.append({
-            "emoji": "🏃", "color": "#f97316",
+            "emoji": "🏃", "color": "var(--orange)",
             "title": (f"Training → {item['biomarker']}  "
                       f"(r = {r:+.3f}" + (f", age-adj r = {pr:+.3f}" if pr else "") + ")"),
             "body":  (f"{item['covariate']} (90-day window) "
@@ -969,7 +970,7 @@ def _build_insights(matrix: list, top_adj: list, top_raw: list, top_bm_pairs: li
     if row:
         r = row["age"]
         insights.append({
-            "emoji": "📈", "color": "#ef4444" if r > 0 else "#22c55e",
+            "emoji": "📈", "color": "var(--blue)" if r > 0 else "var(--red)",
             "title": f"{row['name']} tracks age most strongly (r = {r:+.2f})",
             "body":  (f"{row['name']} {'rises' if r > 0 else 'falls'} with age. "
                       f"This is used as the control variable in age-adjusted correlations — "
@@ -980,7 +981,7 @@ def _build_insights(matrix: list, top_adj: list, top_raw: list, top_bm_pairs: li
     if top_bm_pairs:
         tp = top_bm_pairs[0]
         insights.append({
-            "emoji": "🔗", "color": "#818cf8",
+            "emoji": "🔗", "color": "var(--accent)",
             "title": f"Strongest biomarker–biomarker link: {tp['pair']} (r = {tp['r']:+.3f})",
             "body":  (f"These two markers move {'together' if tp['r'] > 0 else 'in opposite directions'} "
                       f"across {tp['n']} shared blood draws. Note: biomarker pairs are not yet age-adjusted."),
@@ -993,820 +994,496 @@ def _build_insights(matrix: list, top_adj: list, top_raw: list, top_bm_pairs: li
 # HTML generation
 # ---------------------------------------------------------------------------
 
-def build_html(payload: dict) -> str:
-    data_json = json.dumps(payload, separators=(",", ":"))
+PAGE_STYLE = r"""<style>
+/* diverging r scale for the matrix: two hues, midpoint = the card surface.
+   Cells mix towards these with color-mix(), so a theme switch needs no redraw. */
+:root { --heat-pos: #3b82d9; --heat-neg: #e0524f; }
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) { --heat-pos: #2c6cc0; --heat-neg: #c2413f; }
+}
+:root[data-theme="dark"] { --heat-pos: #2c6cc0; --heat-neg: #c2413f; }
 
-    # Build a lookup label → key for the matrix table header
-    cov_meta_by_key = {c["key"]: c for c in payload["covariate_meta"]}
-    classic_keys  = ["age", "kids", "weight", "vo2max"]
-    whoop_keys    = [c["key"] for c in payload["covariate_meta"] if c["source"] == "WHOOP"]
-    strava_keys   = [c["key"] for c in payload["covariate_meta"] if c["source"] == "Strava"]
+.topbar .meta { font-size: 0.75rem; color: var(--muted); }
+.desc { color: var(--muted); font-size: 0.82rem; margin: -4px 0 14px; line-height: 1.6; max-width: 100ch; }
+.metric-card.insight { border-top: 3px solid var(--kpi-color, var(--border)); }
+.ic-emoji { font-size: 1.4rem; margin-bottom: 4px; }
+.ic-title { font-size: 0.85rem; font-weight: 700; margin-bottom: 4px; }
+.ic-body  { font-size: 0.8rem; color: var(--muted); line-height: 1.55; }
+.metric-card-title .vs { color: var(--muted); font-weight: 400; text-transform: none; }
+.metric-card-title .badge { margin-left: 4px; text-transform: none; letter-spacing: 0; }
+.r-meta { text-align: right; flex-shrink: 0; }
+.r-big  { font-size: 1.1rem; font-weight: 800; white-space: nowrap; }
+.n-lbl  { font-size: 0.68rem; color: var(--muted); }
+/* ranked bars keep a readable label column; narrow screens scroll sideways */
+.rank-narrow { display: none; }
+@media (max-width: 640px) { .rank-wide { display: none; } .rank-narrow { display: block; } }
+.legend-item .sw.dot { border-radius: 50%; }
+.legend-item .sw.dash { width: 0; height: 12px; border-left: 1px dashed var(--muted); border-radius: 0; }
 
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Andy — Correlations &amp; Analysis</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
-<style>
-  :root {{
-    --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a;
-    --border: #2e3250; --text: #e2e8f0; --muted: #8892a4;
-    --green: #22c55e; --yellow: #eab308; --red: #ef4444;
-    --blue: #60a5fa; --accent: #818cf8; --orange: #f97316;
-    --radius: 12px;
-  }}
-  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-  body {{
-    background: var(--bg); color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    font-size: 14px; line-height: 1.5; padding: 1rem;
-  }}
+/* heatmap */
+table.heat { width: auto; border-collapse: separate; border-spacing: 1px; font-size: 0.72rem; }
+table.heat thead th { background: var(--surface); border-bottom: 0; padding: 4px 2px; font-size: 0.7rem; }
+table.heat thead th.grp { text-align: center; border-bottom: 2px solid var(--border); color: var(--text); }
+table.heat thead th.vh { height: 150px; vertical-align: bottom; text-align: center; font-weight: 500; }
+table.heat thead th.vh span { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; }
+table.heat tbody tr { border: 0; }
+table.heat tbody tr:hover { background: none; }
+table.heat tbody td { padding: 0; }
+table.heat td.bm-name, table.heat th.bm-name {
+  position: sticky; left: 0; z-index: 1; background: var(--surface);
+  font-weight: 600; padding: 0 10px 0 0; text-align: left; font-size: 0.78rem;
+}
+table.heat td.n-col { color: var(--muted); text-align: right; padding: 0 8px 0 0; font-variant-numeric: tabular-nums; }
+table.heat td.hc {
+  width: 44px; min-width: 44px; height: 26px; text-align: center; color: var(--text);
+  font-variant-numeric: tabular-nums; border-radius: 2px; cursor: default;
+  background: color-mix(in srgb, var(--c, var(--surface)) var(--m, 0%), var(--surface));
+}
+table.heat td.hc.na { color: var(--border); }
+table.heat td.hc:hover { outline: 2px solid var(--text); outline-offset: -1px; }
+.heat-key { display: flex; align-items: center; gap: 8px; font-size: 0.72rem; color: var(--muted); margin-bottom: 12px; }
+.heat-key .bar {
+  width: 180px; height: 10px; border-radius: 2px; border: 1px solid var(--border);
+  background: linear-gradient(to right,
+    color-mix(in srgb, var(--heat-neg) 85%, var(--surface)), var(--surface),
+    color-mix(in srgb, var(--heat-pos) 85%, var(--surface)));
+}
+</style>"""
 
-  header {{
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 1.25rem 1.5rem; background: var(--surface);
-    border-radius: var(--radius); border: 1px solid var(--border);
-    margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.75rem;
-  }}
-  header h1 {{ font-size: 1.3rem; font-weight: 700; }}
-  header p  {{ color: var(--muted); font-size: 0.85rem; margin-top: 2px; }}
-  .back-link {{
-    display: inline-flex; align-items: center; gap: 0.4rem;
-    background: var(--surface2); border: 1px solid var(--border);
-    color: var(--accent); border-radius: 6px;
-    padding: 0.35rem 0.8rem; font-size: 0.8rem; font-weight: 600;
-    text-decoration: none; transition: all 0.15s;
-  }}
-  .back-link:hover {{ background: var(--accent); border-color: var(--accent); color: white; }}
-
-  /* Nav tabs */
-  .tabs {{
-    display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap;
-  }}
-  .tab-btn {{
-    background: var(--surface); border: 1px solid var(--border);
-    color: var(--muted); border-radius: 6px;
-    padding: 0.4rem 0.85rem; font-size: 0.8rem; cursor: pointer; transition: all 0.15s;
-  }}
-  .tab-btn:hover, .tab-btn.active {{
-    background: var(--accent); border-color: var(--accent); color: white;
-  }}
-  .tab-panel {{ display: none; }}
-  .tab-panel.active {{ display: block; }}
-
-  /* Section */
-  .section {{ margin-bottom: 2rem; }}
-  .section > h2 {{
-    font-size: 1rem; font-weight: 700; color: var(--accent);
-    margin-bottom: 0.75rem; padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--border);
-  }}
-  .section > p.desc {{
-    color: var(--muted); font-size: 0.82rem; margin-bottom: 1rem; line-height: 1.6;
-  }}
-
-  /* Insight cards */
-  .insights-grid {{
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 0.85rem;
-  }}
-  .insight-card {{
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 1rem;
-  }}
-  .ic-emoji  {{ font-size: 1.4rem; margin-bottom: 0.35rem; }}
-  .ic-title  {{ font-size: 0.85rem; font-weight: 700; color: var(--text); margin-bottom: 0.3rem; }}
-  .ic-body   {{ font-size: 0.8rem; color: var(--muted); line-height: 1.55; }}
-
-  /* Table */
-  .table-wrap {{ overflow-x: auto; }}
-  table {{ width: 100%; border-collapse: collapse; font-size: 0.78rem; white-space: nowrap; }}
-  thead tr {{ border-bottom: 1px solid var(--border); color: var(--muted); text-align: left; }}
-  th {{ padding: 5px 8px; font-weight: 600; }}
-  tbody tr {{ border-bottom: 1px solid rgba(46,50,80,0.4); }}
-  tbody tr:nth-child(even) {{ background: rgba(255,255,255,0.02); }}
-  td {{ padding: 5px 8px; vertical-align: middle; }}
-  td.bm-name {{ font-weight: 600; color: var(--text); position: sticky; left: 0; background: var(--bg); z-index:1; }}
-  td.n-col {{ text-align: center; color: var(--muted); }}
-
-  .r-val {{ font-weight: 700; font-size: 0.8rem; }}
-  .r-bar-track {{ height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; margin-top: 2px; }}
-  .r-bar-fill  {{ height: 3px; border-radius: 2px; }}
-  th.group-whoop {{ background: rgba(34,197,94,0.08); }}
-  th.group-strava {{ background: rgba(249,115,22,0.08); }}
-  th.group-classic {{ background: rgba(96,165,250,0.08); }}
-
-  /* Source badge */
-  .source-badge {{
-    display: inline-block; font-size: 0.65rem; font-weight: 700;
-    padding: 1px 5px; border-radius: 4px; margin-left: 4px; vertical-align: middle;
-  }}
-  .badge-whoop  {{ background: rgba(34,197,94,0.2);  color: #22c55e; }}
-  .badge-strava {{ background: rgba(249,115,22,0.2); color: #f97316; }}
-  .badge-life   {{ background: rgba(234,179,8,0.2);  color: #eab308; }}
-  .badge-fitness{{ background: rgba(129,140,248,0.2);color: #818cf8; }}
-
-  /* Pair/top cards */
-  .pair-grid {{
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.7rem;
-  }}
-  .pair-card {{
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 0.85rem 1rem;
-  }}
-  .pair-name {{ font-size: 0.78rem; font-weight: 700; color: var(--text); margin-bottom: 3px; }}
-  .pair-r    {{ font-size: 1.15rem; font-weight: 700; }}
-  .pair-meta {{ font-size: 0.68rem; color: var(--muted); margin-top: 2px; }}
-  .pair-bar-track {{ height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; margin-top: 6px; }}
-  .pair-bar-fill  {{ height: 3px; border-radius: 2px; }}
-
-  /* Charts */
-  .charts-grid {{
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;
-  }}
-  .chart-card {{
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 1rem 1rem 0.75rem;
-  }}
-  .chart-header {{ display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 0.5rem; }}
-  .chart-title  {{ font-size: 0.82rem; font-weight: 700; color: var(--text); line-height: 1.3; }}
-  .chart-meta   {{ text-align: right; flex-shrink: 0; margin-left: 0.5rem; }}
-  .r-big  {{ font-size: 1.1rem; font-weight: 700; }}
-  .n-lbl  {{ font-size: 0.65rem; color: var(--muted); }}
-  .chart-wrap {{ height: 160px; position: relative; }}
-  .full-card {{ grid-column: 1 / -1; }}
-  .timeline-wrap {{ height: 220px; position: relative; }}
-
-  .chart-legend {{ display: flex; gap: 0.75rem; margin-top: 0.4rem; flex-wrap: wrap; }}
-  .legend-item {{ display: flex; align-items: center; gap: 4px; font-size: 0.65rem; color: var(--muted); }}
-  .legend-swatch {{ width: 12px; height: 8px; border-radius: 2px; }}
-
-  footer {{
-    text-align: center; color: var(--muted); font-size: 0.75rem;
-    padding: 1rem 0; border-top: 1px solid var(--border); margin-top: 2rem;
-  }}
-  @media (max-width: 600px) {{
-    .charts-grid {{ grid-template-columns: 1fr; }}
-    .pair-grid   {{ grid-template-columns: 1fr; }}
-    .insights-grid {{ grid-template-columns: 1fr; }}
-  }}
-</style>
-</head>
-<body>
-
-<header>
-  <div>
-    <h1>🔬 Correlations &amp; Analysis</h1>
-    <p>Biomarkers × WHOOP sleep/recovery · Strava training load · life covariates — 2013–2026</p>
+PAGE_BODY = r"""<body>
+__SIDEBAR__
+<div class="main">
+  <div class="topbar">
+    <div>
+      <h1>Correlations &amp; Analysis</h1>
+      <div class="subtitle">Biomarkers × WHOOP sleep/recovery · Strava training load · life covariates — 2013–2026</div>
+    </div>
+    <div class="meta" id="meta"></div>
   </div>
-  <a href="index.html" class="back-link">← Dashboard</a>
-</header>
 
-<div class="tabs" id="tabs"></div>
-<div id="tab-panels"></div>
+  <div class="content">
 
-<footer id="footer"></footer>
+    <!-- INSIGHTS -->
+    <div class="section active" id="section-insights">
+      <h2 class="section-heading">Key Insights</h2>
+      <div class="metric-grid three" id="insights"></div>
+    </div>
+
+    <!-- WEARABLE × BIOMARKER -->
+    <div class="section" id="section-wearable">
+      <div class="metric-grid">
+        <div class="metric-card">
+          <div class="metric-card-header"><div class="metric-card-title">Top Correlations — Age-Adjusted (partial r)</div></div>
+          <div class="metric-card-sub">Ranked by <strong>partial r</strong> after removing the shared linear trend with age from both
+            the covariate and the biomarker. This answers "does this metric predict the biomarker
+            <em>beyond what aging alone explains</em>?" — the more meaningful question given that
+            many things change with age simultaneously. n ≥ 5 required.</div>
+          <div class="legend" data-legend="sign"></div>
+          <div class="chart-area rank-wide" id="rank-adj"></div><div class="chart-area rank-narrow" id="rank-adj-n"></div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-card-header"><div class="metric-card-title">Raw Correlations (unadjusted, for reference)</div></div>
+          <div class="metric-card-sub">Pearson r without age-adjustment. Ranked by |r|. Anything that also has a large
+            age trend may be partially or fully confounded.</div>
+          <div class="legend" data-legend="sign"></div>
+          <div class="chart-area rank-wide" id="rank-raw"></div><div class="chart-area rank-narrow" id="rank-raw-n"></div>
+        </div>
+      </div>
+      <h2 class="section-heading">Scatter Plots — Top Pairs (raw)</h2>
+      <p class="desc">Each point is one blood draw (faint = early, solid = recent). Regression line shown. Age not removed from axes.</p>
+      <div class="metric-grid three" id="wearable-scatters"></div>
+    </div>
+
+    <!-- FULL MATRIX -->
+    <div class="section" id="section-matrix">
+      <div class="metric-grid wide">
+        <div class="metric-card">
+          <div class="metric-card-header">
+            <div class="metric-card-title">Biomarker × All Covariates</div>
+            <div class="roll-btns" id="matrix-toggle">
+              <button class="roll-btn active" data-mode="r">Raw r</button>
+              <button class="roll-btn" data-mode="partial">Age-adjusted partial r</button>
+            </div>
+          </div>
+          <div class="metric-card-sub">Every biomarker row vs. all covariates.
+            <strong>Raw r</strong>: plain Pearson correlation.
+            <strong>Age-adjusted partial r</strong>: residuals after regressing both variables on age —
+            measures the relationship <em>independent of aging</em>.
+            Age-adjusted is blank for the age column itself and where n &lt; 5.
+            Scroll right for all columns.</div>
+          <div class="heat-key"><span>−1</span><span class="bar"></span><span>+1</span><span>· blank = not enough shared draws</span></div>
+          <div class="table-wrap"><table class="heat" id="heat"></table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BIOMARKER PAIRS -->
+    <div class="section" id="section-pairs">
+      <div class="metric-grid wide">
+        <div class="metric-card">
+          <div class="metric-card-header"><div class="metric-card-title">Top Biomarker–Biomarker Correlations</div></div>
+          <div class="metric-card-sub">Pearson <em>r</em> between all biomarker pairs on shared blood-draw dates (≥4 required). Top 20 by |r|.</div>
+          <div class="legend" data-legend="sign"></div>
+          <div class="chart-area rank-wide" id="rank-pairs"></div><div class="chart-area rank-narrow" id="rank-pairs-n"></div>
+        </div>
+      </div>
+      <h2 class="section-heading">Scatter Plots — Key Biomarker Pairs</h2>
+      <p class="desc">Each point = one blood draw. Faint (early) → solid (recent).</p>
+      <div class="metric-grid three" id="pair-scatters"></div>
+    </div>
+
+    <!-- TIMELINE -->
+    <div class="section" id="section-timeline">
+      <h2 class="section-heading">Wearable Metrics Over Blood-Draw Dates</h2>
+      <p class="desc">Rolling averages of WHOOP and Strava signals plotted at each blood-draw date. Life-event markers shown as dashed vertical lines where they fall in range.</p>
+      <div class="metric-grid" id="timeline"></div>
+    </div>
+
+    <!-- VO2MAX -->
+    <div class="section" id="section-vo2max">
+      <h2 class="section-heading">Estimated VO₂max — Full History (2011–2026)</h2>
+      <div class="metric-grid wide">
+        <div class="metric-card">
+          <div class="metric-card-header"><div class="metric-card-title" id="vo2-title">VO₂max estimated series</div></div>
+          <div class="metric-card-sub">Lab measurements (2 points) anchored to estimated series from:
+            <strong>VDOT</strong> (Jack Daniels formula from race times) and
+            <strong>FTP w/kg</strong> (Coggan formula, calibrated to lab values).
+            Non-lab estimates are scaled so they match the lab anchors within ±180 days.
+            Each method shown in a different colour. Blood-draw dates marked.</div>
+          <div class="legend" id="vo2-legend"></div>
+          <div class="chart-area" id="vo2-chart"></div>
+        </div>
+      </div>
+      <h2 class="section-heading">Coverage Summary</h2>
+      <div class="kpi-strip" id="vo2-kpis" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))"></div>
+    </div>
+
+  </div>
+</div>
 
 <script>
-const DATA = {data_json};
+const DATA = __DATA__;
+const $ = id => document.getElementById(id);
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-function rColor(r) {{
-  if (r === null || r === undefined) return 'var(--muted)';
+// ── helpers ────────────────────────────────────────────────────────────────
+const fmtR = (r, dp = 3) => r == null ? '—' : (r > 0 ? '+' : r < 0 ? '−' : '') + Math.abs(r).toFixed(dp);
+const signColor = r => r >= 0 ? 'var(--blue)' : 'var(--red)';
+// headline r: coloured by sign once it is at least moderate, muted when weak
+const rColor = r => r == null || Math.abs(r) < 0.4 ? 'var(--muted)' : signColor(r);
+function rStrength(r) {
+  if (r == null) return '';
   const a = Math.abs(r);
-  if (a >= 0.7) return r > 0 ? '#22c55e' : '#ef4444';
-  if (a >= 0.4) return r > 0 ? '#86efac' : '#fca5a5';
-  return 'var(--muted)';
-}}
-function rStrength(r) {{
-  if (r === null) return '';
-  const a = Math.abs(r);
-  if (a >= 0.7) return 'strong';
-  if (a >= 0.4) return 'moderate';
-  return 'weak';
-}}
-function rBarHtml(r) {{
-  if (r === null || r === undefined) return '<span style="color:var(--muted)">—</span>';
-  const pct = Math.round(Math.abs(r) * 100);
-  const col = rColor(r);
-  const dir = r >= 0 ? '▲' : '▼';
-  return `<div class="r-val" style="color:${{col}};">${{r.toFixed(3)}} ${{dir}}</div>
-          <div class="r-bar-track"><div class="r-bar-fill" style="width:${{pct}}%;background:${{col}};"></div></div>`;
-}}
-function badgeHtml(source) {{
-  const cls = {{'WHOOP':'whoop','Strava':'strava','Life':'life','Fitness':'fitness'}}[source] || 'life';
-  return `<span class="source-badge badge-${{cls}}">${{source}}</span>`;
-}}
-function scatterPointColors(points) {{
-  const years = points.map(p => parseInt(p.date.substring(0,4)));
-  const minYr = Math.min(...years), maxYr = Math.max(...years);
-  return points.map(p => {{
-    const t = maxYr === minYr ? 0.5 : (parseInt(p.date.substring(0,4)) - minYr) / (maxYr - minYr);
-    return `rgba(${{Math.round(96+t*(249-96))}},${{Math.round(165+t*(115-165))}},${{Math.round(250+t*(22-250))}},0.9)`;
-  }});
-}}
+  return a >= 0.7 ? 'strong' : a >= 0.4 ? 'moderate' : 'weak';
+}
+const num = v => d3.format(',')(+(+v).toPrecision(4));
+const badge = s => `<span class="badge">${s}</span>`;
 
-// ---------------------------------------------------------------------------
-// Tab system
-// ---------------------------------------------------------------------------
-const tabsEl   = document.getElementById('tabs');
-const panelsEl = document.getElementById('tab-panels');
-let firstTab   = true;
+// draw now and whenever the container's width changes (same contract as ar.js)
+function mountChart(el, height, draw) {
+  let lastW = -1;
+  const run = () => {
+    const w = Math.round(el.clientWidth);
+    if (!w || w === lastW) return;
+    lastW = w;
+    el.innerHTML = '';
+    const svg = d3.select(el).append('svg').attr('class', 'ar-chart')
+      .attr('viewBox', `0 0 ${w} ${height}`).attr('height', height);
+    draw(svg, w, height);
+  };
+  run();
+  new ResizeObserver(run).observe(el);
+}
 
-function addTab(label, id, buildFn) {{
-  const btn = document.createElement('button');
-  btn.className = 'tab-btn' + (firstTab ? ' active' : '');
-  btn.textContent = label;
-  btn.addEventListener('click', () => {{
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('panel-' + id).classList.add('active');
-  }});
-  tabsEl.appendChild(btn);
+document.querySelectorAll('[data-legend="sign"]').forEach(el => AR.legend(el, [
+  { name: 'Positive r', color: 'var(--blue)' }, { name: 'Negative r', color: 'var(--red)' }]));
 
-  const panel = document.createElement('div');
-  panel.className = 'tab-panel' + (firstTab ? ' active' : '');
-  panel.id = 'panel-' + id;
-  buildFn(panel);
-  panelsEl.appendChild(panel);
-  firstTab = false;
-}}
+$('meta').textContent =
+  `${DATA.n_draws} blood draws · ${(DATA.biomarker_matrix || []).length} biomarkers · ` +
+  `${(DATA.covariate_meta || []).length} covariates (WHOOP + Strava + Garmin + Life)`;
 
-// ---------------------------------------------------------------------------
-// Tab 1: Insights
-// ---------------------------------------------------------------------------
-addTab('💡 Insights', 'insights', panel => {{
-  const sec = mkSection('Key Insights', null);
-  const grid = document.createElement('div');
-  grid.className = 'insights-grid';
-  (DATA.insights || []).forEach(ins => {{
-    const card = document.createElement('div');
-    card.className = 'insight-card';
-    card.style.borderLeft = `3px solid ${{ins.color}}`;
-    card.innerHTML = `<div class="ic-emoji">${{ins.emoji}}</div>
-                      <div class="ic-title">${{ins.title}}</div>
-                      <div class="ic-body">${{ins.body}}</div>`;
-    grid.appendChild(card);
-  }});
-  sec.appendChild(grid);
-  panel.appendChild(sec);
-}});
+// ── section nav ────────────────────────────────────────────────────────────
+function showSection(id) {
+  if (!$('section-' + id)) return;
+  document.querySelectorAll('.nav-item[data-section]').forEach(i => i.classList.toggle('active', i.dataset.section === id));
+  document.querySelectorAll('.section').forEach(s => s.classList.toggle('active', s.id === 'section-' + id));
+}
+document.querySelectorAll('.nav-item[data-section]').forEach(item => {
+  item.addEventListener('click', () => {
+    showSection(item.dataset.section);
+    history.replaceState(null, '', '#' + item.dataset.section);
+    window.scrollTo(0, 0);
+  });
+});
+if (location.hash) showSection(location.hash.slice(1));
 
-// ---------------------------------------------------------------------------
-// Tab 2: Wearable × Biomarker top correlations
-// ---------------------------------------------------------------------------
-addTab('⌚ Wearable × Biomarker', 'wearable', panel => {{
+// ── Insights ───────────────────────────────────────────────────────────────
+$('insights').innerHTML = (DATA.insights || []).map(ins => `
+  <div class="metric-card insight" style="--kpi-color:${ins.color}">
+    <div class="ic-emoji">${ins.emoji}</div>
+    <div class="ic-title">${ins.title}</div>
+    <div class="ic-body">${ins.body}</div>
+  </div>`).join('');
 
-  // Helper: render a ranked pair-card grid
-  function pairGrid(items, usePartial) {{
-    const grid = document.createElement('div');
-    grid.className = 'pair-grid';
-    items.forEach(item => {{
-      const r   = usePartial ? (item.partial_r ?? item.r) : item.r;
-      const col = rColor(r);
-      const card = document.createElement('div');
-      card.className = 'pair-card';
-      card.style.borderLeft = `3px solid ${{col}}`;
-      // Show both values when available
-      const rawPart  = `<span style="color:var(--muted);font-size:0.7rem;">raw r = ${{item.r.toFixed(3)}}</span>`;
-      const adjPart  = item.partial_r !== null && item.partial_r !== undefined
-        ? `<span style="color:${{rColor(item.partial_r)}};font-size:0.7rem;">age-adj r = ${{item.partial_r.toFixed(3)}}</span>`
-        : '';
-      card.innerHTML = `
-        <div class="pair-name">${{item.covariate}} ${{badgeHtml(item.source)}}<br>→ ${{item.biomarker}}</div>
-        <div class="pair-r" style="color:${{col}};">${{usePartial ? 'partial ' : ''}}r = ${{r.toFixed(3)}}</div>
-        <div class="pair-meta" style="display:flex;gap:0.5rem;flex-wrap:wrap;">${{rawPart}}${{adjPart}}</div>
-        <div class="pair-meta" style="margin-top:2px;">${{rStrength(r)}} ${{r > 0 ? 'positive' : 'negative'}} · n=${{item.n}}</div>
-        <div class="pair-bar-track"><div class="pair-bar-fill" style="width:${{Math.round(Math.abs(r)*100)}}%;background:${{col}};"></div></div>`;
-      grid.appendChild(card);
-    }});
-    return grid;
-  }}
+// ── ranked correlation bars ────────────────────────────────────────────────
+function rankChart(id, items, value, label, tip) {
+  AR.hbarChart('#' + id, {
+    labels: items.map(label), values: items.map(value),
+    fmt: v => fmtR(v), labelWidth: 290, rowHeight: 24,
+    colors: v => signColor(v), tip: i => tip(items[i]),
+  });
+  // phone layout: label on its own line above a bar on a fixed −1…+1 scale
+  const rowH = 38;
+  mountChart($(id + '-n'), rowH * items.length, (svg, W) => {
+    const x = d3.scaleLinear().domain([-1, 1]).range([0, W - 52]);
+    const g = svg.selectAll('g').data(items).join('g').attr('transform', (d, i) => `translate(0,${i * rowH})`);
+    g.append('text').attr('class', 'cat-label').attr('x', 0).attr('y', 13).style('font-size', '11px').text(label);
+    g.append('line').attr('x1', x(0)).attr('x2', x(0)).attr('y1', 18).attr('y2', 32).attr('stroke', 'var(--border)');
+    g.append('rect').attr('x', d => Math.min(x(0), x(value(d)))).attr('y', 20)
+      .attr('width', d => Math.max(1, Math.abs(x(value(d)) - x(0)))).attr('height', 10).attr('rx', 3)
+      .attr('fill', d => signColor(value(d)));
+    g.append('text').attr('class', 'val-label').attr('x', W).attr('y', 29).attr('text-anchor', 'end').text(d => fmtR(value(d)));
+    g.append('rect').attr('width', W).attr('height', rowH).attr('fill', 'transparent')
+      .on('mousemove', (ev, d) => AR.tip.show(tip(d), ev)).on('mouseleave', AR.tip.hide);
+  });
+}
+const covTip = usePartial => item => {
+  const r = usePartial ? (item.partial_r ?? item.r) : item.r;
+  return `<b>${item.covariate} → ${item.biomarker}</b><br>` +
+    `<span class="dim">source</span> ${item.source}<br>` +
+    `<span class="dim">raw r</span> ${fmtR(item.r)}` +
+    (item.partial_r != null ? `<br><span class="dim">age-adj r</span> ${fmtR(item.partial_r)}` : '') +
+    `<br><span class="dim">${rStrength(r)} ${r > 0 ? 'positive' : 'negative'} · n=${item.n}</span>`;
+};
+rankChart('rank-adj', DATA.top_cov_bm_adj || [], i => i.partial_r ?? i.r,
+          i => `${i.covariate} → ${i.biomarker}`, covTip(true));
+rankChart('rank-raw', DATA.top_cov_bm || [], i => i.r,
+          i => `${i.covariate} → ${i.biomarker}`, covTip(false));
+rankChart('rank-pairs', DATA.top_bm_pairs || [], i => i.r, i => i.pair,
+          i => `<b>${i.pair}</b><br><span class="dim">r</span> ${fmtR(i.r)}<br>` +
+               `<span class="dim">${rStrength(i.r)} ${i.r > 0 ? 'positive' : 'negative'} · n=${i.n}</span>`);
 
-  // Age-adjusted section (primary)
-  const adjItems = DATA.top_cov_bm_adj || [];
-  const sec = mkSection(
-    'Top Correlations — Age-Adjusted (partial r)',
-    `Ranked by <strong>partial r</strong> after removing the shared linear trend with age from both
-     the covariate and the biomarker. This answers "does this metric predict the biomarker
-     <em>beyond what aging alone explains</em>?" — the more meaningful question given that
-     many things change with age simultaneously. n ≥ 5 required.`
-  );
-  sec.appendChild(pairGrid(adjItems, true));
-  panel.appendChild(sec);
-
-  // Raw section (secondary, collapsible)
-  const rawSec = mkSection(
-    'Raw Correlations (unadjusted, for reference)',
-    `Pearson r without age-adjustment. Ranked by |r|. Anything that also has a large
-     age trend may be partially or fully confounded.`
-  );
-  rawSec.appendChild(pairGrid(DATA.top_cov_bm || [], false));
-  panel.appendChild(rawSec);
-
-  // Scatter plots for top age-adjusted pairs
-  if (DATA.wearable_scatters && DATA.wearable_scatters.length > 0) {{
-    const sec2 = mkSection('Scatter Plots — Top Pairs (raw)',
-      'Each point is one blood draw (blue = early, orange = recent). Regression line shown. Age not removed from axes.');
-    const sgrid = document.createElement('div');
-    sgrid.className = 'charts-grid';
-    DATA.wearable_scatters.forEach(sp => renderScatterCard(sgrid, sp));
-    sec2.appendChild(sgrid);
-    panel.appendChild(sec2);
-  }}
-}});
-
-// ---------------------------------------------------------------------------
-// Tab 3: Full matrix table
-// ---------------------------------------------------------------------------
-addTab('🧬 Full Matrix', 'matrix', panel => {{
-  const covMeta     = DATA.covariate_meta || [];
-  const classicKeys = ['age','kids','weight','vo2max'];
-  const whoopKeys   = covMeta.filter(c => c.source === 'WHOOP').map(c => c.key);
-  const stravaKeys  = covMeta.filter(c => c.source === 'Strava').map(c => c.key);
-  const allKeys     = [...classicKeys, ...whoopKeys, ...stravaKeys];
-  const keyToLabel  = Object.fromEntries(covMeta.map(c => [c.key, c.label]));
-
-  // Toggle: raw vs age-adjusted
-  let showPartial = false;
-  const toggleBar = document.createElement('div');
-  toggleBar.style.cssText = 'display:flex;gap:0.5rem;margin-bottom:1rem;align-items:center;';
-  toggleBar.innerHTML = `<span style="font-size:0.8rem;color:var(--muted);">Show:</span>`;
-  ['Raw r', 'Age-adjusted partial r'].forEach((label, i) => {{
-    const btn = document.createElement('button');
-    btn.className = 'tab-btn' + (i === 0 ? ' active' : '');
-    btn.textContent = label;
-    btn.addEventListener('click', () => {{
-      showPartial = i === 1;
-      toggleBar.querySelectorAll('.tab-btn').forEach((b,j) => b.classList.toggle('active', j===i));
-      rebuildBody();
-    }});
-    toggleBar.appendChild(btn);
-  }});
-
-  const sec = mkSection(
-    'Biomarker × All Covariates',
-    `Every biomarker row vs. all covariates.
-     <strong>Raw r</strong>: plain Pearson correlation.
-     <strong>Age-adjusted partial r</strong>: residuals after regressing both variables on age —
-     measures the relationship <em>independent of aging</em>.
-     Age-adjusted is blank for the age column itself and where n &lt; 5.
-     Scroll right for all columns.`
-  );
-  sec.appendChild(toggleBar);
-
-  const wrap = document.createElement('div');
-  wrap.className = 'table-wrap';
-  const tbl = document.createElement('table');
-
-  // Header
-  const thead = document.createElement('thead');
-  let htr = '<tr><th>Biomarker</th><th class="n-col">n</th>';
-  classicKeys.forEach(k => {{ htr += `<th class="group-classic">${{keyToLabel[k] || k}}</th>`; }});
-  whoopKeys.forEach(k   => {{ htr += `<th class="group-whoop">${{(keyToLabel[k]||k).replace(' avg','').replace(' (ms)','').replace(' (bpm)','')}}</th>`; }});
-  stravaKeys.forEach(k  => {{ htr += `<th class="group-strava">${{(keyToLabel[k]||k)}}</th>`; }});
-  htr += '</tr>';
-  thead.innerHTML = htr;
-  tbl.appendChild(thead);
-
-  const tbody = document.createElement('tbody');
-  tbl.appendChild(tbody);
-
-  function rebuildBody() {{
-    tbody.innerHTML = '';
-    (DATA.biomarker_matrix || []).forEach(row => {{
-      const tr = document.createElement('tr');
-      let cells = `<td class="bm-name">${{row.name}}</td><td class="n-col">${{row.n}}</td>`;
-      allKeys.forEach(k => {{
-        let v;
-        if (showPartial) {{
-          v = (row.partial && row.partial[k] !== undefined) ? row.partial[k] : null;
-        }} else {{
-          v = (row.r && row.r[k] !== undefined) ? row.r[k] : (row[k] !== undefined ? row[k] : null);
-        }}
-        cells += `<td style="min-width:90px">${{rBarHtml(v)}}</td>`;
-      }});
-      tr.innerHTML = cells;
-      tbody.appendChild(tr);
-    }});
-  }}
-  rebuildBody();
-
-  wrap.appendChild(tbl);
-  sec.appendChild(wrap);
-  panel.appendChild(sec);
-}});
-
-// ---------------------------------------------------------------------------
-// Tab 4: Biomarker pairs
-// ---------------------------------------------------------------------------
-addTab('🔗 Biomarker Pairs', 'pairs', panel => {{
-  const sec = mkSection(
-    'Top Biomarker–Biomarker Correlations',
-    'Pearson <em>r</em> between all biomarker pairs on shared blood-draw dates (≥4 required). Top 20 by |r|.'
-  );
-  const grid = document.createElement('div');
-  grid.className = 'pair-grid';
-  (DATA.top_bm_pairs || []).forEach(item => {{
-    const col = rColor(item.r);
-    const card = document.createElement('div');
-    card.className = 'pair-card';
-    card.style.borderLeft = `3px solid ${{col}}`;
-    card.innerHTML = `
-      <div class="pair-name">${{item.pair}}</div>
-      <div class="pair-r" style="color:${{col}};">r = ${{item.r.toFixed(3)}}</div>
-      <div class="pair-meta">${{rStrength(item.r)}} ${{item.r > 0 ? 'positive' : 'negative'}} · n=${{item.n}}</div>
-      <div class="pair-bar-track"><div class="pair-bar-fill" style="width:${{Math.round(Math.abs(item.r)*100)}}%;background:${{col}};"></div></div>`;
-    grid.appendChild(card);
-  }});
-  sec.appendChild(grid);
-  panel.appendChild(sec);
-
-  // Biomarker scatter plots
-  const sec2 = mkSection('Scatter Plots — Key Biomarker Pairs',
-    'Each point = one blood draw. Blue (early) → orange (recent).');
-  const sgrid = document.createElement('div');
-  sgrid.className = 'charts-grid';
-  (DATA.scatter_pairs || []).forEach(sp => renderScatterCard(sgrid, sp));
-  sec2.appendChild(sgrid);
-  panel.appendChild(sec2);
-}});
-
-// ---------------------------------------------------------------------------
-// Tab 5: Timeline
-// ---------------------------------------------------------------------------
-addTab('📅 Timeline', 'timeline', panel => {{
-  const sec = mkSection(
-    'Wearable Metrics Over Blood-Draw Dates',
-    'Rolling averages of WHOOP and Strava signals plotted at each blood-draw date. Life-event markers shown.'
-  );
-
-  const tl = DATA.timeline || [];
-  const labels = tl.map(r => r.date);
-
-  // Chart builder helper
-  function tlCard(title, datasets, yLabel, yLabel2, height) {{
-    const card = document.createElement('div');
-    card.className = 'chart-card full-card';
-    card.innerHTML = `<div class="chart-header"><div class="chart-title">${{title}}</div></div>`;
-    const wrap = document.createElement('div');
-    wrap.className = 'chart-wrap';
-    wrap.style.height = (height || 180) + 'px';
-    const canvas = document.createElement('canvas');
-    wrap.appendChild(canvas);
-    card.appendChild(wrap);
-
-    // Life-event plugin
-    const lifePlugin = {{
-      id: 'lifeEvents',
-      afterDraw(chart) {{
-        const {{ ctx, chartArea: {{ top, bottom }}, scales: {{ x }} }} = chart;
-        if (!x) return;
-        (DATA.life_events || []).forEach(ev => {{
-          const idx = labels.indexOf(ev.date);
-          if (idx < 0) return;
-          const xPx = x.getPixelForValue(idx);
-          ctx.save();
-          ctx.beginPath(); ctx.moveTo(xPx, top); ctx.lineTo(xPx, bottom);
-          ctx.strokeStyle = 'rgba(234,179,8,0.45)'; ctx.lineWidth = 1.5;
-          ctx.setLineDash([4,3]); ctx.stroke();
-          ctx.fillStyle = '#eab308'; ctx.font = '9px sans-serif';
-          ctx.textAlign = 'center'; ctx.fillText(ev.label, xPx, top - 3);
-          ctx.restore();
-        }});
-      }},
-    }};
-
-    const scales = {{
-      x: {{ grid: {{ color: 'rgba(46,50,80,0.6)' }}, ticks: {{ color: '#8892a4', maxRotation: 45, maxTicksLimit: 20, font: {{ size: 9 }} }} }},
-      y: {{ title: {{ display: !!yLabel, text: yLabel||'', color:'#8892a4', font:{{size:9}} }}, grid: {{ color: 'rgba(46,50,80,0.6)' }}, ticks: {{ color: '#8892a4', font: {{ size: 9 }} }} }},
-    }};
-    if (yLabel2) {{
-      scales.y2 = {{ position: 'right', title: {{ display: true, text: yLabel2, color:'#8892a4', font:{{size:9}} }}, grid: {{ display: false }}, ticks: {{ color: '#8892a4', font: {{ size: 9 }} }} }};
-    }}
-
-    new Chart(canvas, {{
-      type: 'line', plugins: [lifePlugin],
-      data: {{ labels, datasets }},
-      options: {{
-        responsive: true, maintainAspectRatio: false,
-        interaction: {{ mode: 'index', intersect: false }},
-        plugins: {{
-          legend: {{ display: false }},
-          tooltip: {{ backgroundColor: '#1a1d27', borderColor: '#2e3250', borderWidth: 1, titleColor: '#e2e8f0', bodyColor: '#8892a4' }},
-        }},
-        scales,
-      }},
-    }});
-    return card;
-  }}
-
-  const grid = document.createElement('div');
-  grid.className = 'charts-grid';
-  grid.style.gridTemplateColumns = '1fr';
-
-  // Chart 1: HRV + Recovery (30d)
-  grid.appendChild(tlCard('WHOOP: HRV & Recovery Score (30-day avg)', [
-    {{ label: 'HRV rMSSD (ms)', data: tl.map(r => r.whoop_hrv_30d), borderColor: '#22c55e', backgroundColor:'transparent', borderWidth:2.5, pointRadius:5, tension:0.3, fill:false, yAxisID:'y', spanGaps:true }},
-    {{ label: 'Recovery score', data: tl.map(r => r.whoop_recovery_30d), borderColor: '#60a5fa', backgroundColor:'rgba(96,165,250,0.1)', borderWidth:2, pointRadius:4, tension:0.3, fill:true, yAxisID:'y2', spanGaps:true }},
-  ], 'HRV (ms)', 'Recovery (0–100)'));
-
-  // Chart 2: RHR + Strain (30d)
-  grid.appendChild(tlCard('WHOOP: Resting HR & Day Strain (30-day avg)', [
-    {{ label: 'Resting HR (bpm)', data: tl.map(r => r.whoop_rhr_30d), borderColor: '#ef4444', backgroundColor:'transparent', borderWidth:2.5, pointRadius:5, tension:0.3, fill:false, yAxisID:'y', spanGaps:true }},
-    {{ label: 'Day strain', data: tl.map(r => r.whoop_strain_30d), borderColor: '#f97316', backgroundColor:'rgba(249,115,22,0.1)', borderWidth:2, pointRadius:4, tension:0.3, fill:true, yAxisID:'y2', spanGaps:true }},
-  ], 'RHR (bpm)', 'Strain (0–21)'));
-
-  // Chart 3: Sleep
-  grid.appendChild(tlCard('WHOOP: Sleep Hours & Performance (30-day avg)', [
-    {{ label: 'Sleep hrs', data: tl.map(r => r.whoop_sleep_hrs_30d), borderColor: '#a855f7', backgroundColor:'rgba(168,85,247,0.1)', borderWidth:2.5, pointRadius:5, tension:0.3, fill:true, yAxisID:'y', spanGaps:true }},
-    {{ label: 'Sleep performance %', data: tl.map(r => r.whoop_sleep_perf_30d), borderColor: '#818cf8', backgroundColor:'transparent', borderWidth:2, pointRadius:4, tension:0.3, fill:false, yAxisID:'y2', spanGaps:true }},
-  ], 'Hours', 'Performance (%)'));
-
-  // Chart 4: Strava load
-  grid.appendChild(tlCard('Strava: Training Load (90-day window)', [
-    {{ label: 'Total hours', data: tl.map(r => r.strava_hrs_90d), borderColor: '#f97316', backgroundColor:'rgba(249,115,22,0.1)', borderWidth:2.5, pointRadius:5, tension:0.3, fill:true, yAxisID:'y', spanGaps:true }},
-    {{ label: 'Run miles', data: tl.map(r => r.strava_run_miles_90d), borderColor: '#22c55e', backgroundColor:'transparent', borderWidth:2, pointRadius:4, tension:0.3, fill:false, yAxisID:'y2', spanGaps:true }},
-  ], 'Training hrs', 'Run miles'));
-
-  // Chart 5: SpO2 + resp rate
-  grid.appendChild(tlCard('WHOOP: SpO₂ & Respiratory Rate (30-day avg)', [
-    {{ label: 'SpO₂ (%)', data: tl.map(r => r.whoop_spo2_30d), borderColor: '#60a5fa', backgroundColor:'rgba(96,165,250,0.1)', borderWidth:2.5, pointRadius:5, tension:0.3, fill:true, yAxisID:'y', spanGaps:true }},
-    {{ label: 'Resp rate (br/min)', data: tl.map(r => r.whoop_resp_30d), borderColor: '#eab308', backgroundColor:'transparent', borderWidth:2, pointRadius:4, tension:0.3, fill:false, yAxisID:'y2', spanGaps:true }},
-  ], 'SpO₂ (%)', 'Breaths/min'));
-
-  sec.appendChild(grid);
-  panel.appendChild(sec);
-}});
-
-// ---------------------------------------------------------------------------
-// Tab 6: VO₂max estimated series
-// ---------------------------------------------------------------------------
-addTab('🫁 VO₂max', 'vo2max', panel => {{
-  const sec = mkSection(
-    'Estimated VO₂max — Full History (2011–2026)',
-    `Lab measurements (2 points) anchored to estimated series from:
-     <strong>VDOT</strong> (Jack Daniels formula from race times) and
-     <strong>FTP w/kg</strong> (Coggan formula, calibrated to lab values).
-     Non-lab estimates are scaled so they match the lab anchors within ±180 days.
-     Each method shown in a different colour. Blood-draw dates marked.`
-  );
-
-  const series = DATA.vo2max_series || [];
-  if (series.length === 0) {{ panel.appendChild(sec); return; }}
-
-  // Group by method for separate datasets
-  const METHOD_COLOR = {{
-    'lab':            '#ffffff',
-    'vdot_marathon':  '#22c55e',
-    'vdot_5k':        '#86efac',
-    'vdot_hm':        '#4ade80',
-    'vdot_fm':        '#34d399',
-    'vdot_10k':       '#6ee7b7',
-    'ftp_coggan':     '#60a5fa',
-  }};
-  const METHOD_LABEL = {{
-    'lab':           'Lab (measured)',
-    'vdot_marathon': 'VDOT from marathon',
-    'vdot_5k':       'VDOT from 5K',
-    'vdot_hm':       'VDOT from half marathon',
-    'vdot_fm':       'VDOT from full marathon (Strava)',
-    'vdot_10k':      'VDOT from 10K',
-    'ftp_coggan':    'FTP-based (Coggan, calibrated)',
-  }};
-
-  // All unique dates sorted for x-axis
-  const allDates = [...new Set(series.map(p => p.date))].sort();
-
-  // Build per-method datasets
-  const methods = [...new Set(series.map(p => p.method))];
-  const datasets = methods.map(method => {{
-    const pts = series.filter(p => p.method === method);
-    const ptMap = Object.fromEntries(pts.map(p => [p.date, p.value]));
-    const isLab = method === 'lab';
-    return {{
-      label: METHOD_LABEL[method] || method,
-      data: allDates.map(d => ptMap[d] ?? null),
-      borderColor: METHOD_COLOR[method] || '#818cf8',
-      backgroundColor: isLab ? 'white' : 'transparent',
-      borderWidth: isLab ? 0 : 1.5,
-      pointRadius: isLab ? 10 : (method.startsWith('vdot') ? 4 : 3),
-      pointStyle: isLab ? 'star' : 'circle',
-      pointHoverRadius: 7,
-      tension: 0.3,
-      fill: false,
-      spanGaps: false,
-    }};
-  }});
-
-  // Blood-draw date annotations plugin
-  const drawDates = (DATA.timeline || []).map(r => r.date);
-  const drawPlugin = {{
-    id: 'drawDates',
-    afterDraw(chart) {{
-      const {{ ctx, chartArea: {{ top, bottom }}, scales: {{ x }} }} = chart;
-      if (!x) return;
-      drawDates.forEach(dd => {{
-        const idx = allDates.indexOf(dd);
-        if (idx < 0) return;
-        const xPx = x.getPixelForValue(idx);
-        ctx.save();
-        ctx.beginPath(); ctx.moveTo(xPx, top); ctx.lineTo(xPx, bottom);
-        ctx.strokeStyle = 'rgba(234,179,8,0.35)'; ctx.lineWidth = 1;
-        ctx.setLineDash([3,3]); ctx.stroke();
-        ctx.restore();
-      }});
-    }},
-  }};
-
+// ── scatter cards ──────────────────────────────────────────────────────────
+function scatterCard(container, sp) {
   const card = document.createElement('div');
-  card.className = 'chart-card full-card';
-  const hdr = document.createElement('div');
-  hdr.className = 'chart-header';
-  hdr.innerHTML = `<div class="chart-title">VO₂max estimated series — ${{series.length}} data points</div>`;
-  card.appendChild(hdr);
-
-  const wrap = document.createElement('div');
-  wrap.className = 'chart-wrap';
-  wrap.style.height = '280px';
-  const canvas = document.createElement('canvas');
-  wrap.appendChild(canvas);
-  card.appendChild(wrap);
-
-  // Legend
-  const leg = document.createElement('div');
-  leg.className = 'chart-legend';
-  leg.style.marginTop = '0.6rem';
-  methods.forEach(m => {{
-    leg.innerHTML += `<div class="legend-item">
-      <div class="legend-swatch" style="background:${{METHOD_COLOR[m]||'#818cf8'}};border-radius:50%;width:10px;height:10px;"></div>
-      ${{METHOD_LABEL[m]||m}}
-    </div>`;
-  }});
-  leg.innerHTML += `<div class="legend-item">
-    <div style="width:12px;height:2px;background:rgba(234,179,8,0.5);display:inline-block;margin-right:4px;"></div>Blood draw date
-  </div>`;
-  card.appendChild(leg);
-
-  const grid = document.createElement('div');
-  grid.className = 'charts-grid';
-  grid.style.gridTemplateColumns = '1fr';
-  grid.appendChild(card);
-  sec.appendChild(grid);
-  panel.appendChild(sec);
-
-  // Summary stats card
-  const labPts = series.filter(p => p.method === 'lab');
-  const ftpPts = series.filter(p => p.method === 'ftp_coggan');
-  const vdotPts = series.filter(p => p.method.startsWith('vdot'));
-  const statSec = mkSection('Coverage Summary', null);
-  const statGrid = document.createElement('div');
-  statGrid.className = 'pair-grid';
-  [
-    ['🔬 Lab measurements', labPts.length + ' actual VO₂max tests', '#ffffff'],
-    ['🏃 VDOT from races', vdotPts.length + ' race-derived estimates', '#22c55e'],
-    ['🚴 FTP-based (calibrated)', ftpPts.length + ' cycling estimates', '#60a5fa'],
-    ['📅 Total span', (allDates[0]||'?') + ' → ' + (allDates[allDates.length-1]||'?'), '#818cf8'],
-  ].forEach(([name, val, col]) => {{
-    const card2 = document.createElement('div');
-    card2.className = 'pair-card';
-    card2.style.borderLeft = `3px solid ${{col}}`;
-    card2.innerHTML = `<div class="pair-name">${{name}}</div><div class="pair-r" style="color:${{col}};font-size:0.95rem;">${{val}}</div>`;
-    statGrid.appendChild(card2);
-  }});
-  statSec.appendChild(statGrid);
-  panel.appendChild(statSec);
-
-  new Chart(canvas, {{
-    type: 'line',
-    plugins: [drawPlugin],
-    data: {{ labels: allDates, datasets }},
-    options: {{
-      responsive: true, maintainAspectRatio: false,
-      interaction: {{ mode: 'index', intersect: false }},
-      plugins: {{
-        legend: {{ display: false }},
-        tooltip: {{
-          backgroundColor: '#1a1d27', borderColor: '#2e3250', borderWidth: 1,
-          titleColor: '#e2e8f0', bodyColor: '#8892a4',
-          callbacks: {{
-            label: ctx => ctx.parsed.y !== null
-              ? ` ${{ctx.dataset.label}}: ${{ctx.parsed.y.toFixed(1)}} ml/kg/min`
-              : null,
-          }},
-          filter: item => item.parsed.y !== null,
-        }},
-      }},
-      scales: {{
-        x: {{
-          grid: {{ color: 'rgba(46,50,80,0.6)' }},
-          ticks: {{ color: '#8892a4', maxRotation: 45, maxTicksLimit: 24, font: {{ size: 9 }} }},
-        }},
-        y: {{
-          title: {{ display: true, text: 'VO₂max (ml/kg/min)', color: '#8892a4', font: {{ size: 10 }} }},
-          min: 35, max: 70,
-          grid: {{ color: 'rgba(46,50,80,0.6)' }},
-          ticks: {{ color: '#8892a4', font: {{ size: 10 }} }},
-        }},
-      }},
-    }},
-  }});
-}});
-
-// ---------------------------------------------------------------------------
-// Shared: render scatter card
-// ---------------------------------------------------------------------------
-function renderScatterCard(container, sp) {{
-  const card = document.createElement('div');
-  card.className = 'chart-card';
-  const col = rColor(sp.r);
-  const hdr = document.createElement('div');
-  hdr.className = 'chart-header';
-  hdr.innerHTML = `
-    <div class="chart-title">${{sp.x_label}}<br><span style="color:var(--muted);font-weight:400">vs</span> ${{sp.y_label}}</div>
-    <div class="chart-meta">
-      <div class="r-big" style="color:${{col}};">r = ${{sp.r !== null ? sp.r.toFixed(3) : '—'}}</div>
-      <div class="n-lbl">n = ${{sp.n}}</div>
-    </div>`;
-  card.appendChild(hdr);
-  const wrap = document.createElement('div');
-  wrap.className = 'chart-wrap';
-  const canvas = document.createElement('canvas');
-  wrap.appendChild(canvas);
-  card.appendChild(wrap);
+  card.className = 'metric-card';
+  card.innerHTML = `
+    <div class="metric-card-header">
+      <div class="metric-card-title">${sp.x_label} <span class="vs">vs</span> ${sp.y_label}${sp.source ? ' ' + badge(sp.source) : ''}</div>
+      <div class="r-meta">
+        <div class="r-big" style="color:${rColor(sp.r)}">r = ${fmtR(sp.r)}</div>
+        <div class="n-lbl">n = ${sp.n}</div>
+      </div>
+    </div>
+    <div class="chart-area"></div>`;
   container.appendChild(card);
 
-  const ptColors = scatterPointColors(sp.points);
-  const datasets = [{{
-    label: `${{sp.x_label}} vs ${{sp.y_label}}`,
-    data: sp.points.map(p => ({{ x: p.x, y: p.y }})),
-    backgroundColor: ptColors, borderColor: ptColors.map(c => c.replace('0.9','1')),
-    borderWidth: 1.5, pointRadius: 6, pointHoverRadius: 8, type: 'scatter',
-  }}];
-  if (sp.reg_line) {{
-    datasets.push({{
-      label: 'Trend', data: sp.reg_line, type: 'line',
-      borderColor: 'rgba(129,140,248,0.55)', borderWidth: 1.5,
-      borderDash: [4,3], pointRadius: 0, fill: false,
-    }});
-  }}
-  new Chart(canvas, {{
-    type: 'scatter', data: {{ datasets }},
-    options: {{
-      responsive: true, maintainAspectRatio: false,
-      plugins: {{
-        legend: {{ display: false }},
-        tooltip: {{
-          backgroundColor: '#1a1d27', borderColor: '#2e3250', borderWidth: 1,
-          titleColor: '#e2e8f0', bodyColor: '#8892a4',
-          callbacks: {{
-            title:  items => sp.points[items[0].dataIndex]?.date || '',
-            label:  ctx  => `${{sp.x_label}}: ${{ctx.parsed.x}},  ${{sp.y_label}}: ${{ctx.parsed.y}}`,
-          }},
-          filter: item => item.dataset.label !== 'Trend',
-        }},
-      }},
-      scales: {{
-        x: {{ title: {{ display: true, text: sp.x_label, color:'#8892a4', font:{{size:9}} }}, grid: {{ color: 'rgba(46,50,80,0.6)' }}, ticks: {{ color:'#8892a4', font:{{size:9}} }} }},
-        y: {{ title: {{ display: true, text: sp.y_label, color:'#8892a4', font:{{size:9}} }}, grid: {{ color: 'rgba(46,50,80,0.6)' }}, ticks: {{ color:'#8892a4', font:{{size:9}} }} }},
-      }},
-    }},
-  }});
-}}
+  // early → recent as faint → solid, one hue; mixes with the surface so it follows the theme
+  const years = sp.points.map(p => +p.date.slice(0, 4));
+  const y0 = Math.min(...years), y1 = Math.max(...years);
+  let fit = null;
+  if (sp.reg_line && sp.reg_line[1].x !== sp.reg_line[0].x) {
+    const [a, b] = sp.reg_line, slope = (b.y - a.y) / (b.x - a.x);
+    fit = { slope, intercept: a.y - slope * a.x };
+  }
+  AR.scatter(card.querySelector('.chart-area'), {
+    points: sp.points.map((p, i) => {
+      const t = y1 === y0 ? 1 : (years[i] - y0) / (y1 - y0);
+      return { x: p.x, y: p.y, date: p.date,
+               color: `color-mix(in srgb, var(--accent) ${Math.round(30 + 70 * t)}%, var(--surface))` };
+    }),
+    height: 240, xLabel: sp.x_label, yLabel: sp.y_label, fit, r: 5, margin: { t: 26 },
+    tip: p => `<b>${AR.fmtDate(p.date)}</b><br><span class="dim">${sp.x_label}</span> ${num(p.x)}` +
+              `<br><span class="dim">${sp.y_label}</span> ${num(p.y)}`,
+  });
+}
+(DATA.wearable_scatters || []).forEach(sp => scatterCard($('wearable-scatters'), sp));
+(DATA.scatter_pairs || []).forEach(sp => scatterCard($('pair-scatters'), sp));
 
-// ---------------------------------------------------------------------------
-// Section helper
-// ---------------------------------------------------------------------------
-function mkSection(title, descHTML) {{
-  const sec = document.createElement('div');
-  sec.className = 'section';
-  const h2 = document.createElement('h2');
-  h2.textContent = title;
-  sec.appendChild(h2);
-  if (descHTML) {{
-    const p = document.createElement('p');
-    p.className = 'desc';
-    p.innerHTML = descHTML;
-    sec.appendChild(p);
-  }}
-  return sec;
-}}
+// ── Full matrix heatmap ────────────────────────────────────────────────────
+(function () {
+  const covMeta = DATA.covariate_meta || [];
+  const groups = ['Life', 'Fitness', 'WHOOP', 'Strava', 'Garmin']
+    .map(src => ({ src, cols: covMeta.filter(c => c.source === src) })).filter(g => g.cols.length);
+  const cols = groups.flatMap(g => g.cols);
+  const short = l => l.replace(' avg', '');
+  const rows = DATA.biomarker_matrix || [];
+  let mode = 'r';
+  const tbl = d3.select('#heat');
 
-// ---------------------------------------------------------------------------
-// Footer
-// ---------------------------------------------------------------------------
-document.getElementById('footer').textContent =
-  `Generated ${{DATA.generated}} · ${{DATA.n_draws}} blood draws · `+
-  `${{(DATA.biomarker_matrix||[]).length}} biomarkers · `+
-  `${{(DATA.covariate_meta||[]).length}} covariates (WHOOP + Strava + Life)`;
+  const thead = tbl.append('thead');
+  const g = thead.append('tr');
+  g.append('th').attr('class', 'bm-name');
+  g.append('th');
+  g.selectAll('th.grp').data(groups).join('th').attr('class', 'grp')
+    .attr('colspan', d => d.cols.length).text(d => d.src);
+  const h = thead.append('tr');
+  h.append('th').attr('class', 'bm-name').text('Biomarker');
+  h.append('th').attr('class', 'num').text('n');
+  h.selectAll('th.vh').data(cols).join('th').attr('class', 'vh').append('span').text(d => short(d.label));
+
+  const tr = tbl.append('tbody').selectAll('tr').data(rows).join('tr');
+  tr.append('td').attr('class', 'bm-name').text(d => d.name);
+  tr.append('td').attr('class', 'n-col').text(d => d.n);
+  const cell = tr.selectAll('td.hc').data(row => cols.map(col => ({ row, col }))).join('td').attr('class', 'hc');
+  const val = d => { const v = (d.row[mode] || {})[d.col.key]; return v === undefined ? null : v; };
+
+  function paint() {
+    cell.classed('na', d => val(d) == null)
+      .style('--c', d => { const v = val(d); return v == null ? null : v >= 0 ? 'var(--heat-pos)' : 'var(--heat-neg)'; })
+      .style('--m', d => { const v = val(d); return v == null ? null : Math.round(Math.min(1, Math.abs(v)) * 85) + '%'; })
+      .text(d => { const v = val(d); return v == null ? '·' : fmtR(v, 2).replace('+', ''); });
+  }
+  paint();
+  cell.on('mousemove', (ev, d) => {
+      const raw = (d.row.r || {})[d.col.key], adj = (d.row.partial || {})[d.col.key];
+      AR.tip.show(`<b>${d.row.name} × ${d.col.label}</b><br>` +
+        `<span class="dim">${d.col.source} · raw r</span> ${fmtR(raw)}<br>` +
+        `<span class="dim">age-adj partial r</span> ${fmtR(adj)}`, ev);
+    })
+    .on('mouseleave', AR.tip.hide);
+
+  document.querySelectorAll('#matrix-toggle .roll-btn').forEach(btn => btn.addEventListener('click', () => {
+    mode = btn.dataset.mode;
+    document.querySelectorAll('#matrix-toggle .roll-btn').forEach(b => b.classList.toggle('active', b === btn));
+    paint();
+  }));
+})();
+
+// ── Timeline: one metric per chart (no dual axes) ──────────────────────────
+(function () {
+  const tl = DATA.timeline || [];
+  const METRICS = [
+    ['WHOOP: HRV rMSSD (30-day avg)',          'whoop_hrv_30d',        'ms',      'var(--teal)',   1],
+    ['WHOOP: Recovery Score (30-day avg)',     'whoop_recovery_30d',   '0–100',   'var(--blue)',   1],
+    ['WHOOP: Resting HR (30-day avg)',         'whoop_rhr_30d',        'bpm',     'var(--red)',    1],
+    ['WHOOP: Day Strain (30-day avg)',         'whoop_strain_30d',     '0–21',    'var(--orange)', 1],
+    ['WHOOP: Sleep Hours (30-day avg)',        'whoop_sleep_hrs_30d',  'hours',   'var(--purple)', 2],
+    ['WHOOP: Sleep Performance (30-day avg)',  'whoop_sleep_perf_30d', '%',       'var(--pink)',   1],
+    ['Strava: Training Hours (90-day window)', 'strava_hrs_90d',       'hours',   'var(--orange)', 1],
+    ['Strava: Run Miles (90-day window)',      'strava_run_miles_90d', 'miles',   'var(--green)',  1],
+    ['WHOOP: SpO₂ (30-day avg)',               'whoop_spo2_30d',       '%',       'var(--blue)',   1],
+    ['WHOOP: Respiratory Rate (30-day avg)',   'whoop_resp_30d',       'breaths/min', 'var(--yellow)', 1],
+  ];
+  METRICS.forEach(([title, key, unit, color, dp]) => {
+    const pts = tl.filter(r => r[key] != null);
+    const card = document.createElement('div');
+    card.className = 'metric-card';
+    const last = pts[pts.length - 1];
+    card.innerHTML = `
+      <div class="metric-card-header"><div class="metric-card-title">${title}</div></div>
+      <div class="metric-card-val" style="color:${color}">${last ? last[key].toFixed(dp) : '—'}</div>
+      <div class="metric-card-sub">${unit}${last ? ' · before the ' + AR.fmtDate(last.date) + ' draw' : ''}</div>
+      <div class="chart-area"></div>`;
+    $('timeline').appendChild(card);
+    AR.lineChart(card.querySelector('.chart-area'), {
+      x: pts.map(r => r.date), y: pts.map(r => r[key]), color, dots: true, height: 160,
+      yFmt: v => d3.format('~g')(+v.toFixed(dp)),
+      markers: (DATA.life_events || []).map(e => ({ x: e.date, label: e.label })),
+      tip: i => `<b>${AR.fmtDate(pts[i].date)}</b><br>${pts[i][key].toFixed(dp)} <span class="dim">${unit}</span>`,
+    });
+  });
+})();
+
+// ── VO₂max estimated series ────────────────────────────────────────────────
+(function () {
+  const series = (DATA.vo2max_series || []).map(p => Object.assign({ t: AR.parseDate(p.date) }, p));
+  if (!series.length) return;
+  const METHOD_COLOR = {
+    lab: 'var(--text)', vdot_marathon: 'var(--green)', vdot_5k: 'var(--purple)', vdot_hm: 'var(--yellow)',
+    vdot_fm: 'var(--orange)', vdot_10k: 'var(--pink)', ftp_coggan: 'var(--blue)',
+  };
+  const METHOD_LABEL = {
+    lab: 'Lab (measured)', vdot_marathon: 'VDOT from marathon', vdot_5k: 'VDOT from 5K',
+    vdot_hm: 'VDOT from half marathon', vdot_fm: 'VDOT from full marathon (Strava)',
+    vdot_10k: 'VDOT from 10K', ftp_coggan: 'FTP-based (Coggan, calibrated)',
+  };
+  const col = p => METHOD_COLOR[p.method] || 'var(--accent)';
+  const methods = [...new Set(series.map(p => p.method))];
+  const allDates = [...new Set(series.map(p => p.date))].sort();
+  const draws = (DATA.timeline || []).map(r => AR.parseDate(r.date));
+
+  $('vo2-title').textContent = `VO₂max estimated series — ${series.length} data points`;
+  $('vo2-legend').innerHTML = methods.map(m =>
+    `<span class="legend-item"><span class="sw dot" style="background:${METHOD_COLOR[m] || 'var(--accent)'}"></span>${METHOD_LABEL[m] || m}</span>`).join('') +
+    '<span class="legend-item"><span class="sw dash"></span>Blood draw date</span>';
+
+  mountChart($('vo2-chart'), 320, (svg, W, H) => {
+    const m = { t: 22, r: 14, b: 26, l: 44 };
+    const [d0, d1] = d3.extent(series, p => p.t);
+    const x = d3.scaleTime().domain([d3.timeDay.offset(d0, -60), d3.timeDay.offset(d1, 60)]).range([m.l, W - m.r]);
+    const [lo, hi] = d3.extent(series, p => p.value);
+    const y = d3.scaleLinear().domain([Math.min(35, lo - 1), Math.max(70, hi + 1)]).range([H - m.b, m.t]);
+
+    svg.append('g').attr('class', 'grid').attr('transform', `translate(${m.l},0)`)
+      .call(d3.axisLeft(y).ticks(6).tickSize(-(W - m.l - m.r)).tickPadding(6));
+    svg.append('g').attr('class', 'axis').attr('transform', `translate(0,${H - m.b})`)
+      .call(d3.axisBottom(x).ticks(Math.max(2, Math.floor((W - m.l - m.r) / 80))).tickFormat(d3.timeFormat('%Y')).tickSize(0).tickPadding(8));
+    svg.append('text').attr('class', 'axis-title').attr('x', m.l).attr('y', m.t - 8).text('VO₂max (ml/kg/min)');
+
+    svg.append('g').selectAll('line').data(draws.filter(d => d >= x.domain()[0] && d <= x.domain()[1])).join('line')
+      .attr('class', 'ref-line').attr('x1', d => x(d)).attr('x2', d => x(d)).attr('y1', m.t).attr('y2', H - m.b);
+
+    svg.append('g').selectAll('circle').data(series.filter(p => p.method !== 'lab')).join('circle')
+      .attr('cx', p => x(p.t)).attr('cy', p => y(p.value)).attr('r', 3.5)
+      .attr('fill', col).attr('stroke', 'var(--surface)').attr('stroke-width', 1);
+    // lab anchors on top, as stars
+    svg.append('g').selectAll('path').data(series.filter(p => p.method === 'lab')).join('path').attr('class', 'ring')
+      .attr('transform', p => `translate(${x(p.t)},${y(p.value)})`)
+      .attr('d', d3.symbol().type(d3.symbolStar).size(190)).attr('fill', col);
+
+    const focus = svg.append('circle').attr('r', 7).attr('fill', 'none').attr('stroke', 'var(--text)')
+      .attr('stroke-width', 1.5).style('display', 'none').style('pointer-events', 'none');
+    svg.append('rect').attr('x', m.l).attr('y', m.t).attr('width', Math.max(0, W - m.l - m.r)).attr('height', H - m.t - m.b)
+      .attr('fill', 'transparent')
+      .on('mousemove', ev => {
+        const [px, py] = d3.pointer(ev, svg.node());
+        let best = null, bd = 30;
+        series.forEach(p => { const d = Math.hypot(x(p.t) - px, y(p.value) - py) - (p.method === 'lab' ? 4 : 0); if (d < bd) { bd = d; best = p; } });
+        if (!best) { focus.style('display', 'none'); AR.tip.hide(); return; }
+        focus.style('display', null).attr('cx', x(best.t)).attr('cy', y(best.value));
+        AR.tip.show(`<b>${AR.fmtDate(best.date)}</b><br>${AR.swatch(col(best))}` +
+          `<span class="dim">${METHOD_LABEL[best.method] || best.method}</span> ${best.value.toFixed(1)} ml/kg/min` +
+          (best.source ? `<br><span class="dim">${best.source}</span>` : ''), ev);
+      })
+      .on('mouseleave', () => { focus.style('display', 'none'); AR.tip.hide(); });
+  });
+
+  const n = f => series.filter(f).length;
+  $('vo2-kpis').innerHTML = [
+    ['🔬 Lab measurements', n(p => p.method === 'lab') + ' actual VO₂max tests', 'var(--text)'],
+    ['🏃 VDOT from races', n(p => p.method.startsWith('vdot')) + ' race-derived estimates', 'var(--green)'],
+    ['🚴 FTP-based (calibrated)', n(p => p.method === 'ftp_coggan') + ' cycling estimates', 'var(--blue)'],
+    ['📅 Total span', (allDates[0] || '?') + ' → ' + (allDates[allDates.length - 1] || '?'), 'var(--accent)'],
+  ].map(([name, val, c]) => `
+    <div class="kpi-card" style="--kpi-color:${c}">
+      <div class="kpi-label">${name}</div>
+      <div class="kpi-value" style="font-size:1rem">${val}</div>
+    </div>`).join('');
+})();
 </script>
 </body>
 </html>
 """
+
+SECTIONS_NAV = """  <div class="nav-section">
+    <div class="nav-section-title">Analysis</div>
+    <div class="nav-item active" data-section="insights"><span class="icon">💡</span> Insights</div>
+    <div class="nav-item" data-section="wearable"><span class="icon">⌚</span> Wearable × Biomarker</div>
+    <div class="nav-item" data-section="matrix"><span class="icon">🧬</span> Full Matrix</div>
+    <div class="nav-item" data-section="pairs"><span class="icon">🔗</span> Biomarker Pairs</div>
+    <div class="nav-item" data-section="timeline"><span class="icon">📅</span> Timeline</div>
+    <div class="nav-item" data-section="vo2max"><span class="icon">🫁</span> VO₂max</div>
+  </div>"""
+
+
+def build_html(payload: dict) -> str:
+    data_json = json.dumps(payload, separators=(",", ":")).replace("</", "<\\/")
+    return (
+        shell.head("Andy — Correlations &amp; Analysis", payload["generated"], PAGE_STYLE)
+        + PAGE_BODY
+        .replace("__SIDEBAR__", shell.sidebar("correlations.html", SECTIONS_NAV))
+        .replace("__DATA__", data_json)
+    )
 
 
 # ---------------------------------------------------------------------------

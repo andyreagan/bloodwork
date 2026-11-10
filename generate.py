@@ -9,6 +9,7 @@ from datetime import date
 
 import yaml
 
+import shell
 from ranges import resolve_active
 
 BLOODWORK_FILE = os.path.join(os.path.dirname(__file__), "bloodwork_data.yaml")
@@ -423,6 +424,22 @@ def build_html(measurements: dict, ref_ranges: dict, fitness: dict | None = None
     # Build fitness panel data
     fitness_panel = build_fitness_panel(fitness or {})
 
+    # In-page sections: overview, one per biomarker panel, fitness, training.
+    # Each summary tile links to the section holding that marker's chart.
+    section_of = {}
+    sections = [("overview", "⚡", "Key Biomarkers", "Key Biomarkers — Latest Values")]
+    for i, p in enumerate(panels_data):
+        sid = f"panel-{i}"
+        sections.append((sid, PANEL_ICONS.get(p["name"], "🧪"),
+                         PANEL_NAV_LABELS.get(p["name"], p["name"]), p["name"]))
+        for ch in p["charts"]:
+            section_of[ch["name"]] = sid
+    perf_sections = [("fitness", "💪", "Fitness", "Fitness & Performance")]
+    if strava_weeks:
+        perf_sections.append(("training", "📈", "Training", "Weekly Training Volume"))
+    for c in cards:
+        c["section"] = "fitness" if c.get("is_fitness") else section_of.get(c["name"])
+
     # JSON payload for embedding
     payload = json.dumps({
         "cards": cards,
@@ -431,1115 +448,475 @@ def build_html(measurements: dict, ref_ranges: dict, fitness: dict | None = None
         "strava_weeks": strava_weeks or [],
         "generated": today.isoformat(),
         "age": age,
+        "titles": {sid: title for sid, _, _, title in sections + perf_sections},
     }, separators=(',', ':'))
 
-    html = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Andy's Health Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
-<style>
-  :root {{
-    --bg: #0f1117;
-    --surface: #1a1d27;
-    --surface2: #22263a;
-    --border: #2e3250;
-    --text: #e2e8f0;
-    --text-muted: #8892a4;
-    --green: #22c55e;
-    --yellow: #eab308;
-    --red: #ef4444;
-    --blue: #60a5fa;
-    --accent: #818cf8;
-    --card-radius: 12px;
-    --gap: 1rem;
-  }}
+    def nav_items(items):
+        return "\n".join(
+            f'    <div class="nav-item{" active" if sid == "overview" else ""}" data-section="{sid}">'
+            f'<span class="icon">{icon}</span> {label}</div>'
+            for sid, icon, label, _ in items
+        )
 
-  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-
-  body {{
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    font-size: 14px;
-    line-height: 1.5;
-    padding: 1rem;
-  }}
-
-  header {{
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1.25rem 1.5rem;
-    background: var(--surface);
-    border-radius: var(--card-radius);
-    border: 1px solid var(--border);
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-  }}
-
-  .header-link {{
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--accent);
-    border-radius: 6px;
-    padding: 0.35rem 0.8rem;
-    font-size: 0.8rem;
-    font-weight: 600;
-    text-decoration: none;
-    transition: all 0.15s;
-  }}
-
-  .header-link:hover {{
-    background: var(--accent);
-    border-color: var(--accent);
-    color: white;
-  }}
-
-  .header-title h1 {{
-    font-size: 1.4rem;
-    font-weight: 700;
-    color: var(--text);
-  }}
-
-  .header-title p {{
-    color: var(--text-muted);
-    font-size: 0.85rem;
-    margin-top: 2px;
-  }}
-
-  .header-meta {{
-    display: flex;
-    gap: 1.5rem;
-    font-size: 0.85rem;
-    color: var(--text-muted);
-  }}
-
-  .header-meta span strong {{ color: var(--text); }}
-
-  /* Summary cards */
-  .summary-section {{ margin-bottom: 2rem; }}
-  .summary-section h2 {{ font-size: 1rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem; }}
-
-  .cards-grid {{
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-    gap: var(--gap);
-  }}
-
-  .bm-card {{
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--card-radius);
-    padding: 1rem;
-    position: relative;
-    transition: transform 0.15s, box-shadow 0.15s;
-    cursor: default;
-  }}
-
-  .bm-card:hover {{
-    transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-  }}
-
-  .bm-card.optimal {{ border-left: 3px solid var(--green); }}
-  .bm-card.normal {{ border-left: 3px solid var(--yellow); }}
-  .bm-card.out_of_range {{ border-left: 3px solid var(--red); }}
-  .bm-card.unknown {{ border-left: 3px solid var(--text-muted); }}
-
-  .bm-card .bm-name {{
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin-bottom: 0.4rem;
-  }}
-
-  .bm-card .bm-value {{
-    font-size: 1.6rem;
-    font-weight: 700;
-    line-height: 1;
-  }}
-
-  .bm-card.optimal .bm-value {{ color: var(--green); }}
-  .bm-card.normal .bm-value {{ color: var(--yellow); }}
-  .bm-card.out_of_range .bm-value {{ color: var(--red); }}
-  .bm-card.unknown .bm-value {{ color: var(--text); }}
-
-  .bm-card .bm-unit {{
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    margin-top: 2px;
-  }}
-
-  .bm-card .bm-trend {{
-    position: absolute;
-    top: 0.75rem;
-    right: 0.9rem;
-    font-size: 1.1rem;
-    opacity: 0.7;
-  }}
-
-  .bm-card .bm-date {{
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    margin-top: 0.4rem;
-  }}
-
-  .status-dot {{
-    display: inline-block;
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    margin-right: 4px;
-    vertical-align: middle;
-  }}
-  .dot-optimal {{ background: var(--green); }}
-  .dot-normal {{ background: var(--yellow); }}
-  .dot-out {{ background: var(--red); }}
-
-  /* Panels */
-  .panel {{ margin-bottom: 2.5rem; }}
-
-  .panel h2 {{
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: var(--accent);
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--border);
-  }}
-
-  .charts-grid {{
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 1.25rem;
-  }}
-
-  .chart-card {{
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--card-radius);
-    padding: 1rem 1rem 0.75rem;
-  }}
-
-  .chart-card .chart-header {{
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    margin-bottom: 0.6rem;
-  }}
-
-  .chart-card .chart-title {{
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: var(--text);
-  }}
-
-  .chart-card .chart-latest {{
-    text-align: right;
-  }}
-
-  .chart-card .chart-latest .val {{
-    font-size: 1.15rem;
-    font-weight: 700;
-  }}
-
-  .chart-card .chart-latest.optimal .val {{ color: var(--green); }}
-  .chart-card .chart-latest.normal .val {{ color: var(--yellow); }}
-  .chart-card .chart-latest.out_of_range .val {{ color: var(--red); }}
-  .chart-card .chart-latest.unknown .val {{ color: var(--text); }}
-
-  .chart-card .chart-latest .val-unit {{
-    font-size: 0.7rem;
-    color: var(--text-muted);
-  }}
-
-  .chart-card .chart-latest .val-date {{
-    font-size: 0.65rem;
-    color: var(--text-muted);
-  }}
-
-  .chart-wrap {{
-    height: 140px;
-    position: relative;
-  }}
-
-  /* Legend for chart bands */
-  .chart-legend {{
-    display: flex;
-    gap: 0.75rem;
-    margin-top: 0.4rem;
-    flex-wrap: wrap;
-  }}
-
-  .legend-item {{
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 0.65rem;
-    color: var(--text-muted);
-  }}
-
-  .legend-swatch {{
-    width: 12px; height: 8px;
-    border-radius: 2px;
-  }}
-
-  /* Per-source reference range comparison */
-  .ref-sources {{
-    margin-top: 0.5rem;
-    padding-top: 0.5rem;
-    border-top: 1px solid var(--border);
-    font-size: 0.65rem;
-  }}
-  .ref-src-row {{
-    display: flex;
-    justify-content: space-between;
-    gap: 0.75rem;
-    color: var(--text-muted);
-    padding: 1px 0;
-  }}
-  .ref-src-row.active {{ color: var(--text); }}
-  .ref-src-row.active .ref-src-name {{ font-weight: 600; }}
-  .ref-src-val {{ font-variant-numeric: tabular-nums; text-align: right; }}
-
-  /* Nav tabs */
-  .tabs {{
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
-  }}
-
-  .tab-btn {{
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: var(--text-muted);
-    border-radius: 6px;
-    padding: 0.4rem 0.85rem;
-    font-size: 0.8rem;
-    cursor: pointer;
-    transition: all 0.15s;
-  }}
-
-  .tab-btn:hover, .tab-btn.active {{
-    background: var(--accent);
-    border-color: var(--accent);
-    color: white;
-  }}
-
-  .panel {{ display: none; }}
-  .panel.active {{ display: block; }}
-
-  footer {{
-    text-align: center;
-    color: var(--text-muted);
-    font-size: 0.75rem;
-    padding: 1rem 0;
-    border-top: 1px solid var(--border);
-    margin-top: 2rem;
-  }}
-
-  @media (max-width: 600px) {{
-    .cards-grid {{ grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }}
-    .charts-grid {{ grid-template-columns: 1fr; }}
-    header {{ flex-direction: column; }}
-  }}
-</style>
-</head>
-<body>
-
-<header>
-  <div class="header-title">
-    <h1>💪 Andy's Health Dashboard</h1>
-    <p>Bloodwork · Fitness · Performance — personal health dashboard</p>
+    nav = f"""  <div class="nav-section">
+    <div class="nav-section-title">Bloodwork</div>
+{nav_items(sections)}
   </div>
-  <div class="header-meta" id="header-meta"></div>
-  <a href="fitness.html"      class="header-link">📊 Fitness Sources →</a>
-  <a href="correlations.html" class="header-link">🔬 Correlations →</a>
-  <a href="models.html"       class="header-link">📐 Models →</a>
-</header>
+  <div class="nav-section">
+    <div class="nav-section-title">Performance</div>
+{nav_items(perf_sections)}
+  </div>"""
 
-<div class="summary-section">
-  <h2>Key Biomarkers — Latest Values</h2>
-  <div class="cards-grid" id="cards-grid"></div>
+    section_divs = "\n".join(
+        f'    <div class="section{" active" if sid == "overview" else ""}" id="section-{sid}"></div>'
+        for sid, _, _, _ in sections + perf_sections
+    )
+
+    html = shell.head("Andy's Health Dashboard", today.isoformat(), PAGE_CSS) + f"""<body>
+
+{shell.sidebar("index.html", nav)}
+<div class="main">
+  <div class="topbar">
+    <div>
+      <h1 id="section-title">Key Biomarkers — Latest Values</h1>
+      <div class="subtitle">Bloodwork · Fitness · Performance — personal health dashboard</div>
+    </div>
+    <div class="topbar-meta" id="header-meta"></div>
+  </div>
+
+  <div class="content">
+{section_divs}
+  </div>
 </div>
 
-<div class="tabs" id="tabs"></div>
-
-<div id="panels"></div>
-
-<footer id="footer"></footer>
-
 <script>
-const DATA = {payload};
+""" + PAGE_JS.replace("__DATA__", payload) + """</script>
+</body>
+</html>
+"""
+    return html
 
-const STATUS_COLOR = {{ optimal: '#22c55e', normal: '#eab308', out_of_range: '#ef4444', unknown: '#8892a4' }};
-const TREND_LABEL = {{ '↑': 'up', '↓': 'down', '→': 'stable' }};
 
-// Compute age
-function computeAge() {{
+# Sidebar icon / short label per biomarker panel.
+PANEL_ICONS = {
+    "Metabolic": "🍬",
+    "Lipids": "🧈",
+    "Liver & Enzymes": "🧪",
+    "Blood Count": "🩸",
+    "Hormones": "🧬",
+    "Inflammation & Cardiovascular": "❤️",
+    "Vitamins & Minerals": "💊",
+    "Electrolytes": "🧂",
+}
+PANEL_NAV_LABELS = {"Inflammation & Cardiovascular": "Inflammation & CV"}
+
+# Page-local styles: only what the kit (ar.css) lacks.
+PAGE_CSS = """<style>
+.topbar-meta { display: flex; gap: 4px 16px; flex-wrap: wrap; font-size: 0.8rem; color: var(--muted); }
+.topbar-meta strong { color: var(--text); }
+.unit { font-size: 0.75rem; font-weight: 600; color: var(--muted); }
+.trend { font-size: 0.8em; font-weight: 600; color: var(--muted); }
+.kpi-card[data-goto] { cursor: pointer; }
+.kpi-card .badge { margin-top: 8px; }
+.kpi-strip.tiles { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+/* three-up chart grid steps down to two before the kit's single-column break */
+@media (max-width: 1250px) { .metric-grid.three { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 900px)  { .metric-grid.three { grid-template-columns: minmax(0, 1fr); } }
+.legend.below { margin: 8px 0 0; }
+.legend-item .sw.band { background: var(--good); opacity: .3; }
+.legend-item .sw.dash { height: 0; width: 14px; border-top: 1px dashed var(--muted); border-radius: 0; }
+.legend-item .sw.dot  { border-radius: 50%; }
+.ref-sources { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 0.72rem; }
+.ref-src-row { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); padding: 1px 0; }
+.ref-src-row.active { color: var(--text); }
+.ref-src-row.active .ref-src-name { font-weight: 600; }
+.ref-src-val { font-variant-numeric: tabular-nums; text-align: right; }
+.placeholder { text-align: center; color: var(--muted); font-size: 0.75rem; }
+.placeholder .ph-icon { font-size: 1.5rem; }
+.placeholder .ph-name { font-weight: 700; color: var(--text); font-size: 0.85rem; margin: 4px 0; }
+</style>"""
+
+# Page script.  Plain string (not an f-string): __DATA__ is replaced with the
+# JSON payload.  All charts are d3 via the kit's AR.* helpers.
+PAGE_JS = r"""const DATA = __DATA__;
+const $ = id => document.getElementById(id);
+
+// Status → kit status colours.  The badge text carries the same meaning, so
+// status never depends on colour alone.
+const STATUS = {
+  optimal:      { color: 'var(--good)', kpi: 'var(--good)', cls: 'good', label: 'Optimal' },
+  normal:       { color: 'var(--warn)', kpi: 'var(--warn)', cls: 'warn', label: 'Normal' },
+  out_of_range: { color: 'var(--bad)',  kpi: 'var(--bad)',  cls: 'bad',  label: 'Out of range' },
+  unknown:      { color: 'var(--text)', kpi: 'var(--gray)', cls: '',     label: '' },
+};
+const VO2_LABELS = { optimal: 'Elite', normal: 'Good' };
+const TREND_LABEL = { '↑': 'up', '↓': 'down', '→': 'stable' };
+
+const statusLabel = (status, labels) => (labels || {})[status] || STATUS[status].label;
+const badge = (status, labels) => {
+  const t = statusLabel(status, labels);
+  return t ? `<span class="badge ${STATUS[status].cls}">${t}</span>` : '';
+};
+const trendHtml = t => t ? ` <span class="trend" title="${TREND_LABEL[t]}">${t}</span>` : '';
+const rangeTxt = (lo, hi) => {
+  if (lo == null && hi == null) return null;
+  if (lo != null && hi != null) return `${lo}–${hi}`;
+  return hi != null ? `≤${hi}` : `≥${lo}`;
+};
+
+function getStatus(value, ref) {
+  if (!ref) return 'unknown';
+  if (ref.low != null && value < ref.low) return 'out_of_range';
+  if (ref.high != null && value > ref.high) return 'out_of_range';
+  const optOk = (ref.optimal_low == null || value >= ref.optimal_low) &&
+                (ref.optimal_high == null || value <= ref.optimal_high);
+  return optOk ? 'optimal' : 'normal';
+}
+
+function computeAge() {
   const birthYear = 1989;
   const today = new Date();
   return today.getFullYear() - birthYear;
-}}
+}
 
-// Render header meta
-document.getElementById('header-meta').innerHTML = `
-  <span><strong>Andy Reagan</strong></span>
-  <span>Age <strong>${{computeAge()}}</strong></span>
-  <span>Generated <strong>${{DATA.generated}}</strong></span>
-  <span>${{DATA.cards.length}} biomarkers tracked</span>
-`;
+function fmtSeconds(secs) {
+  secs = Math.round(secs);
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  if (h) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  return `${m}:${String(s).padStart(2,'0')}`;
+}
 
-// Footer
-const biomarkerCount = DATA.panels.reduce((s,p)=>s+p.charts.length,0);
+function getISOWeek(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
+// ── HEADER META ───────────────────────────────────────────────────────────
+const biomarkerCount = DATA.panels.reduce((s, p) => s + p.charts.length, 0);
 const fitnessCount = (DATA.fitness?.charts?.length || 0);
-document.getElementById('footer').textContent =
-  `Generated ${{DATA.generated}} · ${{biomarkerCount}} biomarkers · ${{fitnessCount}} fitness metrics`;
+$('header-meta').innerHTML = `
+  <span><strong>Andy Reagan</strong></span>
+  <span>Age <strong>${computeAge()}</strong></span>
+  <span><strong>${biomarkerCount}</strong> biomarkers</span>
+  <span><strong>${fitnessCount}</strong> fitness metrics</span>`;
 
-// Summary cards
-const cardsEl = document.getElementById('cards-grid');
-DATA.cards.forEach(c => {{
-  const el = document.createElement('div');
-  el.className = `bm-card ${{c.status}}`;
-  el.innerHTML = `
-    <div class="bm-name">${{c.name}}</div>
-    <div class="bm-trend">${{c.trend}}</div>
-    <div class="bm-value">${{c.value}}</div>
-    <div class="bm-unit">${{c.unit}}</div>
-    <div class="bm-date">${{c.date}}</div>
-  `;
-  cardsEl.appendChild(el);
-}});
+// ── NAV ───────────────────────────────────────────────────────────────────
+function show(id) {
+  if (!$('section-' + id)) id = 'overview';
+  document.querySelectorAll('.nav-item[data-section]').forEach(n =>
+    n.classList.toggle('active', n.dataset.section === id));
+  document.querySelectorAll('.section').forEach(s =>
+    s.classList.toggle('active', s.id === 'section-' + id));
+  $('section-title').textContent = DATA.titles[id];
+  if (location.hash.slice(1) !== id) history.replaceState(null, '', '#' + id);
+  window.scrollTo(0, 0);
+}
+document.querySelectorAll('.nav-item[data-section]').forEach(n =>
+  n.addEventListener('click', () => show(n.dataset.section)));
+window.addEventListener('hashchange', () => show(location.hash.slice(1)));
 
-// Tabs + panels
-const tabsEl = document.getElementById('tabs');
-const panelsEl = document.getElementById('panels');
-let firstActive = true;
+// ── TILES ─────────────────────────────────────────────────────────────────
+function tile(c, labels) {
+  const s = STATUS[c.status];
+  return `<div class="kpi-card" style="--kpi-color:${s.kpi}"${c.section ? ` data-goto="${c.section}"` : ''}>
+    <div class="kpi-label">${c.name}</div>
+    <div class="kpi-value" style="color:${s.color}">${c.value}${trendHtml(c.trend)}</div>
+    <div class="kpi-sub">${c.unit} · ${c.date}</div>
+    ${c.source ? `<div class="kpi-sub"><i>${c.source}</i></div>` : ''}
+    ${badge(c.status, labels)}
+  </div>`;
+}
 
-DATA.panels.forEach((panel, pi) => {{
-  // Tab button
-  const btn = document.createElement('button');
-  btn.className = 'tab-btn' + (firstActive ? ' active' : '');
-  btn.textContent = panel.name;
-  btn.dataset.panel = pi;
-  btn.addEventListener('click', () => {{
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('panel-' + pi).classList.add('active');
-  }});
-  tabsEl.appendChild(btn);
+const STATUS_LEGEND = `<div class="legend">
+  <span class="legend-item"><span class="sw dot" style="background:var(--good)"></span>Optimal</span>
+  <span class="legend-item"><span class="sw dot" style="background:var(--warn)"></span>Normal</span>
+  <span class="legend-item"><span class="sw dot" style="background:var(--bad)"></span>Out of range</span>
+  <span class="legend-item"><span class="sw band"></span>Optimal range</span>
+  <span class="legend-item"><span class="sw dash"></span>Normal range limit</span>
+</div>`;
 
-  // Panel div
-  const panelDiv = document.createElement('div');
-  panelDiv.className = 'panel' + (firstActive ? ' active' : '');
-  panelDiv.id = 'panel-' + pi;
+// ── OVERVIEW ──────────────────────────────────────────────────────────────
+$('section-overview').innerHTML =
+  `<div class="kpi-strip tiles">${DATA.cards.map(c => tile(c, c.is_fitness ? VO2_LABELS : null)).join('')}</div>`;
+$('section-overview').querySelectorAll('[data-goto]').forEach(el =>
+  el.addEventListener('click', () => show(el.dataset.goto)));
 
-  const h2 = document.createElement('h2');
-  h2.textContent = panel.name;
-  panelDiv.appendChild(h2);
+// ── BIOMARKER PANELS ──────────────────────────────────────────────────────
+// Card shell shared by the biomarker and fitness charts.
+function chartCard(grid, { title, status, labels, val, unit, trend, sub }) {
+  const card = document.createElement('div');
+  card.className = 'metric-card';
+  card.innerHTML = `
+    <div class="metric-card-header">
+      <div class="metric-card-title">${title}</div>
+      ${badge(status, labels)}
+    </div>
+    <div class="metric-card-val" style="color:${STATUS[status].color}">${val}
+      <span class="unit">${unit || ''}</span>${trendHtml(trend)}</div>
+    <div class="metric-card-sub">${sub || ''}</div>
+    <div class="chart-area"></div>`;
+  grid.appendChild(card);
+  return card;
+}
 
+// The y-range where a value counts as optimal: inside the normal limits and
+// inside the optimal limits, whichever of them exist.
+function optimalBand(ref) {
+  const los = [ref.low, ref.optimal_low].filter(v => v != null);
+  const his = [ref.high, ref.optimal_high].filter(v => v != null);
+  if (!los.length && !his.length) return null;
+  return { lo: los.length ? Math.max(...los) : null, hi: his.length ? Math.min(...his) : null };
+}
+
+function renderChart(card, bm) {
+  const labels = bm.data.map(d => d.date);
+  const values = bm.data.map(d => d.value);
+  const ref = bm.ref;
+
+  // Y range covers the data and every reference limit
+  const allVals = [...values];
+  if (ref) [ref.low, ref.high, ref.optimal_low, ref.optimal_high].forEach(v => { if (v != null) allVals.push(v); });
+  const minVal = Math.min(...allVals);
+  const maxVal = Math.max(...allVals);
+  const pad = (maxVal - minVal) * 0.12 || 1;
+
+  const band = ref ? optimalBand(ref) : null;
+  const refLines = ref
+    ? [ref.low, ref.high].filter(v => v != null && !(band && (v === band.lo || v === band.hi))).map(y => ({ y }))
+    : [];
+
+  AR.lineChart(card.querySelector('.chart-area'), {
+    x: labels, y: values, color: 'var(--accent)', area: false, height: 150,
+    dots: v => STATUS[getStatus(v, ref)].kpi,
+    band, refLines,
+    yDomain: [Math.max(0, minVal - pad), maxVal + pad],
+    tip: i => {
+      const st = statusLabel(getStatus(values[i], ref));
+      return `<b>${AR.fmtDate(labels[i])}</b><br>${values[i]} ${bm.data[i].unit}` +
+             (st ? `<br><span class="dim">${st}</span>` : '');
+    },
+  });
+}
+
+DATA.panels.forEach((panel, pi) => {
+  const sec = $('section-panel-' + pi);
+  sec.innerHTML = STATUS_LEGEND;
   const grid = document.createElement('div');
-  grid.className = 'charts-grid';
-  panelDiv.appendChild(grid);
+  grid.className = 'metric-grid three';
+  sec.appendChild(grid);
 
-  panel.charts.forEach(bm => {{
-    const card = document.createElement('div');
-    card.className = 'chart-card';
+  panel.charts.forEach(bm => {
+    const card = chartCard(grid, {
+      title: bm.name, status: bm.status, val: bm.latest_value,
+      unit: bm.latest_unit, trend: bm.trend, sub: bm.latest_date,
+    });
 
-    const header = document.createElement('div');
-    header.className = 'chart-header';
-
-    const titleEl = document.createElement('div');
-    titleEl.className = 'chart-title';
-    titleEl.textContent = bm.name;
-
-    const latestEl = document.createElement('div');
-    latestEl.className = `chart-latest ${{bm.status}}`;
-    latestEl.innerHTML = `
-      <div class="val">${{bm.latest_value}} <span class="val-unit">${{bm.latest_unit}}</span> ${{bm.trend}}</div>
-      <div class="val-date">${{bm.latest_date}}</div>
-    `;
-
-    header.appendChild(titleEl);
-    header.appendChild(latestEl);
-    card.appendChild(header);
-
-    // Chart canvas
-    const wrap = document.createElement('div');
-    wrap.className = 'chart-wrap';
-    const canvas = document.createElement('canvas');
-    wrap.appendChild(canvas);
-    card.appendChild(wrap);
-
-    // Legend
-    if (bm.ref) {{
-      const leg = document.createElement('div');
-      leg.className = 'chart-legend';
-      if (bm.ref.optimal_low !== null || bm.ref.optimal_high !== null) {{
-        leg.innerHTML += `<div class="legend-item"><div class="legend-swatch" style="background:rgba(99,102,241,0.35)"></div>Optimal</div>`;
-      }}
-      if (bm.ref.low !== null || bm.ref.high !== null) {{
-        leg.innerHTML += `<div class="legend-item"><div class="legend-swatch" style="background:rgba(99,102,241,0.15)"></div>Normal</div>`;
-      }}
-      card.appendChild(leg);
-    }}
+    // Range legend
+    if (bm.ref) {
+      const opt = rangeTxt(bm.ref.optimal_low, bm.ref.optimal_high);
+      const norm = rangeTxt(bm.ref.low, bm.ref.high);
+      const items = [];
+      if (opt) items.push(`<span class="legend-item"><span class="sw band"></span>Optimal ${opt}</span>`);
+      if (norm) items.push(`<span class="legend-item"><span class="sw ${opt ? 'dash' : 'band'}"></span>Normal ${norm}</span>`);
+      if (items.length) card.insertAdjacentHTML('beforeend', `<div class="legend below">${items.join('')}</div>`);
+    }
 
     // Per-source reference-range comparison (everyone has their own ranges)
-    if (bm.ref && bm.ref.sources && Object.keys(bm.ref.sources).length > 1) {{
-      const SRC_LABEL = {{ curated: 'My ranges', insidetracker: 'InsideTracker', lab: 'Lab (Quest)' }};
-      const band = (lo, hi) => {{
-        if (lo === null && hi === null) return null;
-        if (lo !== null && hi !== null) return `${{lo}}–${{hi}}`;
-        return hi !== null ? `≤${{hi}}` : `≥${{lo}}`;
-      }};
-      const fmt = (b) => {{
-        const opt = band(b.optimal_low, b.optimal_high);
-        const norm = band(b.low, b.high);
+    if (bm.ref && bm.ref.sources && Object.keys(bm.ref.sources).length > 1) {
+      const SRC_LABEL = { curated: 'My ranges', insidetracker: 'InsideTracker', lab: 'Lab (Quest)' };
+      const fmt = (b) => {
+        const opt = rangeTxt(b.optimal_low, b.optimal_high);
+        const norm = rangeTxt(b.low, b.high);
         const parts = [];
-        if (opt) parts.push(`opt ${{opt}}`);
-        if (norm) parts.push(`normal ${{norm}}`);
+        if (opt) parts.push(`opt ${opt}`);
+        if (norm) parts.push(`normal ${norm}`);
         return parts.join(' · ') || '—';
-      }};
+      };
       const box = document.createElement('div');
       box.className = 'ref-sources';
-      ['curated', 'insidetracker', 'lab'].forEach(sk => {{
+      ['curated', 'insidetracker', 'lab'].forEach(sk => {
         const b = bm.ref.sources[sk];
         if (!b) return;
         const isActive = sk === bm.ref.active_source;
         const row = document.createElement('div');
         row.className = 'ref-src-row' + (isActive ? ' active' : '');
         const name = SRC_LABEL[sk] + (isActive ? ' ●' : '');
-        row.innerHTML = `<span class="ref-src-name">${{name}}</span><span class="ref-src-val">${{fmt(b)}}</span>`;
+        row.innerHTML = `<span class="ref-src-name">${name}</span><span class="ref-src-val">${fmt(b)}</span>`;
         box.appendChild(row);
-      }});
+      });
       card.appendChild(box);
-    }}
+    }
 
-    grid.appendChild(card);
+    renderChart(card, bm);
+  });
+});
 
-    // Draw chart
-    renderChart(canvas, bm);
-  }});
-
-  panelsEl.appendChild(panelDiv);
-  firstActive = false;
-}});
-
-// ---- Fitness Tab & Panel ----
-(function() {{
-  const fitness = DATA.fitness;
-  if (!fitness) return;
-
-  const btn = document.createElement('button');
-  btn.className = 'tab-btn';
-  btn.textContent = '💪 Fitness';
-  btn.dataset.panel = 'fitness';
-  btn.addEventListener('click', () => {{
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('panel-fitness').classList.add('active');
-  }});
-  tabsEl.appendChild(btn);
-
-  const panelDiv = document.createElement('div');
-  panelDiv.className = 'panel';
-  panelDiv.id = 'panel-fitness';
-
-  const h2 = document.createElement('h2');
-  h2.textContent = '💪 Fitness & Performance';
-  panelDiv.appendChild(h2);
-
-  // Fitness summary cards
-  if (fitness.cards && fitness.cards.length > 0) {{
-    const cardSection = document.createElement('div');
-    cardSection.className = 'summary-section';
-    const cardLabel = document.createElement('h2');
-    cardLabel.style.cssText = 'font-size:0.9rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.75rem;';
-    cardLabel.textContent = 'Latest Values';
-    cardSection.appendChild(cardLabel);
-    const cGrid = document.createElement('div');
-    cGrid.className = 'cards-grid';
-    fitness.cards.forEach(c => {{
-      const el = document.createElement('div');
-      el.className = `bm-card ${{c.status}}`;
-      el.innerHTML = `
-        <div class="bm-name">${{c.name}}</div>
-        <div class="bm-value">${{c.value}}</div>
-        <div class="bm-unit">${{c.unit}}</div>
-        <div class="bm-date">${{c.date}}</div>
-        ${{c.source ? `<div class="bm-date" style="font-style:italic">${{c.source}}</div>` : ''}}
-      `;
-      cGrid.appendChild(el);
-    }});
-    cardSection.appendChild(cGrid);
-    panelDiv.appendChild(cardSection);
-  }}
-
-  // Charts grid
-  const grid = document.createElement('div');
-  grid.className = 'charts-grid';
-  panelDiv.appendChild(grid);
-
-  // Render each fitness chart
-  (fitness.charts || []).forEach(fc => {{
-    const card = document.createElement('div');
-    card.className = 'chart-card';
-
-    const header = document.createElement('div');
-    header.className = 'chart-header';
-
-    const titleEl = document.createElement('div');
-    titleEl.className = 'chart-title';
-    titleEl.textContent = fc.title;
-
-    const latestEl = document.createElement('div');
-    latestEl.className = `chart-latest ${{fc.status}}`;
-    const dispVal = fc.type === 'time' ? fc.latest_label : fc.latest_value;
-    const dispUnit = fc.type === 'time' ? '' : fc.unit;
-    latestEl.innerHTML = `
-      <div class="val">${{dispVal}} <span class="val-unit">${{dispUnit}}</span></div>
-      <div class="val-date">${{fc.latest_date}}</div>
-    `;
-
-    header.appendChild(titleEl);
-    header.appendChild(latestEl);
-    card.appendChild(header);
-
-    const wrap = document.createElement('div');
-    wrap.className = 'chart-wrap';
-    const canvas = document.createElement('canvas');
-    wrap.appendChild(canvas);
-    card.appendChild(wrap);
-
-    // VO2max legend
-    if (fc.type === 'vo2max') {{
-      const leg = document.createElement('div');
-      leg.className = 'chart-legend';
-      leg.innerHTML = `
-        <div class="legend-item"><div class="legend-swatch" style="background:rgba(239,68,68,0.15)"></div>Normal (42–52)</div>
-        <div class="legend-item"><div class="legend-swatch" style="background:rgba(234,179,8,0.2)"></div>Good (52–58)</div>
-        <div class="legend-item"><div class="legend-swatch" style="background:rgba(34,197,94,0.25)"></div>Elite (>58)</div>
-      `;
-      card.appendChild(leg);
-    }}
-
-    grid.appendChild(card);
-    renderFitnessChart(canvas, fc);
-  }});
-
-  // Placeholder cards for missing metrics
-  if (fitness.placeholders && fitness.placeholders.length > 0) {{
-    const ph = document.createElement('div');
-    ph.style.cssText = 'margin-top:1.5rem;';
-    const phLabel = document.createElement('h3');
-    phLabel.style.cssText = 'font-size:0.85rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.75rem;';
-    phLabel.textContent = 'Not yet tracked';
-    ph.appendChild(phLabel);
-    const phGrid = document.createElement('div');
-    phGrid.className = 'charts-grid';
-    fitness.placeholders.forEach(name => {{
-      const card = document.createElement('div');
-      card.className = 'chart-card';
-      card.style.cssText = 'opacity:0.55;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:120px;text-align:center;gap:0.5rem;';
-      card.innerHTML = `
-        <div style="font-size:1.5rem">📋</div>
-        <div style="font-weight:700;color:var(--text)">${{name.split(' (')[0]}}</div>
-        <div style="font-size:0.75rem;color:var(--text-muted)">No data yet — edit <code>fitness_data.yaml</code> to add</div>
-      `;
-      phGrid.appendChild(card);
-    }});
-    ph.appendChild(phGrid);
-    panelDiv.appendChild(ph);
-  }}
-
-  panelsEl.appendChild(panelDiv);
-}})();
-
-// ---- Training Tab (Strava weekly volumes) ----
-(function() {{
-  const weeks = DATA.strava_weeks;
-  if (!weeks || weeks.length === 0) return;
-
-  const btn = document.createElement('button');
-  btn.className = 'tab-btn';
-  btn.textContent = '📈 Training';
-  btn.dataset.panel = 'training';
-  btn.addEventListener('click', () => {{
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('panel-training').classList.add('active');
-  }});
-  tabsEl.appendChild(btn);
-
-  const panelDiv = document.createElement('div');
-  panelDiv.className = 'panel';
-  panelDiv.id = 'panel-training';
-
-  const h2 = document.createElement('h2');
-  h2.textContent = '📈 Weekly Training Volume';
-  panelDiv.appendChild(h2);
-
-  // Filter to last 2 years by default
-  const cutoff = (() => {{
-    const d = new Date();
-    d.setFullYear(d.getFullYear() - 2);
-    return d.getFullYear() + '-W' + String(getISOWeek(d)).padStart(2,'0');
-  }})();
-  const recent = weeks.filter(w => w.week >= cutoff);
-  const display = recent.length >= 20 ? recent : weeks;
-
-  const labels = display.map(w => w.week);
-
-  // --- Stacked bar: hours by sport ---
-  const volCard = document.createElement('div');
-  volCard.className = 'chart-card';
-  volCard.style.cssText = 'grid-column: 1 / -1;';
-
-  const volHeader = document.createElement('div');
-  volHeader.className = 'chart-header';
-  volHeader.innerHTML = `
-    <div class="chart-title">Weekly Volume (hours by sport)</div>
-    <div class="chart-latest unknown">
-      <div class="val">${{display.length}} <span class="val-unit">weeks</span></div>
-      <div class="val-date">${{display[0].week}} – ${{display[display.length-1].week}}</div>
-    </div>`;
-  volCard.appendChild(volHeader);
-
-  const volWrap = document.createElement('div');
-  volWrap.className = 'chart-wrap';
-  volWrap.style.height = '200px';
-  const volCanvas = document.createElement('canvas');
-  volWrap.appendChild(volCanvas);
-  volCard.appendChild(volWrap);
-
-  const volLeg = document.createElement('div');
-  volLeg.className = 'chart-legend';
-  volLeg.innerHTML = `
-    <div class="legend-item"><div class="legend-swatch" style="background:#f97316"></div>Run</div>
-    <div class="legend-item"><div class="legend-swatch" style="background:#3b82f6"></div>Ride</div>
-    <div class="legend-item"><div class="legend-swatch" style="background:#06b6d4"></div>Swim</div>
-    <div class="legend-item"><div class="legend-swatch" style="background:#a855f7"></div>Strength</div>
-    <div class="legend-item"><div class="legend-swatch" style="background:#6b7280"></div>Other</div>`;
-  volCard.appendChild(volLeg);
-
-  // Charts grid for the two full-width charts
-  const grid = document.createElement('div');
-  grid.className = 'charts-grid';
-  grid.style.cssText = 'grid-template-columns: 1fr;';
-  grid.appendChild(volCard);
-
-  // --- Line chart: run miles ---
-  const milesCard = document.createElement('div');
-  milesCard.className = 'chart-card';
-  milesCard.style.cssText = 'grid-column: 1 / -1;';
-
-  const milesHeader = document.createElement('div');
-  milesHeader.className = 'chart-header';
-  const totalRunMiles = display.reduce((s, w) => s + w.run_miles, 0);
-  milesHeader.innerHTML = `
-    <div class="chart-title">Weekly Run Miles</div>
-    <div class="chart-latest unknown">
-      <div class="val">${{totalRunMiles.toFixed(0)}} <span class="val-unit">total mi shown</span></div>
-    </div>`;
-  milesCard.appendChild(milesHeader);
-
-  const milesWrap = document.createElement('div');
-  milesWrap.className = 'chart-wrap';
-  milesWrap.style.height = '160px';
-  const milesCanvas = document.createElement('canvas');
-  milesWrap.appendChild(milesCanvas);
-  milesCard.appendChild(milesWrap);
-  grid.appendChild(milesCard);
-
-  panelDiv.appendChild(grid);
-  panelsEl.appendChild(panelDiv);
-
-  // Render stacked bar
-  new Chart(volCanvas, {{
-    type: 'bar',
-    data: {{
-      labels,
-      datasets: [
-        {{ label: 'Run',      data: display.map(w => w.run_hours),      backgroundColor: '#f97316', stack: 'vol' }},
-        {{ label: 'Ride',     data: display.map(w => w.ride_hours),     backgroundColor: '#3b82f6', stack: 'vol' }},
-        {{ label: 'Swim',     data: display.map(w => w.swim_hours),     backgroundColor: '#06b6d4', stack: 'vol' }},
-        {{ label: 'Strength', data: display.map(w => w.strength_hours), backgroundColor: '#a855f7', stack: 'vol' }},
-        {{ label: 'Other',    data: display.map(w => w.other_hours),    backgroundColor: '#6b7280', stack: 'vol' }},
-      ],
-    }},
-    options: {{
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: {{ mode: 'index', intersect: false }},
-      plugins: {{
-        legend: {{ display: false }},
-        tooltip: {{
-          backgroundColor: '#1a1d27',
-          borderColor: '#2e3250',
-          borderWidth: 1,
-          titleColor: '#e2e8f0',
-          bodyColor: '#8892a4',
-          callbacks: {{
-            label: ctx => ` ${{ctx.dataset.label}}: ${{ctx.parsed.y.toFixed(2)}} h`,
-            footer: items => ` Total: ${{items.reduce((s,i)=>s+i.parsed.y,0).toFixed(2)}} h`,
-          }},
-        }},
-      }},
-      scales: {{
-        x: {{ stacked: true, grid: {{ color: 'rgba(46,50,80,0.6)' }}, ticks: {{ color: '#8892a4', maxRotation: 45, maxTicksLimit: 26, font: {{ size: 9 }} }} }},
-        y: {{ stacked: true, grid: {{ color: 'rgba(46,50,80,0.6)' }}, ticks: {{ color: '#8892a4', font: {{ size: 10 }}, callback: v => v + 'h' }} }},
-      }},
-    }},
-  }});
-
-  // Render run miles line
-  new Chart(milesCanvas, {{
-    type: 'line',
-    data: {{
-      labels,
-      datasets: [{{
-        label: 'Run Miles',
-        data: display.map(w => w.run_miles),
-        borderColor: '#f97316',
-        backgroundColor: 'rgba(249,115,22,0.15)',
-        borderWidth: 2,
-        pointRadius: display.length > 60 ? 0 : 3,
-        pointHoverRadius: 5,
-        tension: 0.3,
-        fill: true,
-      }}],
-    }},
-    options: {{
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: {{ mode: 'index', intersect: false }},
-      plugins: {{
-        legend: {{ display: false }},
-        tooltip: {{
-          backgroundColor: '#1a1d27',
-          borderColor: '#2e3250',
-          borderWidth: 1,
-          titleColor: '#e2e8f0',
-          bodyColor: '#8892a4',
-          callbacks: {{ label: ctx => ` ${{ctx.parsed.y.toFixed(1)}} miles` }},
-        }},
-      }},
-      scales: {{
-        x: {{ grid: {{ color: 'rgba(46,50,80,0.6)' }}, ticks: {{ color: '#8892a4', maxRotation: 45, maxTicksLimit: 26, font: {{ size: 9 }} }} }},
-        y: {{ min: 0, grid: {{ color: 'rgba(46,50,80,0.6)' }}, ticks: {{ color: '#8892a4', font: {{ size: 10 }}, callback: v => v + ' mi' }} }},
-      }},
-    }},
-  }});
-}})();
-
-function getISOWeek(date) {{
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-}}
-
-function renderFitnessChart(canvas, fc) {{
+// ── FITNESS ───────────────────────────────────────────────────────────────
+function renderFitnessChart(card, fc) {
   const labels = fc.data.map(d => d.date);
   const values = fc.data.map(d => d.value);
-
-  const allVals = [...values];
-  const minVal = Math.min(...allVals);
-  const maxVal = Math.max(...allVals);
-
-  let yMin, yMax;
-  const datasets = [];
-
-  if (fc.type === 'vo2max') {{
-    // Reference bands: normal 42-52 (red tint), good 52-58 (yellow), elite >58 (green)
-    yMin = Math.min(38, minVal - 3);
-    yMax = Math.max(65, maxVal + 3);
-
-    // Shade bands using fill between dataset pairs
-    // Elite band: 58 to yMax
-    datasets.push({{
-      label: '_elite_hi', data: labels.map(() => yMax),
-      borderWidth: 0, pointRadius: 0, fill: '+1',
-      backgroundColor: 'rgba(34,197,94,0.15)', tension: 0, order: 4,
-    }});
-    datasets.push({{
-      label: '_elite_lo', data: labels.map(() => 58),
-      borderWidth: 0, pointRadius: 0, fill: false,
-      backgroundColor: 'transparent', tension: 0, order: 4,
-    }});
-
-    // Good band: 52-58
-    datasets.push({{
-      label: '_good_hi', data: labels.map(() => 58),
-      borderWidth: 0, pointRadius: 0, fill: '+1',
-      backgroundColor: 'rgba(234,179,8,0.18)', tension: 0, order: 3,
-    }});
-    datasets.push({{
-      label: '_good_lo', data: labels.map(() => 52),
-      borderWidth: 0, pointRadius: 0, fill: false,
-      backgroundColor: 'transparent', tension: 0, order: 3,
-    }});
-
-    // Normal band: 42-52
-    datasets.push({{
-      label: '_norm_hi', data: labels.map(() => 52),
-      borderWidth: 0, pointRadius: 0, fill: '+1',
-      backgroundColor: 'rgba(239,68,68,0.12)', tension: 0, order: 2,
-    }});
-    datasets.push({{
-      label: '_norm_lo', data: labels.map(() => 42),
-      borderWidth: 0, pointRadius: 0, fill: false,
-      backgroundColor: 'transparent', tension: 0, order: 2,
-    }});
-
-  }} else if (fc.type === 'time') {{
-    // For race times: lower is better; no reference bands
-    const pad = (maxVal - minVal) * 0.15 || 60;
-    yMin = Math.max(0, minVal - pad);
-    yMax = maxVal + pad;
-  }} else {{
-    const pad = (maxVal - minVal) * 0.2 || 5;
-    yMin = Math.max(0, minVal - pad);
-    yMax = maxVal + pad;
-  }}
-
-  // Point colors for VO2max
-  const pointColors = values.map(v => {{
-    if (fc.type === 'vo2max') {{
-      if (v > 58) return '#22c55e';
-      if (v >= 52) return '#eab308';
-      return '#ef4444';
-    }}
-    return '#818cf8';
-  }});
-
-  datasets.push({{
-    label: fc.title,
-    data: values,
-    borderColor: '#818cf8',
-    backgroundColor: pointColors,
-    borderWidth: 2,
-    pointRadius: 6,
-    pointHoverRadius: 8,
-    pointBorderColor: '#818cf8',
-    pointBorderWidth: 1.5,
-    tension: 0.3,
-    fill: false,
-    order: 1,
-  }});
-
+  const minVal = Math.min(...values);
+  const maxVal = Math.max(...values);
   const isTime = fc.type === 'time';
+  const opts = {
+    x: labels, y: values, color: 'var(--accent)', area: false, height: 150,
+    // long series (monthly weight) draw as a plain line; sparse ones get a dot per test
+    dots: values.length <= 40,
+    tip: i => `<b>${AR.fmtDate(labels[i])}</b><br>` +
+              (isTime ? fmtSeconds(values[i]) : `${values[i]} ${fc.unit}`),
+  };
 
-  new Chart(canvas, {{
-    type: 'line',
-    data: {{ labels, datasets }},
-    options: {{
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: {{ mode: 'index', intersect: false }},
-      plugins: {{
-        legend: {{ display: false }},
-        tooltip: {{
-          backgroundColor: '#1a1d27',
-          borderColor: '#2e3250',
-          borderWidth: 1,
-          titleColor: '#e2e8f0',
-          bodyColor: '#8892a4',
-          callbacks: {{
-            label: ctx => {{
-              if (ctx.dataset.label.startsWith('_')) return null;
-              const v = ctx.parsed.y;
-              return isTime ? ` ${{fmtSeconds(v)}}` : ` ${{v}} ${{fc.unit}}`;
-            }},
-          }},
-          filter: item => !item.dataset.label.startsWith('_'),
-        }},
-      }},
-      scales: {{
-        x: {{
-          grid: {{ color: 'rgba(46,50,80,0.6)' }},
-          ticks: {{ color: '#8892a4', maxRotation: 45, font: {{ size: 10 }} }},
-        }},
-        y: {{
-          min: yMin,
-          max: yMax,
-          grid: {{ color: 'rgba(46,50,80,0.6)' }},
-          ticks: {{
-            color: '#8892a4',
-            font: {{ size: 10 }},
-            callback: isTime ? (v => fmtSeconds(v)) : undefined,
-          }},
-        }},
-      }},
-    }},
-  }});
-}}
+  if (fc.type === 'vo2max') {
+    // Reference tiers: normal 42–52, good 52–58, elite >58
+    opts.yDomain = [Math.min(38, minVal - 3), Math.max(65, maxVal + 3)];
+    opts.band = { lo: 58, hi: null };
+    opts.refLines = [{ y: 52 }, { y: 42 }];
+    opts.dots = v => v > 58 ? 'var(--good)' : v >= 52 ? 'var(--warn)' : 'var(--bad)';
+    opts.tip = i => `<b>${AR.fmtDate(labels[i])}</b><br>${values[i]} ${fc.unit}<br><span class="dim">` +
+                    (values[i] > 58 ? 'Elite' : values[i] >= 52 ? 'Good' : 'Normal') + '</span>';
+  } else if (isTime) {
+    // For race times: lower is better; no reference bands
+    // Plotted in hours (or minutes for short races) so the axis ticks land
+    // on round clock times; labels and tooltip still read h:mm:ss.
+    const per = maxVal >= 3600 ? 3600 : 60;
+    const pad = (maxVal - minVal) * 0.15 || 60;
+    opts.y = values.map(v => v / per);
+    opts.yDomain = [Math.max(0, minVal - pad) / per, (maxVal + pad) / per];
+    opts.yFmt = v => fmtSeconds(v * per);
+  } else {
+    const pad = (maxVal - minVal) * 0.2 || 5;
+    opts.yDomain = [Math.max(0, minVal - pad), maxVal + pad];
+  }
+  AR.lineChart(card.querySelector('.chart-area'), opts);
+}
 
-function fmtSeconds(secs) {{
-  secs = Math.round(secs);
-  const h = Math.floor(secs / 3600);
-  const m = Math.floor((secs % 3600) / 60);
-  const s = secs % 60;
-  if (h) return `${{h}}:${{String(m).padStart(2,'0')}}:${{String(s).padStart(2,'0')}}`;
-  return `${{m}}:${{String(s).padStart(2,'0')}}`;
-}}
+(function () {
+  const fitness = DATA.fitness;
+  const sec = $('section-fitness');
+  if (!fitness || !sec) return;
 
-function renderChart(canvas, bm) {{
-  const labels = bm.data.map(d => d.date);
-  const values = bm.data.map(d => d.value);
-  const ref = bm.ref;
+  // Fitness summary cards
+  if (fitness.cards && fitness.cards.length > 0) {
+    sec.insertAdjacentHTML('beforeend',
+      `<div class="section-heading">Latest Values</div>
+       <div class="kpi-strip tiles">${fitness.cards.map(c => tile(c, c.name === 'VO₂max' ? VO2_LABELS : null)).join('')}</div>`);
+  }
 
-  // Determine Y range
-  const allVals = [...values];
-  if (ref) {{
-    if (ref.low !== null) allVals.push(ref.low);
-    if (ref.high !== null) allVals.push(ref.high);
-    if (ref.optimal_low !== null) allVals.push(ref.optimal_low);
-    if (ref.optimal_high !== null) allVals.push(ref.optimal_high);
-  }}
-  const minVal = Math.min(...allVals);
-  const maxVal = Math.max(...allVals);
-  const pad = (maxVal - minVal) * 0.2 || 1;
-  const yMin = Math.max(0, minVal - pad);
-  const yMax = maxVal + pad;
+  const grid = document.createElement('div');
+  grid.className = 'metric-grid three';
+  sec.appendChild(grid);
 
-  // Build annotation bands via dataset trick (fill between)
-  const datasets = [];
+  (fitness.charts || []).forEach(fc => {
+    const isTime = fc.type === 'time';
+    const card = chartCard(grid, {
+      title: fc.title, status: fc.status, labels: fc.type === 'vo2max' ? VO2_LABELS : null,
+      val: isTime ? fc.latest_label : fc.latest_value,
+      unit: isTime ? '' : fc.unit, sub: fc.latest_date,
+    });
+    if (fc.type === 'vo2max') {
+      card.insertAdjacentHTML('beforeend', `<div class="legend below">
+        <span class="legend-item"><span class="sw dot" style="background:var(--bad)"></span>Normal (42–52)</span>
+        <span class="legend-item"><span class="sw dot" style="background:var(--warn)"></span>Good (52–58)</span>
+        <span class="legend-item"><span class="sw dot" style="background:var(--good)"></span>Elite (&gt;58)</span>
+        <span class="legend-item"><span class="sw band"></span>Elite range</span>
+        <span class="legend-item"><span class="sw dash"></span>42 / 52</span>
+      </div>`);
+    }
+    renderFitnessChart(card, fc);
+  });
 
-  // Normal range band (if exists)
-  if (ref && (ref.low !== null || ref.high !== null)) {{
-    const lo = ref.low !== null ? ref.low : yMin;
-    const hi = ref.high !== null ? ref.high : yMax;
-    datasets.push({{
-      label: '_normal_hi',
-      data: labels.map(() => hi),
-      borderWidth: 0,
-      pointRadius: 0,
-      fill: '+1',
-      backgroundColor: 'rgba(99,102,241,0.10)',
-      tension: 0,
-      order: 3,
-    }});
-    datasets.push({{
-      label: '_normal_lo',
-      data: labels.map(() => lo),
-      borderWidth: 0,
-      pointRadius: 0,
-      fill: false,
-      backgroundColor: 'transparent',
-      tension: 0,
-      order: 3,
-    }});
-  }}
+  // Placeholder cards for missing metrics
+  if (fitness.placeholders && fitness.placeholders.length > 0) {
+    sec.insertAdjacentHTML('beforeend',
+      `<div class="section-heading">Not yet tracked</div>
+       <div class="metric-grid three">${fitness.placeholders.map(name => `
+         <div class="metric-card placeholder">
+           <div class="ph-icon">📋</div>
+           <div class="ph-name">${name.split(' (')[0]}</div>
+           <div>No data yet — edit <code>fitness_data.yaml</code> to add</div>
+         </div>`).join('')}</div>`);
+  }
+})();
 
-  // Optimal range band
-  if (ref && (ref.optimal_low !== null || ref.optimal_high !== null)) {{
-    const olo = ref.optimal_low !== null ? ref.optimal_low : yMin;
-    const ohi = ref.optimal_high !== null ? ref.optimal_high : yMax;
-    datasets.push({{
-      label: '_opt_hi',
-      data: labels.map(() => ohi),
-      borderWidth: 0,
-      pointRadius: 0,
-      fill: '+1',
-      backgroundColor: 'rgba(99,102,241,0.25)',
-      tension: 0,
-      order: 2,
-    }});
-    datasets.push({{
-      label: '_opt_lo',
-      data: labels.map(() => olo),
-      borderWidth: 0,
-      pointRadius: 0,
-      fill: false,
-      backgroundColor: 'transparent',
-      tension: 0,
-      order: 2,
-    }});
-  }}
+// ── TRAINING (Strava weekly volumes) ──────────────────────────────────────
+(function () {
+  const weeks = DATA.strava_weeks;
+  const sec = $('section-training');
+  if (!weeks || weeks.length === 0 || !sec) return;
 
-  // Actual values line
-  const pointColors = values.map(v => STATUS_COLOR[getStatus(v, ref)]);
-  datasets.push({{
-    label: bm.name,
-    data: values,
-    borderColor: '#818cf8',
-    backgroundColor: pointColors,
-    borderWidth: 2,
-    pointRadius: 5,
-    pointHoverRadius: 7,
-    pointBorderColor: '#818cf8',
-    pointBorderWidth: 1.5,
-    tension: 0.3,
-    fill: false,
-    order: 1,
-  }});
+  // Filter to last 2 years by default
+  const cutoff = (() => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 2);
+    return d.getFullYear() + '-W' + String(getISOWeek(d)).padStart(2, '0');
+  })();
+  const recent = weeks.filter(w => w.week >= cutoff);
+  const display = recent.length >= 20 ? recent : weeks;
+  const labels = display.map(w => w.week);
+  const totalRunMiles = display.reduce((s, w) => s + w.run_miles, 0);
 
-  new Chart(canvas, {{
-    type: 'line',
-    data: {{ labels, datasets }},
-    options: {{
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: {{ mode: 'index', intersect: false }},
-      plugins: {{
-        legend: {{ display: false }},
-        tooltip: {{
-          backgroundColor: '#1a1d27',
-          borderColor: '#2e3250',
-          borderWidth: 1,
-          titleColor: '#e2e8f0',
-          bodyColor: '#8892a4',
-          callbacks: {{
-            label: ctx => {{
-              if (ctx.dataset.label.startsWith('_')) return null;
-              return ` ${{ctx.parsed.y}} ${{bm.latest_unit}}`;
-            }},
-          }},
-          filter: item => !item.dataset.label.startsWith('_'),
-        }},
-      }},
-      scales: {{
-        x: {{
-          grid: {{ color: 'rgba(46,50,80,0.6)' }},
-          ticks: {{ color: '#8892a4', maxRotation: 45, font: {{ size: 10 }} }},
-        }},
-        y: {{
-          min: yMin,
-          max: yMax,
-          grid: {{ color: 'rgba(46,50,80,0.6)' }},
-          ticks: {{ color: '#8892a4', font: {{ size: 10 }} }},
-        }},
-      }},
-    }},
-  }});
-}}
+  const SPORTS = [
+    ['Run',      'run_hours',      'var(--orange)'],
+    ['Ride',     'ride_hours',     'var(--blue)'],
+    ['Swim',     'swim_hours',     'var(--teal)'],
+    ['Strength', 'strength_hours', 'var(--purple)'],
+    ['Other',    'other_hours',    'var(--gray)'],
+  ];
 
-function getStatus(value, ref) {{
-  if (!ref) return 'unknown';
-  if (ref.low !== null && value < ref.low) return 'out_of_range';
-  if (ref.high !== null && value > ref.high) return 'out_of_range';
-  const optOk = (ref.optimal_low === null || value >= ref.optimal_low) &&
-                (ref.optimal_high === null || value <= ref.optimal_high);
-  return optOk ? 'optimal' : 'normal';
-}}
-</script>
-</body>
-</html>
+  sec.innerHTML = `
+    <div class="metric-grid wide">
+      <div class="metric-card">
+        <div class="metric-card-header">
+          <div class="metric-card-title">Weekly Volume (hours by sport)</div>
+        </div>
+        <div class="metric-card-val">${display.length} <span class="unit">weeks</span></div>
+        <div class="metric-card-sub">${display[0].week} – ${display[display.length - 1].week}</div>
+        <div class="legend" id="vol-legend"></div>
+        <div class="chart-area" id="vol-chart"></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-card-header">
+          <div class="metric-card-title">Weekly Run Miles</div>
+        </div>
+        <div class="metric-card-val" style="color:var(--orange)">${totalRunMiles.toFixed(0)} <span class="unit">total mi shown</span></div>
+        <div class="metric-card-sub">${display[0].week} – ${display[display.length - 1].week}</div>
+        <div class="chart-area" id="miles-chart"></div>
+      </div>
+    </div>`;
+
+  AR.legend('#vol-legend', SPORTS.map(([name, , color]) => ({ name, color })));
+  AR.barChart('#vol-chart', {
+    labels, height: 220,
+    stack: SPORTS.map(([name, key, color]) => ({ name, color, values: display.map(w => w[key]) })),
+    yFmt: v => v + 'h',
+    tip: i => `<b>${labels[i]}</b><br>` +
+      SPORTS.filter(([, key]) => display[i][key] > 0).map(([name, key, color]) =>
+        `${AR.swatch(color)}<span class="dim">${name}</span> ${display[i][key].toFixed(2)} h`).join('<br>') +
+      `<br><span class="dim">Total</span> ${display[i].total_hours.toFixed(2)} h`,
+  });
+
+  // Week labels are strftime('%Y-W%W') (Monday-based, week 00 = days before
+  // the first Monday); plot each at its Monday so skipped weeks show as gaps
+  // in time rather than being squeezed out.
+  const monday = wk => {
+    const [y, w] = wk.split('-W').map(Number);
+    const jan1 = new Date(y, 0, 1);
+    return new Date(y, 0, 1 + (8 - jan1.getDay()) % 7 + (w - 1) * 7);
+  };
+  AR.lineChart('#miles-chart', {
+    x: labels.map(monday), y: display.map(w => w.run_miles),
+    color: 'var(--orange)', height: 170, zero: true,
+    yFmt: v => v + ' mi',
+    tip: i => `<b>${labels[i]}</b><br>${display[i].run_miles.toFixed(1)} miles`,
+  });
+})();
+
+show(location.hash.slice(1) || 'overview');
 """
-    return html
 
 
 def main():

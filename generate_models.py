@@ -34,11 +34,13 @@ most likely to add signal beyond the age trend.
 import json
 import math
 import os
+import re
 import sqlite3
 from datetime import date, datetime, timedelta
 
 import yaml
 
+import shell
 from ranges import resolve_active
 
 BLOODWORK_FILE = os.path.join(os.path.dirname(__file__), "bloodwork_data.yaml")
@@ -712,483 +714,317 @@ def status_color(value, ref):
     return "#eab308"
 
 
-def build_html(models, today_covs, ref_ranges):
-    today_str   = date.today().isoformat()
-    today_age   = today_covs.get("age", date.today().year - BIRTH_YEAR)
-    data_json   = json.dumps({"models": models, "today": today_covs,
-                               "generated": today_str}, separators=(",", ":"))
+PAGE_STYLE = r"""<style>
+.topbar .meta { font-size: 0.75rem; color: var(--muted); }
+.note.warn { background: var(--warn-bg); border-color: var(--warn); color: var(--warn-ink); }
+.metric-card.model, #overview { scroll-margin-top: calc(var(--bar-h) + 80px); }
+.model-bm { font-size: 1rem; font-weight: 700; }
+.model-unit { font-size: 0.75rem; color: var(--muted); font-weight: 400; }
+.badge-row { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 12px; }
+.badge .sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; }
+.latest { text-align: right; flex-shrink: 0; }
+.latest .metric-card-val { font-size: 1.4rem; }
+.n-lbl { font-size: 0.7rem; color: var(--muted); white-space: nowrap; }
+.model-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin-bottom: 14px; }
+.sub-title { font-size: 0.72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+.metric-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+              padding: 3px 0; border-bottom: 1px solid var(--border); font-size: 0.8rem; }
+.metric-row:last-child { border-bottom: none; }
+.metric-label { color: var(--muted); }
+.metric-val { font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+.r2-track { height: 5px; background: var(--surface-2); border-radius: 3px; margin-top: 6px; }
+.r2-fill { height: 5px; border-radius: 3px; }
+.r2-lbl { font-size: 0.68rem; color: var(--muted); margin-top: 3px; }
+.no-b { color: var(--muted); font-size: 0.8rem; }
+.pred-box { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+            padding: 12px 16px; margin-bottom: 16px; }
+.pred-val { font-size: 1.5rem; font-weight: 800; line-height: 1.2; }
+.pred-val span { font-size: 0.9rem; font-weight: 400; color: var(--muted); }
+.pred-range { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+.pred-note { font-size: 0.72rem; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+</style>"""
 
-    n_with_b = sum(1 for m in models if m.get("model_b"))
-
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Andy — Predictive Models</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
-<style>
-  :root {{
-    --bg:#0f1117; --surface:#1a1d27; --surface2:#22263a;
-    --border:#2e3250; --text:#e2e8f0; --muted:#8892a4;
-    --green:#22c55e; --yellow:#eab308; --red:#ef4444;
-    --blue:#60a5fa; --accent:#818cf8; --orange:#f97316;
-    --radius:12px;
-  }}
-  *{{ box-sizing:border-box; margin:0; padding:0; }}
-  body{{ background:var(--bg); color:var(--text);
-        font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-        font-size:14px; line-height:1.5; padding:1rem; }}
-
-  header{{ display:flex; align-items:center; justify-content:space-between;
-           padding:1.25rem 1.5rem; background:var(--surface);
-           border-radius:var(--radius); border:1px solid var(--border);
-           margin-bottom:1.5rem; flex-wrap:wrap; gap:0.75rem; }}
-  header h1{{ font-size:1.3rem; font-weight:700; }}
-  header p{{ color:var(--muted); font-size:0.85rem; margin-top:2px; }}
-  .nav-link{{
-    display:inline-flex; align-items:center; gap:0.4rem;
-    background:var(--surface2); border:1px solid var(--border);
-    color:var(--accent); border-radius:6px;
-    padding:0.35rem 0.8rem; font-size:0.8rem; font-weight:600;
-    text-decoration:none; transition:all 0.15s;
-  }}
-  .nav-link:hover{{ background:var(--accent); border-color:var(--accent); color:white; }}
-
-  /* Disclaimer */
-  .disclaimer{{
-    background:rgba(234,179,8,0.08); border:1px solid rgba(234,179,8,0.3);
-    border-radius:var(--radius); padding:0.85rem 1rem;
-    font-size:0.8rem; color:var(--muted); margin-bottom:1.5rem; line-height:1.6;
-  }}
-  .disclaimer strong{{ color:var(--yellow); }}
-
-  /* Summary bar */
-  .summary-bar{{
-    display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
-    gap:0.75rem; margin-bottom:1.5rem;
-  }}
-  .stat-card{{
-    background:var(--surface); border:1px solid var(--border);
-    border-radius:var(--radius); padding:0.85rem 1rem;
-  }}
-  .stat-card .sv{{ font-size:1.4rem; font-weight:700; color:var(--accent); }}
-  .stat-card .sl{{ font-size:0.75rem; color:var(--muted); margin-top:2px; }}
-
-  /* Model cards */
-  .model-card{{
-    background:var(--surface); border:1px solid var(--border);
-    border-radius:var(--radius); margin-bottom:1.25rem; overflow:hidden;
-  }}
-  .model-header{{
-    display:flex; align-items:flex-start; justify-content:space-between;
-    padding:1rem 1.1rem 0.75rem; flex-wrap:wrap; gap:0.5rem;
-    border-bottom:1px solid var(--border);
-  }}
-  .model-bm{{ font-size:1rem; font-weight:700; color:var(--text); }}
-  .model-unit{{ font-size:0.75rem; color:var(--muted); }}
-  .badge-row{{ display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:4px; }}
-  .badge{{
-    font-size:0.68rem; font-weight:700; padding:2px 6px;
-    border-radius:4px; display:inline-block;
-  }}
-  .badge-a{{ background:rgba(96,165,250,0.15); color:var(--blue); }}
-  .badge-b{{ background:rgba(34,197,94,0.15);  color:var(--green); }}
-  .badge-warn{{ background:rgba(239,68,68,0.15); color:var(--red); }}
-
-  .model-body{{ padding:1rem 1.1rem; }}
-  .model-cols{{
-    display:grid; grid-template-columns:1fr 1fr;
-    gap:1rem; margin-bottom:1rem;
-  }}
-  @media(max-width:600px){{ .model-cols{{ grid-template-columns:1fr; }} }}
-
-  .model-col h4{{
-    font-size:0.78rem; font-weight:700; color:var(--muted);
-    text-transform:uppercase; letter-spacing:0.04em; margin-bottom:0.5rem;
-  }}
-
-  .metric-row{{
-    display:flex; justify-content:space-between; align-items:baseline;
-    padding:3px 0; border-bottom:1px solid rgba(46,50,80,0.3);
-    font-size:0.8rem;
-  }}
-  .metric-row:last-child{{ border-bottom:none; }}
-  .metric-label{{ color:var(--muted); }}
-  .metric-val{{ font-weight:600; color:var(--text); }}
-
-  /* R² gauge bar */
-  .r2-bar{{ margin-top:4px; }}
-  .r2-track{{ height:5px; background:rgba(255,255,255,0.08); border-radius:3px; }}
-  .r2-fill{{ height:5px; border-radius:3px; }}
-
-  /* Prediction box */
-  .pred-box{{
-    background:var(--surface2); border:1px solid var(--border);
-    border-radius:8px; padding:0.75rem 1rem; margin-top:0.75rem;
-  }}
-  .pred-box h4{{
-    font-size:0.75rem; font-weight:700; color:var(--muted);
-    text-transform:uppercase; letter-spacing:0.04em; margin-bottom:0.4rem;
-  }}
-  .pred-val{{ font-size:1.5rem; font-weight:700; }}
-  .pred-range{{ font-size:0.75rem; color:var(--muted); margin-top:2px; }}
-  .pred-note{{ font-size:0.72rem; color:var(--muted); margin-top:4px; line-height:1.5; }}
-
-  /* Chart */
-  .chart-wrap{{ height:170px; position:relative; margin-top:0.75rem; }}
-
-  .legend-row{{
-    display:flex; gap:0.75rem; flex-wrap:wrap; margin-top:0.4rem;
-  }}
-  .legend-item{{
-    display:flex; align-items:center; gap:4px;
-    font-size:0.65rem; color:var(--muted);
-  }}
-  .legend-swatch{{ width:12px; height:8px; border-radius:2px; }}
-
-  footer{{
-    text-align:center; color:var(--muted); font-size:0.75rem;
-    padding:1rem 0; border-top:1px solid var(--border); margin-top:2rem;
-  }}
-</style>
-</head>
-<body>
-
-<header>
-  <div>
-    <h1>📐 Predictive Models</h1>
-    <p>Age-only and age + best wearable predictor · LOO cross-validated · {today_str}</p>
+PAGE_BODY = r"""<body>
+__SIDEBAR__
+<div class="main">
+  <div class="topbar">
+    <div>
+      <h1>Predictive Models</h1>
+      <div class="subtitle">Age-only and age + best wearable predictor · LOO cross-validated · __TODAY__</div>
+    </div>
+    <div class="meta" id="meta"></div>
   </div>
-  <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-    <a href="correlations.html" class="nav-link">🔬 Correlations</a>
-    <a href="index.html" class="nav-link">← Dashboard</a>
-  </div>
-</header>
 
-<div class="disclaimer">
-  <strong>⚠️ Statistical disclaimer</strong> — These are simple OLS models with n=5–15 data points.
-  Results are directional and exploratory, not clinical.
-  In-sample R² is optimistic; <strong>LOO R²</strong> (leave-one-out cross-validated) is the honest
-  estimate of predictive power. Where LOO R² is negative, the model predicts worse than the mean —
-  treat it as noise. Max 2 predictors (age + 1 wearable) to avoid overfitting.
-  Prediction intervals are ±1 LOO-MAE, not formal confidence intervals.
-</div>
+  <div class="content">
+    <div class="note warn" id="overview">
+      <strong>⚠️ Statistical disclaimer</strong> — These are simple OLS models with n=5–15 data points.
+      Results are directional and exploratory, not clinical.
+      In-sample R² is optimistic; <strong>LOO R²</strong> (leave-one-out cross-validated) is the honest
+      estimate of predictive power. Where LOO R² is negative, the model predicts worse than the mean —
+      treat it as noise. Max 2 predictors (age + 1 wearable) to avoid overfitting.
+      Prediction intervals are ±1 LOO-MAE, not formal confidence intervals.
+    </div>
 
-<div class="summary-bar">
-  <div class="stat-card">
-    <div class="sv">{len(models)}</div>
-    <div class="sl">biomarkers modelled</div>
-  </div>
-  <div class="stat-card">
-    <div class="sv">{n_with_b}</div>
-    <div class="sl">with wearable predictor</div>
-  </div>
-  <div class="stat-card">
-    <div class="sv">{today_age}</div>
-    <div class="sl">Andy's age today</div>
-  </div>
-  <div class="stat-card">
-    <div class="sv" id="sv-hrv">—</div>
-    <div class="sl">HRV 30d avg today</div>
-  </div>
-  <div class="stat-card">
-    <div class="sv" id="sv-sleep">—</div>
-    <div class="sl">Sleep hrs 30d today</div>
-  </div>
-  <div class="stat-card">
-    <div class="sv" id="sv-strain">—</div>
-    <div class="sl">Strain 30d today</div>
+    <div class="kpi-strip">
+      <div class="kpi-card" style="--kpi-color:var(--accent)"><div class="kpi-label">biomarkers modelled</div><div class="kpi-value">__N_MODELS__</div></div>
+      <div class="kpi-card" style="--kpi-color:var(--teal)"><div class="kpi-label">with wearable predictor</div><div class="kpi-value">__N_WITH_B__</div></div>
+      <div class="kpi-card" style="--kpi-color:var(--gray)"><div class="kpi-label">Andy's age today</div><div class="kpi-value">__AGE__</div></div>
+      <div class="kpi-card" style="--kpi-color:var(--blue)"><div class="kpi-label">HRV 30d avg today</div><div class="kpi-value" id="sv-hrv">—</div></div>
+      <div class="kpi-card" style="--kpi-color:var(--purple)"><div class="kpi-label">Sleep hrs 30d today</div><div class="kpi-value" id="sv-sleep">—</div></div>
+      <div class="kpi-card" style="--kpi-color:var(--orange)"><div class="kpi-label">Strain 30d today</div><div class="kpi-value" id="sv-strain">—</div></div>
+    </div>
+
+    <div class="metric-grid wide">
+      <div class="metric-card">
+        <div class="metric-card-header"><div class="metric-card-title">LOO R² by biomarker</div></div>
+        <div class="metric-card-sub">Model B where a wearable predictor qualified, otherwise Model A. Bars are cut off at −1; below zero the model predicts worse than the mean.</div>
+        <div class="legend" id="r2-legend"></div>
+        <div class="chart-area" id="r2-chart"></div>
+      </div>
+    </div>
+
+    <div class="metric-grid" id="models-container"></div>
   </div>
 </div>
-
-<div id="models-container"></div>
-
-<footer id="footer"></footer>
 
 <script>
-const DATA = {data_json};
+const DATA = __DATA__;
+const $ = id => document.getElementById(id);
 
-// Fill summary bar with today's wearable values
+// series identity, used by badges, legends and charts alike
+const C_ACTUAL = 'var(--blue)', C_A = 'var(--orange)', C_B = 'var(--teal)';
+const sw = c => `<span class="sw" style="background:${c}"></span>`;
+
+// Fill summary strip with today's wearable values
 const t = DATA.today;
-const fmt = (v, dp=1) => v !== null && v !== undefined ? v.toFixed(dp) : '—';
-document.getElementById('sv-hrv').textContent    = fmt(t.whoop_hrv_30d,    1);
-document.getElementById('sv-sleep').textContent  = fmt(t.whoop_sleep_hrs_30d, 1);
-document.getElementById('sv-strain').textContent = fmt(t.whoop_strain_30d, 1);
+const fmt = (v, dp = 1) => v !== null && v !== undefined ? v.toFixed(dp) : '—';
+$('sv-hrv').textContent    = fmt(t.whoop_hrv_30d, 1);
+$('sv-sleep').textContent  = fmt(t.whoop_sleep_hrs_30d, 1);
+$('sv-strain').textContent = fmt(t.whoop_strain_30d, 1);
+$('meta').textContent = `${DATA.models.length} biomarkers · LOO cross-validated · max 2 predictors`;
 
 // Status colour from ref ranges
-function refColor(val, ref) {{
+function refColor(val, ref) {
   if (!ref || val === null || val === undefined) return 'var(--text)';
-  const lo = ref.low, hi = ref.high, olo = ref.optimal_low, ohi = ref.optimal_high;
-  if ((lo !== null && val < lo) || (hi !== null && val > hi)) return 'var(--red)';
-  if ((olo === null || val >= olo) && (ohi === null || val <= ohi)) return 'var(--green)';
-  return 'var(--yellow)';
-}}
-
-function r2Color(r2) {{
+  const lo = ref.low ?? null, hi = ref.high ?? null, olo = ref.optimal_low ?? null, ohi = ref.optimal_high ?? null;
+  if ((lo !== null && val < lo) || (hi !== null && val > hi)) return 'var(--bad)';
+  if ((olo === null || val >= olo) && (ohi === null || val <= ohi)) return 'var(--good)';
+  return 'var(--warn)';
+}
+function r2Color(r2) {
   if (r2 === null || r2 === undefined) return 'var(--muted)';
-  if (r2 >= 0.6) return 'var(--green)';
-  if (r2 >= 0.3) return 'var(--yellow)';
-  if (r2 >= 0)   return 'var(--orange)';
-  return 'var(--red)';
-}}
-
-function r2Label(r2) {{
+  if (r2 >= 0.6) return 'var(--good)';
+  if (r2 >= 0.3) return 'var(--warn)';
+  if (r2 >= 0)   return 'var(--gray)';
+  return 'var(--bad)';
+}
+function r2Label(r2) {
   if (r2 === null || r2 === undefined) return '—';
   if (r2 >= 0.7) return 'strong';
   if (r2 >= 0.4) return 'moderate';
   if (r2 >= 0.1) return 'weak';
   if (r2 >= 0)   return 'near-zero';
   return 'worse than mean';
-}}
+}
+function metricRows(pairs) {
+  return '<div>' + pairs.map(([l, v]) =>
+    `<div class="metric-row"><span class="metric-label">${l}</span><span class="metric-val">${v}</span></div>`
+  ).join('') + '</div>';
+}
+function r2Bar(r2) {
+  if (r2 === null || r2 === undefined) return '';
+  const pct = Math.max(0, Math.min(100, Math.round(r2 * 100)));
+  return `<div title="LOO R² = ${r2}">
+    <div class="r2-track"><div class="r2-fill" style="width:${pct}%;background:${r2Color(r2)}"></div></div>
+    <div class="r2-lbl">LOO R² = ${r2.toFixed(2)} (${r2Label(r2)})</div>
+  </div>`;
+}
+const slug = s => 'm-' + s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const hasModelB = m => !!(m.model_b && m.model_b.loo_r2 !== null);
 
-const container = document.getElementById('models-container');
+// ── overview: best-model LOO R² per biomarker ──────────────────────────────
+(function () {
+  const rows = DATA.models.map(m => {
+    const b = hasModelB(m), r2 = b ? m.model_b.loo_r2 : m.model_a.loo_r2;
+    return { m, b, r2 };
+  }).filter(d => d.r2 !== null && d.r2 !== undefined);
+  AR.legend('#r2-legend', [
+    rows.some(d => !d.b) && { name: 'Model A (age only)', color: C_A },
+    rows.some(d => d.b) && { name: 'Model B (age + wearable)', color: C_B }].filter(Boolean));
+  AR.hbarChart('#r2-chart', {
+    labels: rows.map(d => d.m.biomarker), values: rows.map(d => Math.max(-1, d.r2)),
+    labelWidth: 130, rowHeight: 24,
+    colors: (v, i) => rows[i].b ? C_B : C_A,
+    fmt: v => v.toFixed(2),
+    tip: i => {
+      const d = rows[i], A = d.m.model_a, B = d.m.model_b;
+      return `<b>${d.m.biomarker}</b><br>${sw(C_A)}<span class="dim">Model A: age only · LOO R²</span> ${A.loo_r2 !== null ? A.loo_r2.toFixed(2) : '—'}` +
+        (d.b ? `<br>${sw(C_B)}<span class="dim">Model B: +${B.predictor_label} · LOO R²</span> ${B.loo_r2.toFixed(2)}` : '') +
+        `<br><span class="dim">${r2Label(d.r2)}</span>`;
+    },
+  });
+  // hbarChart prints the plotted (clamped) value; show the real one where it was cut off
+  const fix = () => d3.select('#r2-chart').selectAll('.val-label').text((i) => rows[i].r2.toFixed(2));
+  fix(); new ResizeObserver(() => requestAnimationFrame(fix)).observe($('r2-chart'));
+})();
 
-DATA.models.forEach(m => {{
+// ── one card per biomarker ─────────────────────────────────────────────────
+const container = $('models-container');
+
+DATA.models.forEach(m => {
   const A = m.model_a;
   const B = m.model_b;
-  const hasB = B && B.loo_r2 !== null;
+  const hasB = hasModelB(m);
 
   const card = document.createElement('div');
-  card.className = 'model-card';
+  card.className = 'metric-card model';
+  card.id = slug(m.biomarker);
 
-  // ---- Header ----
   const latestActual = m.actual[m.actual.length - 1];
   const latestDate   = m.dates[m.dates.length - 1];
-  const col = refColor(latestActual, m.ref);
 
   const badges = [
-    `<span class="badge badge-a">Model A: age only · LOO-R²=${{A.loo_r2 !== null ? A.loo_r2.toFixed(2) : '—'}}</span>`,
-    hasB ? `<span class="badge badge-b">Model B: +${{B.predictor_label}} · LOO-R²=${{B.loo_r2 !== null ? B.loo_r2.toFixed(2) : '—'}}</span>` : '',
-    (A.loo_r2 !== null && A.loo_r2 < 0 && (!hasB || B.loo_r2 < 0)) ? `<span class="badge badge-warn">⚠ predictive power is noise</span>` : '',
+    `<span class="badge">${sw(C_A)}Model A: age only · LOO-R²=${A.loo_r2 !== null ? A.loo_r2.toFixed(2) : '—'}</span>`,
+    hasB ? `<span class="badge">${sw(C_B)}Model B: +${B.predictor_label} · LOO-R²=${B.loo_r2 !== null ? B.loo_r2.toFixed(2) : '—'}</span>` : '',
+    (A.loo_r2 !== null && A.loo_r2 < 0 && (!hasB || B.loo_r2 < 0)) ? `<span class="badge warn">⚠ predictive power is noise</span>` : '',
   ].filter(Boolean).join('');
 
-  card.innerHTML = `
-    <div class="model-header">
-      <div>
-        <div class="model-bm">${{m.biomarker}} <span class="model-unit">${{m.unit}}</span></div>
-        <div class="badge-row">${{badges}}</div>
-      </div>
-      <div style="text-align:right;">
-        <div style="font-size:1.3rem;font-weight:700;color:${{col}};">${{latestActual}}</div>
-        <div style="font-size:0.7rem;color:var(--muted);">latest · ${{latestDate}}</div>
-      </div>
-    </div>
-  `;
-
-  const body = document.createElement('div');
-  body.className = 'model-body';
-
-  // ---- Model columns ----
-  const cols = document.createElement('div');
-  cols.className = 'model-cols';
-
   // Model A column
-  const colA = document.createElement('div');
-  colA.className = 'model-col';
-  colA.innerHTML = `<h4>Model A — Age only (n=${{m.n}})</h4>`;
-  colA.innerHTML += metricRows([
-    ['Slope (per year)', A.slope_age > 0 ? `+${{A.slope_age.toFixed(3)}}` : A.slope_age.toFixed(3)],
+  let colA = `<div><div class="sub-title">Model A — Age only (n=${m.n})</div>`;
+  colA += metricRows([
+    ['Slope (per year)', A.slope_age > 0 ? `+${A.slope_age.toFixed(3)}` : A.slope_age.toFixed(3)],
     ['In-sample R²',     A.r2_insample !== null ? A.r2_insample.toFixed(3) : '—'],
     ['LOO R²',           A.loo_r2 !== null ? A.loo_r2.toFixed(3) : '—'],
-    ['LOO MAE',          A.loo_mae !== null ? `±${{A.loo_mae.toFixed(2)}} ${{m.unit}}` : '—'],
-    ['Age-only prediction', `${{A.pred_next !== undefined ? A.pred_next.toFixed(1) : '—'}} ${{m.unit}}`],
-  ]);
-  colA.innerHTML += r2Bar(A.loo_r2);
-  cols.appendChild(colA);
+    ['LOO MAE',          A.loo_mae !== null ? `±${A.loo_mae.toFixed(2)} ${m.unit}` : '—'],
+    ['Age-only prediction', `${A.pred_next !== undefined ? A.pred_next.toFixed(1) : '—'} ${m.unit}`],
+  ]) + r2Bar(A.loo_r2) + '</div>';
 
   // Model B column
-  const colB = document.createElement('div');
-  colB.className = 'model-col';
-  if (hasB) {{
-    const srcBadge = {{'WHOOP':'⌚','Strava':'🏃','Life':'⚖️','Fitness':'🫁'}}[B.predictor_source] || '';
-    colB.innerHTML = `<h4>Model B — Age + ${{srcBadge}} ${{B.predictor_label}} (n=${{B.n}})</h4>`;
+  let colB;
+  if (hasB) {
+    const srcBadge = {'WHOOP':'⌚','Strava':'🏃','Life':'⚖️','Fitness':'🫁'}[B.predictor_source] || '';
     const bSign = B.b_wearable > 0 ? '+' : '';
-    colB.innerHTML += metricRows([
-      ['Partial r (age-adj)',  B.partial_r > 0 ? `+${{B.partial_r.toFixed(3)}}` : B.partial_r.toFixed(3)],
-      ['Coeff (wearable)',     `${{bSign}}${{B.b_wearable.toFixed(4)}} per unit`],
-      ['In-sample R²',         B.r2_insample !== null ? B.r2_insample.toFixed(3) : '—'],
-      ['LOO R²',               B.loo_r2 !== null ? B.loo_r2.toFixed(3) : '—'],
-      ['LOO MAE',              B.loo_mae !== null ? `±${{B.loo_mae.toFixed(2)}} ${{m.unit}}` : '—'],
-    ]);
-    colB.innerHTML += r2Bar(B.loo_r2);
-  }} else {{
-    colB.innerHTML = `<h4>Model B — no wearable predictor</h4>
-      <p style="color:var(--muted);font-size:0.8rem;margin-top:0.4rem;">
+    colB = `<div><div class="sub-title">Model B — Age + ${srcBadge} ${B.predictor_label} (n=${B.n})</div>` +
+      metricRows([
+        ['Partial r (age-adj)',  B.partial_r > 0 ? `+${B.partial_r.toFixed(3)}` : B.partial_r.toFixed(3)],
+        ['Coeff (wearable)',     `${bSign}${B.b_wearable.toFixed(4)} per unit`],
+        ['In-sample R²',         B.r2_insample !== null ? B.r2_insample.toFixed(3) : '—'],
+        ['LOO R²',               B.loo_r2 !== null ? B.loo_r2.toFixed(3) : '—'],
+        ['LOO MAE',              B.loo_mae !== null ? `±${B.loo_mae.toFixed(2)} ${m.unit}` : '—'],
+      ]) + r2Bar(B.loo_r2) + '</div>';
+  } else {
+    colB = `<div><div class="sub-title">Model B — no wearable predictor</div>
+      <p class="no-b">
         Either no wearable covariate met the minimum threshold
         (|partial r| ≥ 0.3, n ≥ 5) or there were insufficient
         overlapping draws for LOO validation.
-      </p>`;
-  }}
-  cols.appendChild(colB);
-  body.appendChild(cols);
+      </p></div>`;
+  }
 
-  // ---- Next draw prediction ----
-  const predModel = hasB ? B : A;
-  const predVal   = hasB ? B.pred_next : A.pred_next;
-  const predMae   = hasB ? B.loo_mae  : A.loo_mae;
-  if (predVal !== null && predVal !== undefined) {{
-    const predBox = document.createElement('div');
-    predBox.className = 'pred-box';
-    const pCol = refColor(predVal, m.ref);
-    predBox.innerHTML = `
-      <h4>Next draw prediction (based on today's covariates)</h4>
-      <div class="pred-val" style="color:${{pCol}}">${{predVal.toFixed(1)}} <span style="font-size:0.9rem;font-weight:400;color:var(--muted)">${{m.unit}}</span></div>
-      ${{predMae ? `<div class="pred-range">±${{predMae.toFixed(2)}} ${{m.unit}} (±1 LOO-MAE)</div>` : ''}}
-      ${{hasB && B.today_predictor !== null ? `
+  // Next draw prediction
+  const predVal = hasB ? B.pred_next : A.pred_next;
+  const predMae = hasB ? B.loo_mae  : A.loo_mae;
+  let pred = '';
+  if (predVal !== null && predVal !== undefined) {
+    pred = `<div class="pred-box">
+      <div class="sub-title">Next draw prediction (based on today's covariates)</div>
+      <div class="pred-val" style="color:${refColor(predVal, m.ref)}">${predVal.toFixed(1)} <span>${m.unit}</span></div>
+      ${predMae ? `<div class="pred-range">±${predMae.toFixed(2)} ${m.unit} (±1 LOO-MAE)</div>` : ''}
+      ${hasB && B.today_predictor !== null ? `
         <div class="pred-note">
-          Using: age ${{DATA.today.age}}, ${{B.predictor_label}} = ${{B.today_predictor}}
-          (${{B.predictor_source}}).
-          Higher ${{B.predictor_label}} ${{B.wearable_sign_word}} ${{m.biomarker}}
-          (coeff ${{B.b_wearable > 0 ? '+':''}}${{B.b_wearable.toFixed(4)}}).
-        </div>` : `<div class="pred-note">Age-only prediction — no wearable data available today for this model.</div>`}}
-    `;
-    body.appendChild(predBox);
-  }}
+          Using: age ${DATA.today.age}, ${B.predictor_label} = ${B.today_predictor}
+          (${B.predictor_source}).
+          Higher ${B.predictor_label} ${B.wearable_sign_word} ${m.biomarker}
+          (coeff ${B.b_wearable > 0 ? '+':''}${B.b_wearable.toFixed(4)}).
+        </div>` : `<div class="pred-note">Age-only prediction — no wearable data available today for this model.</div>`}
+    </div>`;
+  }
 
-  // ---- LOO scatter chart ----
-  const chartDiv = document.createElement('div');
-  chartDiv.innerHTML = '<div style="font-size:0.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;margin-top:0.75rem;">LOO cross-validated: actual vs predicted</div>';
-  const wrap = document.createElement('div');
-  wrap.className = 'chart-wrap';
-  const canvas = document.createElement('canvas');
-  wrap.appendChild(canvas);
-  chartDiv.appendChild(wrap);
-
-  const legRow = document.createElement('div');
-  legRow.className = 'legend-row';
-  legRow.innerHTML = `
-    <div class="legend-item"><div class="legend-swatch" style="background:#60a5fa"></div>Actual</div>
-    <div class="legend-item"><div class="legend-swatch" style="background:#818cf8;opacity:0.7"></div>Model A (age)</div>
-    ${{hasB ? `<div class="legend-item"><div class="legend-swatch" style="background:#22c55e;opacity:0.7"></div>Model B (age + wearable)</div>` : ''}}
-  `;
-  chartDiv.appendChild(legRow);
-  body.appendChild(chartDiv);
-
-  card.appendChild(body);
+  card.innerHTML = `
+    <div class="metric-card-header">
+      <div>
+        <div class="model-bm">${m.biomarker} <span class="model-unit">${m.unit}</span></div>
+        <div class="badge-row">${badges}</div>
+      </div>
+      <div class="latest">
+        <div class="metric-card-val" style="color:${refColor(latestActual, m.ref)}">${latestActual}</div>
+        <div class="n-lbl">latest · ${latestDate}</div>
+      </div>
+    </div>
+    <div class="model-cols">${colA}${colB}</div>
+    ${pred}
+    <div class="sub-title">LOO cross-validated: actual vs predicted</div>
+    <div class="legend"></div>
+    <div class="chart-area"></div>`;
   container.appendChild(card);
 
-  // Render chart
-  const labels = m.dates;
-  const datasets = [
-    {{
-      label: 'Actual',
-      data:  m.actual,
-      borderColor: '#60a5fa',
-      backgroundColor: '#60a5fa',
-      borderWidth: 2,
-      pointRadius: 5,
-      pointHoverRadius: 7,
-      tension: 0.2,
-      fill: false,
-      type: 'line',
-    }},
-    {{
-      label: 'Model A (LOO)',
-      data: (() => {{
-        const pts = new Array(labels.length).fill(null);
-        A.loo_predicted.forEach((v, i) => {{ pts[m.dates.indexOf(m.dates[i])] = v; }});
-        return pts;
-      }})(),
-      borderColor: 'rgba(129,140,248,0.7)',
-      backgroundColor: 'transparent',
-      borderWidth: 1.5,
-      borderDash: [4,3],
-      pointRadius: 4,
-      fill: false,
-      type: 'line',
-    }},
+  // LOO chart: actual vs each model's held-out prediction
+  const series = [
+    { name: 'Actual', values: m.actual, color: C_ACTUAL, dots: true },
+    { name: 'Model A (age)', values: m.dates.map((d, i) => A.loo_predicted[i] ?? null), color: C_A, dashed: true, width: 1.5, dots: true },
   ];
-
-  if (hasB && B.loo_predicted && B.loo_predicted.length > 0) {{
+  if (hasB && B.loo_predicted && B.loo_predicted.length > 0) {
     // Model B only covers the wearable-overlap dates
-    const bData = new Array(labels.length).fill(null);
-    B.loo_dates.forEach((d, i) => {{
-      const idx = labels.indexOf(d);
-      if (idx >= 0) bData[idx] = B.loo_predicted[i];
-    }});
-    datasets.push({{
-      label: 'Model B (LOO)',
-      data: bData,
-      borderColor: 'rgba(34,197,94,0.8)',
-      backgroundColor: 'transparent',
-      borderWidth: 1.5,
-      borderDash: [2,2],
-      pointRadius: 4,
-      fill: false,
-      type: 'line',
-    }});
-  }}
+    const byDate = Object.fromEntries(B.loo_dates.map((d, i) => [d, B.loo_predicted[i]]));
+    series.push({ name: 'Model B (age + wearable)', values: m.dates.map(d => byDate[d] ?? null), color: C_B, dashed: true, width: 1.5, dots: true });
+  }
+  AR.legend(card.querySelector('.legend'), series);
+  AR.lineChart(card.querySelector('.chart-area'), {
+    x: m.dates, series, height: 180,
+    tip: i => `<b>${AR.fmtDate(m.dates[i])}</b><br>` + series.filter(s => s.values[i] != null).map(s =>
+      `${sw(s.color)}<span class="dim">${s.name}</span> ${s.values[i].toFixed(2)} ${m.unit}`).join('<br>'),
+  });
+});
 
-  new Chart(canvas, {{
-    type: 'line',
-    data: {{ labels, datasets }},
-    options: {{
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: {{ mode: 'index', intersect: false }},
-      plugins: {{
-        legend: {{ display: false }},
-        tooltip: {{
-          backgroundColor: '#1a1d27',
-          borderColor: '#2e3250',
-          borderWidth: 1,
-          titleColor: '#e2e8f0',
-          bodyColor: '#8892a4',
-          callbacks: {{ label: ctx => ctx.parsed.y !== null ? ` ${{ctx.dataset.label}}: ${{ctx.parsed.y.toFixed(2)}} ${{m.unit}}` : null }},
-          filter: item => item.parsed.y !== null,
-        }},
-      }},
-      scales: {{
-        x: {{ grid: {{ color: 'rgba(46,50,80,0.6)' }}, ticks: {{ color:'#8892a4', maxRotation:45, font:{{size:9}} }} }},
-        y: {{
-          grid: {{ color: 'rgba(46,50,80,0.6)' }},
-          ticks: {{ color:'#8892a4', font:{{size:10}} }},
-        }},
-      }},
-    }},
-  }});
-}});
-
-// ---- Helpers ----
-function metricRows(pairs) {{
-  return '<div>' + pairs.map(([l,v]) =>
-    `<div class="metric-row"><span class="metric-label">${{l}}</span><span class="metric-val">${{v}}</span></div>`
-  ).join('') + '</div>';
-}}
-
-function r2Bar(r2) {{
-  if (r2 === null || r2 === undefined) return '';
-  const pct = Math.max(0, Math.min(100, Math.round(r2 * 100)));
-  const col = r2Color(r2);
-  return `<div class="r2-bar" title="LOO R² = ${{r2}}">
-    <div class="r2-track"><div class="r2-fill" style="width:${{pct}}%;background:${{col}};"></div></div>
-    <div style="font-size:0.68rem;color:${{col}};margin-top:2px;">LOO R² = ${{r2.toFixed(2)}} (${{r2Label(r2)}})</div>
-  </div>`;
-}}
-
-function r2Color(r2) {{
-  if (r2 === null || r2 === undefined) return 'var(--muted)';
-  if (r2 >= 0.6) return 'var(--green)';
-  if (r2 >= 0.3) return 'var(--yellow)';
-  if (r2 >= 0)   return 'var(--orange)';
-  return 'var(--red)';
-}}
-
-function r2Label(r2) {{
-  if (r2 >= 0.7) return 'strong';
-  if (r2 >= 0.4) return 'moderate';
-  if (r2 >= 0.1) return 'weak';
-  if (r2 >= 0)   return 'near-zero';
-  return 'worse than mean';
-}}
-
-document.getElementById('footer').textContent =
-  `Generated ${{DATA.generated}} · ${{DATA.models.length}} biomarkers · LOO cross-validated · max 2 predictors`;
+// sidebar anchors: mark the biomarker being read
+(function () {
+  const links = [...document.querySelectorAll('.nav-item[href^="#"]')];
+  const mark = id => links.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + id));
+  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) mark(e.target.id); }),
+                                      { rootMargin: '-25% 0px -65% 0px' });
+  document.querySelectorAll('.metric-card.model, #overview').forEach(el => io.observe(el));
+})();
 </script>
 </body>
 </html>
 """
+
+
+def _slug(name: str) -> str:
+    """Card anchor for a biomarker; mirrors slug() in the page script."""
+    return "m-" + re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+
+
+def build_html(models, today_covs, ref_ranges):
+    today_str   = date.today().isoformat()
+    today_age   = today_covs.get("age", date.today().year - BIRTH_YEAR)
+    data_json   = json.dumps({"models": models, "today": today_covs,
+                               "generated": today_str}, separators=(",", ":")).replace("</", "<\\/")
+
+    n_with_b = sum(1 for m in models if m.get("model_b"))
+
+    nav = (
+        '  <div class="nav-section">\n'
+        '    <div class="nav-section-title">Models</div>\n'
+        '    <a class="nav-item" href="#overview"><span class="icon">📋</span> Overview</a>\n'
+        + "".join(
+            f'    <a class="nav-item" href="#{_slug(m["biomarker"])}">'
+            f'<span class="icon">🧪</span> {m["biomarker"]}</a>\n'
+            for m in models
+        )
+        + "  </div>"
+    )
+
+    return (
+        shell.head("Andy — Predictive Models", today_str, PAGE_STYLE)
+        + PAGE_BODY
+        .replace("__SIDEBAR__", shell.sidebar("models.html", nav))
+        .replace("__TODAY__", today_str)
+        .replace("__N_MODELS__", str(len(models)))
+        .replace("__N_WITH_B__", str(n_with_b))
+        .replace("__AGE__", str(today_age))
+        .replace("__DATA__", data_json)
+    )
 
 
 # ---------------------------------------------------------------------------

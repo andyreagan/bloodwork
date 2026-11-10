@@ -1,216 +1,147 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-site="health">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="ar-repo" content="bloodwork">
+<meta name="ar-generated" content="2026-11-10">
 <title>Andy — Predictive Models</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="ar.css">
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script src="ar.js"></script>
 <style>
-  :root {
-    --bg:#0f1117; --surface:#1a1d27; --surface2:#22263a;
-    --border:#2e3250; --text:#e2e8f0; --muted:#8892a4;
-    --green:#22c55e; --yellow:#eab308; --red:#ef4444;
-    --blue:#60a5fa; --accent:#818cf8; --orange:#f97316;
-    --radius:12px;
-  }
-  *{ box-sizing:border-box; margin:0; padding:0; }
-  body{ background:var(--bg); color:var(--text);
-        font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-        font-size:14px; line-height:1.5; padding:1rem; }
-
-  header{ display:flex; align-items:center; justify-content:space-between;
-           padding:1.25rem 1.5rem; background:var(--surface);
-           border-radius:var(--radius); border:1px solid var(--border);
-           margin-bottom:1.5rem; flex-wrap:wrap; gap:0.75rem; }
-  header h1{ font-size:1.3rem; font-weight:700; }
-  header p{ color:var(--muted); font-size:0.85rem; margin-top:2px; }
-  .nav-link{
-    display:inline-flex; align-items:center; gap:0.4rem;
-    background:var(--surface2); border:1px solid var(--border);
-    color:var(--accent); border-radius:6px;
-    padding:0.35rem 0.8rem; font-size:0.8rem; font-weight:600;
-    text-decoration:none; transition:all 0.15s;
-  }
-  .nav-link:hover{ background:var(--accent); border-color:var(--accent); color:white; }
-
-  /* Disclaimer */
-  .disclaimer{
-    background:rgba(234,179,8,0.08); border:1px solid rgba(234,179,8,0.3);
-    border-radius:var(--radius); padding:0.85rem 1rem;
-    font-size:0.8rem; color:var(--muted); margin-bottom:1.5rem; line-height:1.6;
-  }
-  .disclaimer strong{ color:var(--yellow); }
-
-  /* Summary bar */
-  .summary-bar{
-    display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
-    gap:0.75rem; margin-bottom:1.5rem;
-  }
-  .stat-card{
-    background:var(--surface); border:1px solid var(--border);
-    border-radius:var(--radius); padding:0.85rem 1rem;
-  }
-  .stat-card .sv{ font-size:1.4rem; font-weight:700; color:var(--accent); }
-  .stat-card .sl{ font-size:0.75rem; color:var(--muted); margin-top:2px; }
-
-  /* Model cards */
-  .model-card{
-    background:var(--surface); border:1px solid var(--border);
-    border-radius:var(--radius); margin-bottom:1.25rem; overflow:hidden;
-  }
-  .model-header{
-    display:flex; align-items:flex-start; justify-content:space-between;
-    padding:1rem 1.1rem 0.75rem; flex-wrap:wrap; gap:0.5rem;
-    border-bottom:1px solid var(--border);
-  }
-  .model-bm{ font-size:1rem; font-weight:700; color:var(--text); }
-  .model-unit{ font-size:0.75rem; color:var(--muted); }
-  .badge-row{ display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:4px; }
-  .badge{
-    font-size:0.68rem; font-weight:700; padding:2px 6px;
-    border-radius:4px; display:inline-block;
-  }
-  .badge-a{ background:rgba(96,165,250,0.15); color:var(--blue); }
-  .badge-b{ background:rgba(34,197,94,0.15);  color:var(--green); }
-  .badge-warn{ background:rgba(239,68,68,0.15); color:var(--red); }
-
-  .model-body{ padding:1rem 1.1rem; }
-  .model-cols{
-    display:grid; grid-template-columns:1fr 1fr;
-    gap:1rem; margin-bottom:1rem;
-  }
-  @media(max-width:600px){ .model-cols{ grid-template-columns:1fr; } }
-
-  .model-col h4{
-    font-size:0.78rem; font-weight:700; color:var(--muted);
-    text-transform:uppercase; letter-spacing:0.04em; margin-bottom:0.5rem;
-  }
-
-  .metric-row{
-    display:flex; justify-content:space-between; align-items:baseline;
-    padding:3px 0; border-bottom:1px solid rgba(46,50,80,0.3);
-    font-size:0.8rem;
-  }
-  .metric-row:last-child{ border-bottom:none; }
-  .metric-label{ color:var(--muted); }
-  .metric-val{ font-weight:600; color:var(--text); }
-
-  /* R² gauge bar */
-  .r2-bar{ margin-top:4px; }
-  .r2-track{ height:5px; background:rgba(255,255,255,0.08); border-radius:3px; }
-  .r2-fill{ height:5px; border-radius:3px; }
-
-  /* Prediction box */
-  .pred-box{
-    background:var(--surface2); border:1px solid var(--border);
-    border-radius:8px; padding:0.75rem 1rem; margin-top:0.75rem;
-  }
-  .pred-box h4{
-    font-size:0.75rem; font-weight:700; color:var(--muted);
-    text-transform:uppercase; letter-spacing:0.04em; margin-bottom:0.4rem;
-  }
-  .pred-val{ font-size:1.5rem; font-weight:700; }
-  .pred-range{ font-size:0.75rem; color:var(--muted); margin-top:2px; }
-  .pred-note{ font-size:0.72rem; color:var(--muted); margin-top:4px; line-height:1.5; }
-
-  /* Chart */
-  .chart-wrap{ height:170px; position:relative; margin-top:0.75rem; }
-
-  .legend-row{
-    display:flex; gap:0.75rem; flex-wrap:wrap; margin-top:0.4rem;
-  }
-  .legend-item{
-    display:flex; align-items:center; gap:4px;
-    font-size:0.65rem; color:var(--muted);
-  }
-  .legend-swatch{ width:12px; height:8px; border-radius:2px; }
-
-  footer{
-    text-align:center; color:var(--muted); font-size:0.75rem;
-    padding:1rem 0; border-top:1px solid var(--border); margin-top:2rem;
-  }
+.topbar .meta { font-size: 0.75rem; color: var(--muted); }
+.note.warn { background: var(--warn-bg); border-color: var(--warn); color: var(--warn-ink); }
+.metric-card.model, #overview { scroll-margin-top: calc(var(--bar-h) + 80px); }
+.model-bm { font-size: 1rem; font-weight: 700; }
+.model-unit { font-size: 0.75rem; color: var(--muted); font-weight: 400; }
+.badge-row { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 12px; }
+.badge .sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; }
+.latest { text-align: right; flex-shrink: 0; }
+.latest .metric-card-val { font-size: 1.4rem; }
+.n-lbl { font-size: 0.7rem; color: var(--muted); white-space: nowrap; }
+.model-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin-bottom: 14px; }
+.sub-title { font-size: 0.72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+.metric-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+              padding: 3px 0; border-bottom: 1px solid var(--border); font-size: 0.8rem; }
+.metric-row:last-child { border-bottom: none; }
+.metric-label { color: var(--muted); }
+.metric-val { font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+.r2-track { height: 5px; background: var(--surface-2); border-radius: 3px; margin-top: 6px; }
+.r2-fill { height: 5px; border-radius: 3px; }
+.r2-lbl { font-size: 0.68rem; color: var(--muted); margin-top: 3px; }
+.no-b { color: var(--muted); font-size: 0.8rem; }
+.pred-box { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+            padding: 12px 16px; margin-bottom: 16px; }
+.pred-val { font-size: 1.5rem; font-weight: 800; line-height: 1.2; }
+.pred-val span { font-size: 0.9rem; font-weight: 400; color: var(--muted); }
+.pred-range { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+.pred-note { font-size: 0.72rem; color: var(--muted); margin-top: 4px; line-height: 1.5; }
 </style>
 </head>
 <body>
-
-<header>
-  <div>
-    <h1>📐 Predictive Models</h1>
-    <p>Age-only and age + best wearable predictor · LOO cross-validated · 2026-11-09</p>
+<nav class="sidebar">
+  <div class="sidebar-logo">Andy's <span>Health</span></div>
+  <div class="nav-section">
+    <div class="nav-section-title">Pages</div>
+    <a class="nav-item" href="index.html"><span class="icon">🩸</span> Bloodwork</a>
+    <a class="nav-item" href="fitness.html"><span class="icon">📊</span> Fitness Sources</a>
+    <a class="nav-item" href="correlations.html"><span class="icon">🔬</span> Correlations</a>
+    <a class="nav-item active" href="models.html"><span class="icon">📐</span> Models</a>
   </div>
-  <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-    <a href="correlations.html" class="nav-link">🔬 Correlations</a>
-    <a href="index.html" class="nav-link">← Dashboard</a>
+  <div class="nav-section">
+    <div class="nav-section-title">Models</div>
+    <a class="nav-item" href="#overview"><span class="icon">📋</span> Overview</a>
+    <a class="nav-item" href="#m-hscrp"><span class="icon">🧪</span> hsCRP</a>
+    <a class="nav-item" href="#m-free-testosterone"><span class="icon">🧪</span> Free Testosterone</a>
+    <a class="nav-item" href="#m-hemoglobin"><span class="icon">🧪</span> Hemoglobin</a>
+    <a class="nav-item" href="#m-shbg"><span class="icon">🧪</span> SHBG</a>
+    <a class="nav-item" href="#m-hematocrit"><span class="icon">🧪</span> Hematocrit</a>
+    <a class="nav-item" href="#m-alt"><span class="icon">🧪</span> ALT</a>
+    <a class="nav-item" href="#m-ldl"><span class="icon">🧪</span> LDL</a>
+    <a class="nav-item" href="#m-cholesterol"><span class="icon">🧪</span> Cholesterol</a>
+    <a class="nav-item" href="#m-glucose"><span class="icon">🧪</span> Glucose</a>
+    <a class="nav-item" href="#m-hdl"><span class="icon">🧪</span> HDL</a>
+    <a class="nav-item" href="#m-testosterone"><span class="icon">🧪</span> Testosterone</a>
+    <a class="nav-item" href="#m-ast"><span class="icon">🧪</span> AST</a>
+    <a class="nav-item" href="#m-triglycerides"><span class="icon">🧪</span> Triglycerides</a>
+    <a class="nav-item" href="#m-vitamin-d"><span class="icon">🧪</span> Vitamin D</a>
+    <a class="nav-item" href="#m-hba1c"><span class="icon">🧪</span> HbA1c</a>
   </div>
-</header>
+</nav>
 
-<div class="disclaimer">
-  <strong>⚠️ Statistical disclaimer</strong> — These are simple OLS models with n=5–15 data points.
-  Results are directional and exploratory, not clinical.
-  In-sample R² is optimistic; <strong>LOO R²</strong> (leave-one-out cross-validated) is the honest
-  estimate of predictive power. Where LOO R² is negative, the model predicts worse than the mean —
-  treat it as noise. Max 2 predictors (age + 1 wearable) to avoid overfitting.
-  Prediction intervals are ±1 LOO-MAE, not formal confidence intervals.
+<div class="main">
+  <div class="topbar">
+    <div>
+      <h1>Predictive Models</h1>
+      <div class="subtitle">Age-only and age + best wearable predictor · LOO cross-validated · 2026-11-10</div>
+    </div>
+    <div class="meta" id="meta"></div>
+  </div>
+
+  <div class="content">
+    <div class="note warn" id="overview">
+      <strong>⚠️ Statistical disclaimer</strong> — These are simple OLS models with n=5–15 data points.
+      Results are directional and exploratory, not clinical.
+      In-sample R² is optimistic; <strong>LOO R²</strong> (leave-one-out cross-validated) is the honest
+      estimate of predictive power. Where LOO R² is negative, the model predicts worse than the mean —
+      treat it as noise. Max 2 predictors (age + 1 wearable) to avoid overfitting.
+      Prediction intervals are ±1 LOO-MAE, not formal confidence intervals.
+    </div>
+
+    <div class="kpi-strip">
+      <div class="kpi-card" style="--kpi-color:var(--accent)"><div class="kpi-label">biomarkers modelled</div><div class="kpi-value">15</div></div>
+      <div class="kpi-card" style="--kpi-color:var(--teal)"><div class="kpi-label">with wearable predictor</div><div class="kpi-value">15</div></div>
+      <div class="kpi-card" style="--kpi-color:var(--gray)"><div class="kpi-label">Andy's age today</div><div class="kpi-value">37</div></div>
+      <div class="kpi-card" style="--kpi-color:var(--blue)"><div class="kpi-label">HRV 30d avg today</div><div class="kpi-value" id="sv-hrv">—</div></div>
+      <div class="kpi-card" style="--kpi-color:var(--purple)"><div class="kpi-label">Sleep hrs 30d today</div><div class="kpi-value" id="sv-sleep">—</div></div>
+      <div class="kpi-card" style="--kpi-color:var(--orange)"><div class="kpi-label">Strain 30d today</div><div class="kpi-value" id="sv-strain">—</div></div>
+    </div>
+
+    <div class="metric-grid wide">
+      <div class="metric-card">
+        <div class="metric-card-header"><div class="metric-card-title">LOO R² by biomarker</div></div>
+        <div class="metric-card-sub">Model B where a wearable predictor qualified, otherwise Model A. Bars are cut off at −1; below zero the model predicts worse than the mean.</div>
+        <div class="legend" id="r2-legend"></div>
+        <div class="chart-area" id="r2-chart"></div>
+      </div>
+    </div>
+
+    <div class="metric-grid" id="models-container"></div>
+  </div>
 </div>
-
-<div class="summary-bar">
-  <div class="stat-card">
-    <div class="sv">15</div>
-    <div class="sl">biomarkers modelled</div>
-  </div>
-  <div class="stat-card">
-    <div class="sv">15</div>
-    <div class="sl">with wearable predictor</div>
-  </div>
-  <div class="stat-card">
-    <div class="sv">37</div>
-    <div class="sl">Andy's age today</div>
-  </div>
-  <div class="stat-card">
-    <div class="sv" id="sv-hrv">—</div>
-    <div class="sl">HRV 30d avg today</div>
-  </div>
-  <div class="stat-card">
-    <div class="sv" id="sv-sleep">—</div>
-    <div class="sl">Sleep hrs 30d today</div>
-  </div>
-  <div class="stat-card">
-    <div class="sv" id="sv-strain">—</div>
-    <div class="sl">Strain 30d today</div>
-  </div>
-</div>
-
-<div id="models-container"></div>
-
-<footer id="footer"></footer>
 
 <script>
-const DATA = {"models":[{"biomarker":"hsCRP","unit":"mg/L","ref":{"low":null,"high":3,"optimal_low":null,"optimal_high":1,"unit":"mg/L","active_source":"curated","sources":{"curated":{"high":3,"low":null,"optimal_high":1,"optimal_low":null},"insidetracker":{"high":3,"low":0.0,"optimal_high":0.6,"optimal_low":0.0}}},"n":6,"dates":["2021-10-29","2023-07-10","2025-03-06","2025-06-05","2025-12-04","2026-04-15"],"actual":[0.3,0.6,0.5,0.43,0.2,0.2],"model_a":{"intercept":1.0854,"slope_age":-0.0203,"r2_insample":0.051,"loo_r2":-2.873,"loo_mae":0.255,"loo_predicted":[0.872,0.328,0.317,0.335,0.395,0.412],"pred_next":0.33},"model_b":{"predictor_key":"vo2max","predictor_label":"VO\u2082max (ml/kg/min)","predictor_source":"Fitness","partial_r":-0.984,"b_intercept":-2.8996,"b_age":0.3409,"b_wearable":-0.1459,"r2_insample":0.97,"loo_r2":0.887,"loo_mae":0.048,"n":6,"pred_next":0.1,"pred_interval":0.05,"today_predictor":65.9,"wearable_sign_word":"decreases","loo_dates":["2021-10-29","2023-07-10","2025-03-06","2025-06-05","2025-12-04","2026-04-15"],"loo_actual":[0.3,0.6,0.5,0.43,0.2,0.2],"loo_predicted":[0.34,0.553,0.553,0.407,0.255,0.127]}},{"biomarker":"Free Testosterone","unit":"ng/dL","ref":{"low":5,"high":21,"optimal_low":9,"optimal_high":18,"unit":"ng/dL","active_source":"curated","sources":{"curated":{"high":21,"low":5,"optimal_high":18,"optimal_low":9},"insidetracker":{"high":22.4,"low":4.6,"optimal_high":22.4,"optimal_low":8.3},"lab":{"high":155,"low":35,"optimal_high":null,"optimal_low":null}}},"n":7,"dates":["2021-10-29","2023-07-10","2023-11-02","2025-03-06","2025-06-05","2025-12-04","2026-04-15"],"actual":[10.02,7.81,20.7,127.7,153.5,93.2,113.1],"model_a":{"intercept":-978.8001,"slope_age":30.1128,"r2_insample":0.728,"loo_r2":0.379,"loo_mae":40.812,"loo_predicted":[-60.571,54.248,51.058,99.705,93.319,108.245,148.18],"pred_next":135.37},"model_b":{"predictor_key":"whoop_resp_30d","predictor_label":"Resp rate 30d avg (br/min)","predictor_source":"WHOOP","partial_r":-0.843,"b_intercept":939.6706,"b_age":19.294,"b_wearable":-111.0173,"r2_insample":0.921,"loo_r2":0.851,"loo_mae":17.623,"n":7,"pred_next":121.89,"pred_interval":17.62,"today_predictor":13.8,"wearable_sign_word":"decreases","loo_dates":["2021-10-29","2023-07-10","2023-11-02","2025-03-06","2025-06-05","2025-12-04","2026-04-15"],"loo_actual":[10.02,7.81,20.7,127.7,153.5,93.2,113.1],"loo_predicted":[16.306,-7.437,28.918,140.724,107.879,118.736,122.53]}},{"biomarker":"Hemoglobin","unit":"g/dL","ref":{"low":13.5,"high":17.5,"optimal_low":14.5,"optimal_high":16.5,"unit":"g/dL","active_source":"curated","sources":{"curated":{"high":17.5,"low":13.5,"optimal_high":16.5,"optimal_low":14.5},"insidetracker":{"high":17.1,"low":13.2,"optimal_high":17.1,"optimal_low":14.9},"lab":{"high":17.1,"low":13.2,"optimal_high":null,"optimal_low":null}}},"n":11,"dates":["2013-01-10","2021-08-10","2021-10-29","2023-01-03","2023-07-10","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"actual":[15.3,15.0,15.4,15.3,14.8,14.9,15.7,15.6,15.4,15.0,15.1],"model_a":{"intercept":15.2206,"slope_age":0.0002,"r2_insample":0.0,"loo_r2":-0.432,"loo_mae":0.302,"loo_predicted":[14.931,15.257,15.204,15.22,15.27,15.264,15.162,15.176,15.204,15.271,15.252],"pred_next":15.23},"model_b":{"predictor_key":"whoop_resp_30d","predictor_label":"Resp rate 30d avg (br/min)","predictor_source":"WHOOP","partial_r":-0.845,"b_intercept":35.9075,"b_age":-0.087,"b_wearable":-1.2707,"r2_insample":0.721,"loo_r2":0.577,"loo_mae":0.149,"n":10,"pred_next":15.16,"pred_interval":0.15,"today_predictor":13.8,"wearable_sign_word":"decreases","loo_dates":["2021-08-10","2021-10-29","2023-01-03","2023-07-10","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"loo_actual":[15.0,15.4,15.3,14.8,14.9,15.7,15.6,15.4,15.0,15.1],"loo_predicted":[15.053,15.459,15.108,14.602,15.325,15.569,15.388,15.358,15.163,15.085]}},{"biomarker":"SHBG","unit":"nmol/L","ref":{"low":10,"high":57,"optimal_low":20,"optimal_high":45,"unit":"nmol/L","active_source":"curated","sources":{"curated":{"high":57,"low":10,"optimal_high":45,"optimal_low":20},"insidetracker":{"high":50,"low":10,"optimal_high":45,"optimal_low":24},"lab":{"high":50,"low":10,"optimal_high":null,"optimal_low":null}}},"n":6,"dates":["2021-10-29","2023-07-10","2025-03-06","2025-06-05","2025-12-04","2026-04-15"],"actual":[40.0,28.0,29.1,24.0,26.0,28.0],"model_a":{"intercept":117.1,"slope_age":-2.5,"r2_insample":0.671,"loo_r2":-0.473,"loo_mae":5.141,"loo_predicted":[27.796,33.449,26.575,27.914,27.389,22.634],"pred_next":24.6},"model_b":{"predictor_key":"weight","predictor_label":"Weight (lbs)","predictor_source":"Life","partial_r":-0.843,"b_intercept":138.3581,"b_age":-0.5082,"b_wearable":-0.4801,"r2_insample":0.905,"loo_r2":0.545,"loo_mae":2.902,"n":6,"pred_next":27.85,"pred_interval":2.9,"today_predictor":191.0,"wearable_sign_word":"decreases","loo_dates":["2021-10-29","2023-07-10","2025-03-06","2025-06-05","2025-12-04","2026-04-15"],"loo_actual":[40.0,28.0,29.1,24.0,26.0,28.0],"loo_predicted":[33.831,29.896,27.526,27.69,22.345,27.57]}},{"biomarker":"Hematocrit","unit":"%","ref":{"low":40,"high":52,"optimal_low":42,"optimal_high":48,"unit":"%","active_source":"curated","sources":{"curated":{"high":52,"low":40,"optimal_high":48,"optimal_low":42},"insidetracker":{"high":50,"low":38.5,"optimal_high":50,"optimal_low":38.5},"lab":{"high":51.1,"low":39.4,"optimal_high":null,"optimal_low":null}}},"n":11,"dates":["2013-01-10","2021-08-10","2021-10-29","2023-01-03","2023-07-10","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"actual":[44.4,43.3,46.9,45.4,44.0,45.0,45.6,46.7,47.5,46.2,46.3],"model_a":{"intercept":39.8916,"slope_age":0.1675,"r2_insample":0.229,"loo_r2":-0.303,"loo_mae":1.155,"loo_predicted":[41.99,45.512,45.034,45.607,45.747,45.839,45.968,45.815,45.703,46.07,46.051],"pred_next":46.09},"model_b":{"predictor_key":"whoop_skin_temp_30d","predictor_label":"Skin temp 30d avg (\u00b0C)","predictor_source":"WHOOP","partial_r":0.787,"b_intercept":-101.0488,"b_age":0.4127,"b_wearable":3.8768,"r2_insample":0.801,"loo_r2":0.404,"loo_mae":0.591,"n":8,"pred_next":47.36,"pred_interval":0.59,"today_predictor":34.34,"wearable_sign_word":"increases","loo_dates":["2023-01-03","2023-07-10","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"loo_actual":[45.4,44.0,45.0,45.6,46.7,47.5,46.2,46.3],"loo_predicted":[45.395,45.012,43.668,45.822,46.57,46.439,46.169,47.239]}},{"biomarker":"ALT","unit":"U/L","ref":{"low":7,"high":56,"optimal_low":7,"optimal_high":30,"unit":"U/L","active_source":"curated","sources":{"curated":{"high":56,"low":7,"optimal_high":30,"optimal_low":7},"insidetracker":{"high":46,"low":9,"optimal_high":23,"optimal_low":9},"lab":{"high":46,"low":9,"optimal_high":null,"optimal_low":null}}},"n":17,"dates":["2013-01-10","2018-10-20","2019-01-14","2021-07-22","2021-10-29","2022-09-30","2022-12-23","2023-01-03","2023-07-10","2023-11-02","2023-11-16","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"actual":[16.0,11.0,24.0,20.0,19.0,26.0,20.0,34.0,18.0,43.0,36.0,28.0,42.0,32.0,35.0,27.0,30.0],"model_a":{"intercept":-31.8637,"slope_age":1.7715,"r2_insample":0.406,"loo_r2":0.206,"loo_mae":6.724,"loo_predicted":[3.94,21.193,20.907,25.18,25.253,26.634,27.013,27.998,29.05,27.406,27.866,30.315,30.778,31.901,31.564,34.752,34.272],"pred_next":33.68},"model_b":{"predictor_key":"whoop_spo2_30d","predictor_label":"SpO\u2082 30d avg (%)","predictor_source":"WHOOP","partial_r":0.784,"b_intercept":-1691.239,"b_age":7.1904,"b_wearable":15.2586,"r2_insample":0.639,"loo_r2":0.336,"loo_mae":5.538,"n":12,"pred_next":34.67,"pred_interval":5.54,"today_predictor":95.67,"wearable_sign_word":"increases","loo_dates":["2022-09-30","2022-12-23","2023-01-03","2023-07-10","2023-11-02","2023-11-16","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"loo_actual":[26.0,20.0,34.0,18.0,43.0,36.0,28.0,42.0,32.0,35.0,27.0,30.0],"loo_predicted":[18.613,26.117,35.948,25.045,35.024,40.686,29.336,38.283,24.646,28.321,35.943,33.266]}},{"biomarker":"LDL","unit":"mg/dL","ref":{"low":null,"high":100,"optimal_low":null,"optimal_high":70,"unit":"mg/dL","active_source":"curated","sources":{"curated":{"high":100,"low":null,"optimal_high":70,"optimal_low":null},"insidetracker":{"high":100,"low":0.0,"optimal_high":87,"optimal_low":0.0},"lab":{"high":100,"low":null,"optimal_high":null,"optimal_low":null}}},"n":16,"dates":["2013-01-10","2018-09-27","2018-10-20","2019-01-14","2021-10-29","2022-09-30","2022-12-23","2023-01-03","2023-07-10","2023-11-02","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"actual":[83.0,47.0,55.0,51.0,82.0,71.0,66.0,88.0,62.0,94.0,67.0,84.0,65.0,93.0,78.0,100.0],"model_a":{"intercept":12.5498,"slope_age":1.8624,"r2_insample":0.17,"loo_r2":-0.51,"loo_mae":15.677,"loo_predicted":[31.782,70.007,68.596,70.622,71.422,74.209,74.543,74.998,76.87,74.566,78.697,79.062,81.366,77.97,82.043,78.325],"pred_next":81.46},"model_b":{"predictor_key":"whoop_sleep_hrs_90d","predictor_label":"Sleep hours 90d avg","predictor_source":"WHOOP","partial_r":0.682,"b_intercept":-114.0775,"b_age":-0.4092,"b_wearable":26.9055,"r2_insample":0.514,"loo_r2":0.296,"loo_mae":9.22,"n":12,"pred_next":101.64,"pred_interval":9.22,"today_predictor":8.58,"wearable_sign_word":"increases","loo_dates":["2021-10-29","2022-09-30","2022-12-23","2023-01-03","2023-07-10","2023-11-02","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"loo_actual":[82.0,71.0,66.0,88.0,62.0,94.0,67.0,84.0,65.0,93.0,78.0,100.0],"loo_predicted":[85.954,80.556,72.585,71.868,65.437,80.73,74.446,69.575,82.04,83.757,85.138,102.411]}},{"biomarker":"Cholesterol","unit":"mg/dL","ref":{"low":null,"high":200,"optimal_low":null,"optimal_high":150,"unit":"mg/dL","active_source":"curated","sources":{"curated":{"high":200,"low":null,"optimal_high":150,"optimal_low":null},"insidetracker":{"high":200,"low":125,"optimal_high":183,"optimal_low":125},"lab":{"high":200,"low":null,"optimal_high":null,"optimal_low":null}}},"n":16,"dates":["2013-01-10","2018-09-27","2018-10-20","2019-01-14","2021-10-29","2022-09-30","2022-12-23","2023-01-03","2023-07-10","2023-11-02","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"actual":[157.0,127.0,135.0,119.0,160.0,142.0,137.0,153.0,129.0,179.0,146.0,157.0,133.0,174.0,158.0,172.0],"model_a":{"intercept":89.4122,"slope_age":1.7909,"r2_insample":0.125,"loo_r2":-0.414,"loo_mae":16.772,"loo_predicted":[108.064,143.879,142.468,146.189,145.746,148.947,149.281,150.11,151.838,148.238,152.642,153.508,156.419,151.446,155.284,152.918],"pred_next":155.68},"model_b":{"predictor_key":"whoop_sleep_hrs_90d","predictor_label":"Sleep hours 90d avg","predictor_source":"WHOOP","partial_r":0.67,"b_intercept":-84.0422,"b_age":-0.6772,"b_wearable":33.8368,"r2_insample":0.494,"loo_r2":0.161,"loo_mae":11.597,"n":12,"pred_next":181.23,"pred_interval":11.6,"today_predictor":8.58,"wearable_sign_word":"increases","loo_dates":["2021-10-29","2022-09-30","2022-12-23","2023-01-03","2023-07-10","2023-11-02","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"loo_actual":[160.0,142.0,137.0,153.0,129.0,179.0,146.0,157.0,133.0,174.0,158.0,172.0],"loo_predicted":[159.678,155.705,145.356,145.835,137.549,154.337,146.084,141.768,157.131,158.306,158.283,192.978]}},{"biomarker":"Glucose","unit":"mg/dL","ref":{"low":70,"high":99,"optimal_low":72,"optimal_high":85,"unit":"mg/dL","active_source":"curated","sources":{"curated":{"high":99,"low":70,"optimal_high":85,"optimal_low":72},"insidetracker":{"high":99,"low":65,"optimal_high":88,"optimal_low":65},"lab":{"high":99,"low":65,"optimal_high":null,"optimal_low":null}}},"n":17,"dates":["2013-01-10","2018-10-20","2019-01-14","2021-07-22","2021-10-29","2022-09-30","2022-12-23","2023-01-03","2023-07-10","2023-11-02","2023-11-16","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"actual":[95.0,76.0,93.0,92.0,96.0,100.0,94.0,97.0,97.0,102.0,97.0,98.0,104.0,97.0,98.0,95.0,107.0],"model_a":{"intercept":60.621,"slope_age":1.0732,"r2_insample":0.295,"loo_r2":-0.37,"loo_mae":4.591,"loo_predicted":[75.555,94.857,92.792,95.182,94.888,95.787,96.166,97.118,97.118,96.789,97.118,98.199,98.724,99.511,99.398,101.183,99.263],"pred_next":100.33},"model_b":{"predictor_key":"garmin_steps_90d","predictor_label":"Steps 90d avg","predictor_source":"Garmin","partial_r":0.455,"b_intercept":-20.3994,"b_age":2.9469,"b_wearable":0.0013,"r2_insample":0.585,"loo_r2":0.085,"loo_mae":4.334,"n":15,"pred_next":null,"pred_interval":null,"today_predictor":null,"wearable_sign_word":"increases","loo_dates":["2018-10-20","2019-01-14","2021-07-22","2021-10-29","2022-09-30","2022-12-23","2023-01-03","2023-07-10","2023-11-02","2023-11-16","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15"],"loo_actual":[76.0,93.0,92.0,96.0,100.0,94.0,97.0,97.0,102.0,97.0,98.0,104.0,97.0,98.0,95.0],"loo_predicted":[91.547,84.149,94.012,93.357,92.713,93.16,96.174,98.649,99.311,101.834,98.775,97.901,99.124,100.248,101.58]}},{"biomarker":"HDL","unit":"mg/dL","ref":{"low":40,"high":null,"optimal_low":60,"optimal_high":null,"unit":"mg/dL","active_source":"curated","sources":{"curated":{"high":null,"low":40,"optimal_high":null,"optimal_low":60},"insidetracker":{"high":200,"low":40,"optimal_high":77,"optimal_low":54},"lab":{"high":null,"low":40,"optimal_high":null,"optimal_low":null}}},"n":16,"dates":["2013-01-10","2018-09-27","2018-10-20","2019-01-14","2021-10-29","2022-09-30","2022-12-23","2023-01-03","2023-07-10","2023-11-02","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"actual":[64.0,70.0,65.0,60.0,59.0,57.0,56.0,54.0,53.0,61.0,67.0,58.0,53.0,64.0,64.0,61.0],"model_a":{"intercept":75.8399,"slope_age":-0.4677,"r2_insample":0.107,"loo_r2":-0.113,"loo_mae":4.485,"loo_predicted":[65.221,60.914,61.795,62.036,61.01,60.631,60.698,60.364,60.436,59.86,58.793,59.122,59.729,58.395,57.609,58.116],"pred_next":58.53},"model_b":{"predictor_key":"strava_avg_hr_90d","predictor_label":"Avg workout HR 90d (bpm)","predictor_source":"Strava","partial_r":0.469,"b_intercept":19.5357,"b_age":0.0783,"b_wearable":0.299,"r2_insample":0.279,"loo_r2":-0.053,"loo_mae":4.41,"n":15,"pred_next":58.63,"pred_interval":4.41,"today_predictor":121.07,"wearable_sign_word":"increases","loo_dates":["2018-09-27","2018-10-20","2019-01-14","2021-10-29","2022-09-30","2022-12-23","2023-01-03","2023-07-10","2023-11-02","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"loo_actual":[70.0,65.0,60.0,59.0,57.0,56.0,54.0,53.0,61.0,67.0,58.0,53.0,64.0,64.0,61.0],"loo_predicted":[60.969,63.228,62.474,64.572,55.136,56.68,57.489,59.88,64.934,59.826,59.362,60.821,59.022,57.244,58.64]}},{"biomarker":"Testosterone","unit":"ng/dL","ref":{"low":300,"high":1000,"optimal_low":500,"optimal_high":900,"unit":"ng/dL","active_source":"curated","sources":{"curated":{"high":1000,"low":300,"optimal_high":900,"optimal_low":500},"insidetracker":{"high":1100,"low":250,"optimal_high":1100,"optimal_low":549.5},"lab":{"high":1100,"low":250,"optimal_high":null,"optimal_low":null}}},"n":7,"dates":["2021-10-29","2023-07-10","2023-11-02","2025-03-06","2025-06-05","2025-12-04","2026-04-15"],"actual":[725.0,495.0,669.0,570.0,608.0,548.0,583.0],"model_a":{"intercept":1468.881,"slope_age":-24.8333,"r2_insample":0.314,"loo_r2":-0.554,"loo_mae":70.301,"loo_predicted":[582.8,656.614,613.545,576.089,566.683,581.535,531.1],"pred_next":550.05},"model_b":{"predictor_key":"whoop_sleep_hrs_90d","predictor_label":"Sleep hours 90d avg","predictor_source":"WHOOP","partial_r":0.811,"b_intercept":226.4195,"b_age":-29.758,"b_wearable":183.676,"r2_insample":0.765,"loo_r2":-0.107,"loo_mae":58.88,"n":7,"pred_next":701.37,"pred_interval":58.88,"today_predictor":8.58,"wearable_sign_word":"increases","loo_dates":["2021-10-29","2023-07-10","2023-11-02","2025-03-06","2025-06-05","2025-12-04","2026-04-15"],"loo_actual":[725.0,495.0,669.0,570.0,608.0,548.0,583.0],"loo_predicted":[687.555,648.385,646.26,516.814,570.392,644.661,571.864]}},{"biomarker":"AST","unit":"U/L","ref":{"low":10,"high":40,"optimal_low":10,"optimal_high":30,"unit":"U/L","active_source":"curated","sources":{"curated":{"high":40,"low":10,"optimal_high":30,"optimal_low":10},"insidetracker":{"high":40,"low":10,"optimal_high":25,"optimal_low":10},"lab":{"high":40,"low":10,"optimal_high":null,"optimal_low":null}}},"n":17,"dates":["2013-01-10","2018-10-20","2019-01-14","2021-07-22","2021-10-29","2022-09-30","2022-12-23","2023-01-03","2023-07-10","2023-11-02","2023-11-16","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"actual":[25.0,18.0,39.0,30.0,26.0,38.0,24.0,42.0,25.0,31.0,45.0,40.0,43.0,32.0,32.0,26.0,32.0],"model_a":{"intercept":4.4488,"slope_age":0.8346,"r2_insample":0.124,"loo_r2":-0.077,"loo_mae":6.824,"loo_predicted":[23.824,30.758,28.172,31.24,31.534,31.611,32.494,32.221,33.339,32.944,32.024,33.14,33.538,34.774,34.774,36.821,35.861],"pred_next":35.33},"model_b":{"predictor_key":"whoop_spo2_30d","predictor_label":"SpO\u2082 30d avg (%)","predictor_source":"WHOOP","partial_r":0.573,"b_intercept":-1138.9968,"b_age":3.7143,"b_wearable":10.8233,"r2_insample":0.333,"loo_r2":-0.266,"loo_mae":6.734,"n":12,"pred_next":33.94,"pred_interval":6.73,"today_predictor":95.67,"wearable_sign_word":"increases","loo_dates":["2022-09-30","2022-12-23","2023-01-03","2023-07-10","2023-11-02","2023-11-16","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"loo_actual":[38.0,24.0,42.0,25.0,31.0,45.0,40.0,43.0,32.0,32.0,26.0,32.0],"loo_predicted":[25.333,35.444,37.838,31.635,43.113,39.137,32.114,37.025,28.647,31.494,35.783,32.418]}},{"biomarker":"Triglycerides","unit":"mg/dL","ref":{"low":null,"high":150,"optimal_low":null,"optimal_high":80,"unit":"mg/dL","active_source":"curated","sources":{"curated":{"high":150,"low":null,"optimal_high":80,"optimal_low":null},"insidetracker":{"high":150,"low":0.0,"optimal_high":82,"optimal_low":0.0},"lab":{"high":150,"low":null,"optimal_high":null,"optimal_low":null}}},"n":16,"dates":["2013-01-10","2018-09-27","2018-10-20","2019-01-14","2021-10-29","2022-09-30","2022-12-23","2023-01-03","2023-07-10","2023-11-02","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"actual":[50.0,48.0,74.0,39.0,96.0,68.0,75.0,57.0,67.0,120.0,59.0,80.0,78.0,80.0,75.0,54.0],"model_a":{"intercept":5.0781,"slope_age":1.9636,"r2_insample":0.123,"loo_r2":-0.059,"loo_mae":14.532,"loo_predicted":[54.385,64.495,59.912,67.142,65.849,70.002,69.536,72.909,72.189,68.374,75.133,75.255,75.497,75.255,78.193,81.742],"pred_next":77.73},"model_b":{"predictor_key":"garmin_bb_hi_90d","predictor_label":"Body battery hi 90d avg","predictor_source":"Garmin","partial_r":0.576,"b_intercept":-110.4698,"b_age":1.0673,"b_wearable":1.9874,"r2_insample":0.333,"loo_r2":-0.705,"loo_mae":15.518,"n":10,"pred_next":null,"pred_interval":null,"today_predictor":null,"wearable_sign_word":"increases","loo_dates":["2022-09-30","2022-12-23","2023-01-03","2023-07-10","2023-11-02","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15"],"loo_actual":[68.0,75.0,57.0,67.0,120.0,59.0,80.0,78.0,80.0,75.0],"loo_predicted":[87.762,47.54,64.94,100.654,72.388,67.999,75.401,79.198,77.258,76.218]}},{"biomarker":"Vitamin D","unit":"ng/mL","ref":{"low":20,"high":50,"optimal_low":40,"optimal_high":60,"unit":"ng/mL","active_source":"curated","sources":{"curated":{"high":50,"low":20,"optimal_high":60,"optimal_low":40},"insidetracker":{"high":100,"low":30,"optimal_high":100,"optimal_low":32},"lab":{"high":100,"low":30,"optimal_high":null,"optimal_low":null}}},"n":6,"dates":["2021-10-29","2023-07-10","2025-03-06","2025-06-05","2025-12-04","2026-04-15"],"actual":[41.0,37.0,34.4,44.4,29.0,26.0],"model_a":{"intercept":109.4634,"slope_age":-2.1089,"r2_insample":0.305,"loo_r2":-0.278,"loo_mae":5.705,"loo_predicted":[45.117,38.011,33.317,30.693,34.735,34.575],"pred_next":31.43},"model_b":{"predictor_key":"whoop_strain_30d","predictor_label":"Day strain 30d avg","predictor_source":"WHOOP","partial_r":-0.794,"b_intercept":295.4779,"b_age":-5.6676,"b_wearable":-5.5128,"r2_insample":0.744,"loo_r2":-0.706,"loo_mae":7.204,"n":6,"pred_next":21.46,"pred_interval":7.2,"today_predictor":11.67,"wearable_sign_word":"decreases","loo_dates":["2021-10-29","2023-07-10","2025-03-06","2025-06-05","2025-12-04","2026-04-15"],"loo_actual":[41.0,37.0,34.4,44.4,29.0,26.0],"loo_predicted":[53.572,26.707,37.113,33.278,33.223,28.301]}},{"biomarker":"HbA1c","unit":"%","ref":{"low":null,"high":5.7,"optimal_low":null,"optimal_high":5.2,"unit":"%","active_source":"curated","sources":{"curated":{"high":5.7,"low":null,"optimal_high":5.2,"optimal_low":null},"insidetracker":{"high":5.7,"low":3,"optimal_high":5.2,"optimal_low":3},"lab":{"high":5.7,"low":null,"optimal_high":null,"optimal_low":null}}},"n":8,"dates":["2018-10-20","2021-10-29","2022-12-23","2023-07-10","2025-03-06","2025-06-05","2025-12-04","2026-04-15"],"actual":[5.1,5.3,5.5,5.5,6.0,5.7,5.6,5.6],"model_a":{"intercept":2.6784,"slope_age":0.0838,"r2_insample":0.716,"loo_r2":0.535,"loo_mae":0.119,"loo_predicted":[5.123,5.376,5.433,5.531,5.621,5.693,5.717,5.85],"pred_next":5.78},"model_b":{"predictor_key":"whoop_spo2_30d","predictor_label":"SpO\u2082 30d avg (%)","predictor_source":"WHOOP","partial_r":0.781,"b_intercept":-42.8664,"b_age":0.189,"b_wearable":0.4353,"r2_insample":0.706,"loo_r2":-1.689,"loo_mae":0.211,"n":6,"pred_next":5.77,"pred_interval":0.21,"today_predictor":95.67,"wearable_sign_word":"increases","loo_dates":["2022-12-23","2023-07-10","2025-03-06","2025-06-05","2025-12-04","2026-04-15"],"loo_actual":[5.5,5.5,6.0,5.7,5.6,5.6],"loo_predicted":[5.634,5.505,5.433,5.434,5.651,5.839]}}],"today":{"whoop_hrv_30d":49.69971923333333,"whoop_recovery_30d":59.86666666666667,"whoop_rhr_30d":53.666666666666664,"whoop_strain_30d":11.66587679,"whoop_sleep_hrs_30d":8.768591574074074,"whoop_sleep_perf_30d":87.23333333333333,"whoop_spo2_30d":95.67451566666666,"whoop_resp_30d":13.796598283333333,"whoop_skin_temp_30d":34.34390646666667,"whoop_hrv_90d":50.43748071111111,"whoop_recovery_90d":64.03333333333333,"whoop_rhr_90d":53.15555555555556,"whoop_strain_90d":11.603100232222221,"whoop_sleep_hrs_90d":8.580331327160494,"whoop_sleep_perf_90d":87.26666666666667,"strava_hrs_90d":163.895,"strava_run_miles_90d":41.4986971947,"strava_run_hrs_90d":8.0125,"strava_ride_hrs_90d":138.045,"strava_avg_hr_90d":121.07222222222224,"strava_avg_watts_90d":181.25494505494507,"garmin_steps_90d":null,"garmin_stress_90d":null,"garmin_bb_hi_90d":null,"garmin_intensity_90d":null,"age":37,"kids":3,"weight":191.0,"vo2max":65.9},"generated":"2026-11-09"};
+const DATA = {"models":[{"biomarker":"hsCRP","unit":"mg/L","ref":{"low":null,"high":3,"optimal_low":null,"optimal_high":1,"unit":"mg/L","active_source":"curated","sources":{"curated":{"high":3,"low":null,"optimal_high":1,"optimal_low":null},"insidetracker":{"high":3,"low":0.0,"optimal_high":0.6,"optimal_low":0.0}}},"n":6,"dates":["2021-10-29","2023-07-10","2025-03-06","2025-06-05","2025-12-04","2026-04-15"],"actual":[0.3,0.6,0.5,0.43,0.2,0.2],"model_a":{"intercept":1.0854,"slope_age":-0.0203,"r2_insample":0.051,"loo_r2":-2.873,"loo_mae":0.255,"loo_predicted":[0.872,0.328,0.317,0.335,0.395,0.412],"pred_next":0.33},"model_b":{"predictor_key":"vo2max","predictor_label":"VO\u2082max (ml/kg/min)","predictor_source":"Fitness","partial_r":-0.984,"b_intercept":-2.8996,"b_age":0.3409,"b_wearable":-0.1459,"r2_insample":0.97,"loo_r2":0.887,"loo_mae":0.048,"n":6,"pred_next":0.1,"pred_interval":0.05,"today_predictor":65.9,"wearable_sign_word":"decreases","loo_dates":["2021-10-29","2023-07-10","2025-03-06","2025-06-05","2025-12-04","2026-04-15"],"loo_actual":[0.3,0.6,0.5,0.43,0.2,0.2],"loo_predicted":[0.34,0.553,0.553,0.407,0.255,0.127]}},{"biomarker":"Free Testosterone","unit":"ng/dL","ref":{"low":5,"high":21,"optimal_low":9,"optimal_high":18,"unit":"ng/dL","active_source":"curated","sources":{"curated":{"high":21,"low":5,"optimal_high":18,"optimal_low":9},"insidetracker":{"high":22.4,"low":4.6,"optimal_high":22.4,"optimal_low":8.3},"lab":{"high":155,"low":35,"optimal_high":null,"optimal_low":null}}},"n":7,"dates":["2021-10-29","2023-07-10","2023-11-02","2025-03-06","2025-06-05","2025-12-04","2026-04-15"],"actual":[10.02,7.81,20.7,127.7,153.5,93.2,113.1],"model_a":{"intercept":-978.8001,"slope_age":30.1128,"r2_insample":0.728,"loo_r2":0.379,"loo_mae":40.812,"loo_predicted":[-60.571,54.248,51.058,99.705,93.319,108.245,148.18],"pred_next":135.37},"model_b":{"predictor_key":"whoop_resp_30d","predictor_label":"Resp rate 30d avg (br/min)","predictor_source":"WHOOP","partial_r":-0.843,"b_intercept":939.6706,"b_age":19.294,"b_wearable":-111.0173,"r2_insample":0.921,"loo_r2":0.851,"loo_mae":17.623,"n":7,"pred_next":120.46,"pred_interval":17.62,"today_predictor":13.81,"wearable_sign_word":"decreases","loo_dates":["2021-10-29","2023-07-10","2023-11-02","2025-03-06","2025-06-05","2025-12-04","2026-04-15"],"loo_actual":[10.02,7.81,20.7,127.7,153.5,93.2,113.1],"loo_predicted":[16.306,-7.437,28.918,140.724,107.879,118.736,122.53]}},{"biomarker":"Hemoglobin","unit":"g/dL","ref":{"low":13.5,"high":17.5,"optimal_low":14.5,"optimal_high":16.5,"unit":"g/dL","active_source":"curated","sources":{"curated":{"high":17.5,"low":13.5,"optimal_high":16.5,"optimal_low":14.5},"insidetracker":{"high":17.1,"low":13.2,"optimal_high":17.1,"optimal_low":14.9},"lab":{"high":17.1,"low":13.2,"optimal_high":null,"optimal_low":null}}},"n":11,"dates":["2013-01-10","2021-08-10","2021-10-29","2023-01-03","2023-07-10","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"actual":[15.3,15.0,15.4,15.3,14.8,14.9,15.7,15.6,15.4,15.0,15.1],"model_a":{"intercept":15.2206,"slope_age":0.0002,"r2_insample":0.0,"loo_r2":-0.432,"loo_mae":0.302,"loo_predicted":[14.931,15.257,15.204,15.22,15.27,15.264,15.162,15.176,15.204,15.271,15.252],"pred_next":15.23},"model_b":{"predictor_key":"whoop_resp_30d","predictor_label":"Resp rate 30d avg (br/min)","predictor_source":"WHOOP","partial_r":-0.845,"b_intercept":35.9075,"b_age":-0.087,"b_wearable":-1.2707,"r2_insample":0.721,"loo_r2":0.577,"loo_mae":0.149,"n":10,"pred_next":15.14,"pred_interval":0.15,"today_predictor":13.81,"wearable_sign_word":"decreases","loo_dates":["2021-08-10","2021-10-29","2023-01-03","2023-07-10","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"loo_actual":[15.0,15.4,15.3,14.8,14.9,15.7,15.6,15.4,15.0,15.1],"loo_predicted":[15.053,15.459,15.108,14.602,15.325,15.569,15.388,15.358,15.163,15.085]}},{"biomarker":"SHBG","unit":"nmol/L","ref":{"low":10,"high":57,"optimal_low":20,"optimal_high":45,"unit":"nmol/L","active_source":"curated","sources":{"curated":{"high":57,"low":10,"optimal_high":45,"optimal_low":20},"insidetracker":{"high":50,"low":10,"optimal_high":45,"optimal_low":24},"lab":{"high":50,"low":10,"optimal_high":null,"optimal_low":null}}},"n":6,"dates":["2021-10-29","2023-07-10","2025-03-06","2025-06-05","2025-12-04","2026-04-15"],"actual":[40.0,28.0,29.1,24.0,26.0,28.0],"model_a":{"intercept":117.1,"slope_age":-2.5,"r2_insample":0.671,"loo_r2":-0.473,"loo_mae":5.141,"loo_predicted":[27.796,33.449,26.575,27.914,27.389,22.634],"pred_next":24.6},"model_b":{"predictor_key":"weight","predictor_label":"Weight (lbs)","predictor_source":"Life","partial_r":-0.843,"b_intercept":138.3581,"b_age":-0.5082,"b_wearable":-0.4801,"r2_insample":0.905,"loo_r2":0.545,"loo_mae":2.902,"n":6,"pred_next":27.85,"pred_interval":2.9,"today_predictor":191.0,"wearable_sign_word":"decreases","loo_dates":["2021-10-29","2023-07-10","2025-03-06","2025-06-05","2025-12-04","2026-04-15"],"loo_actual":[40.0,28.0,29.1,24.0,26.0,28.0],"loo_predicted":[33.831,29.896,27.526,27.69,22.345,27.57]}},{"biomarker":"Hematocrit","unit":"%","ref":{"low":40,"high":52,"optimal_low":42,"optimal_high":48,"unit":"%","active_source":"curated","sources":{"curated":{"high":52,"low":40,"optimal_high":48,"optimal_low":42},"insidetracker":{"high":50,"low":38.5,"optimal_high":50,"optimal_low":38.5},"lab":{"high":51.1,"low":39.4,"optimal_high":null,"optimal_low":null}}},"n":11,"dates":["2013-01-10","2021-08-10","2021-10-29","2023-01-03","2023-07-10","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"actual":[44.4,43.3,46.9,45.4,44.0,45.0,45.6,46.7,47.5,46.2,46.3],"model_a":{"intercept":39.8916,"slope_age":0.1675,"r2_insample":0.229,"loo_r2":-0.303,"loo_mae":1.155,"loo_predicted":[41.99,45.512,45.034,45.607,45.747,45.839,45.968,45.815,45.703,46.07,46.051],"pred_next":46.09},"model_b":{"predictor_key":"whoop_skin_temp_30d","predictor_label":"Skin temp 30d avg (\u00b0C)","predictor_source":"WHOOP","partial_r":0.787,"b_intercept":-101.0488,"b_age":0.4127,"b_wearable":3.8768,"r2_insample":0.801,"loo_r2":0.404,"loo_mae":0.591,"n":8,"pred_next":47.4,"pred_interval":0.59,"today_predictor":34.35,"wearable_sign_word":"increases","loo_dates":["2023-01-03","2023-07-10","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"loo_actual":[45.4,44.0,45.0,45.6,46.7,47.5,46.2,46.3],"loo_predicted":[45.395,45.012,43.668,45.822,46.57,46.439,46.169,47.239]}},{"biomarker":"ALT","unit":"U/L","ref":{"low":7,"high":56,"optimal_low":7,"optimal_high":30,"unit":"U/L","active_source":"curated","sources":{"curated":{"high":56,"low":7,"optimal_high":30,"optimal_low":7},"insidetracker":{"high":46,"low":9,"optimal_high":23,"optimal_low":9},"lab":{"high":46,"low":9,"optimal_high":null,"optimal_low":null}}},"n":17,"dates":["2013-01-10","2018-10-20","2019-01-14","2021-07-22","2021-10-29","2022-09-30","2022-12-23","2023-01-03","2023-07-10","2023-11-02","2023-11-16","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"actual":[16.0,11.0,24.0,20.0,19.0,26.0,20.0,34.0,18.0,43.0,36.0,28.0,42.0,32.0,35.0,27.0,30.0],"model_a":{"intercept":-31.8637,"slope_age":1.7715,"r2_insample":0.406,"loo_r2":0.206,"loo_mae":6.724,"loo_predicted":[3.94,21.193,20.907,25.18,25.253,26.634,27.013,27.998,29.05,27.406,27.866,30.315,30.778,31.901,31.564,34.752,34.272],"pred_next":33.68},"model_b":{"predictor_key":"whoop_spo2_30d","predictor_label":"SpO\u2082 30d avg (%)","predictor_source":"WHOOP","partial_r":0.784,"b_intercept":-1691.239,"b_age":7.1904,"b_wearable":15.2586,"r2_insample":0.639,"loo_r2":0.336,"loo_mae":5.538,"n":12,"pred_next":33.63,"pred_interval":5.54,"today_predictor":95.61,"wearable_sign_word":"increases","loo_dates":["2022-09-30","2022-12-23","2023-01-03","2023-07-10","2023-11-02","2023-11-16","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"loo_actual":[26.0,20.0,34.0,18.0,43.0,36.0,28.0,42.0,32.0,35.0,27.0,30.0],"loo_predicted":[18.613,26.117,35.948,25.045,35.024,40.686,29.336,38.283,24.646,28.321,35.943,33.266]}},{"biomarker":"LDL","unit":"mg/dL","ref":{"low":null,"high":100,"optimal_low":null,"optimal_high":70,"unit":"mg/dL","active_source":"curated","sources":{"curated":{"high":100,"low":null,"optimal_high":70,"optimal_low":null},"insidetracker":{"high":100,"low":0.0,"optimal_high":87,"optimal_low":0.0},"lab":{"high":100,"low":null,"optimal_high":null,"optimal_low":null}}},"n":16,"dates":["2013-01-10","2018-09-27","2018-10-20","2019-01-14","2021-10-29","2022-09-30","2022-12-23","2023-01-03","2023-07-10","2023-11-02","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"actual":[83.0,47.0,55.0,51.0,82.0,71.0,66.0,88.0,62.0,94.0,67.0,84.0,65.0,93.0,78.0,100.0],"model_a":{"intercept":12.5498,"slope_age":1.8624,"r2_insample":0.17,"loo_r2":-0.51,"loo_mae":15.677,"loo_predicted":[31.782,70.007,68.596,70.622,71.422,74.209,74.543,74.998,76.87,74.566,78.697,79.062,81.366,77.97,82.043,78.325],"pred_next":81.46},"model_b":{"predictor_key":"whoop_sleep_hrs_90d","predictor_label":"Sleep hours 90d avg","predictor_source":"WHOOP","partial_r":0.682,"b_intercept":-114.0775,"b_age":-0.4092,"b_wearable":26.9055,"r2_insample":0.514,"loo_r2":0.296,"loo_mae":9.22,"n":12,"pred_next":101.81,"pred_interval":9.22,"today_predictor":8.59,"wearable_sign_word":"increases","loo_dates":["2021-10-29","2022-09-30","2022-12-23","2023-01-03","2023-07-10","2023-11-02","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"loo_actual":[82.0,71.0,66.0,88.0,62.0,94.0,67.0,84.0,65.0,93.0,78.0,100.0],"loo_predicted":[85.954,80.556,72.585,71.868,65.437,80.73,74.446,69.575,82.04,83.757,85.138,102.411]}},{"biomarker":"Cholesterol","unit":"mg/dL","ref":{"low":null,"high":200,"optimal_low":null,"optimal_high":150,"unit":"mg/dL","active_source":"curated","sources":{"curated":{"high":200,"low":null,"optimal_high":150,"optimal_low":null},"insidetracker":{"high":200,"low":125,"optimal_high":183,"optimal_low":125},"lab":{"high":200,"low":null,"optimal_high":null,"optimal_low":null}}},"n":16,"dates":["2013-01-10","2018-09-27","2018-10-20","2019-01-14","2021-10-29","2022-09-30","2022-12-23","2023-01-03","2023-07-10","2023-11-02","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"actual":[157.0,127.0,135.0,119.0,160.0,142.0,137.0,153.0,129.0,179.0,146.0,157.0,133.0,174.0,158.0,172.0],"model_a":{"intercept":89.4122,"slope_age":1.7909,"r2_insample":0.125,"loo_r2":-0.414,"loo_mae":16.772,"loo_predicted":[108.064,143.879,142.468,146.189,145.746,148.947,149.281,150.11,151.838,148.238,152.642,153.508,156.419,151.446,155.284,152.918],"pred_next":155.68},"model_b":{"predictor_key":"whoop_sleep_hrs_90d","predictor_label":"Sleep hours 90d avg","predictor_source":"WHOOP","partial_r":0.67,"b_intercept":-84.0422,"b_age":-0.6772,"b_wearable":33.8368,"r2_insample":0.494,"loo_r2":0.161,"loo_mae":11.597,"n":12,"pred_next":181.45,"pred_interval":11.6,"today_predictor":8.59,"wearable_sign_word":"increases","loo_dates":["2021-10-29","2022-09-30","2022-12-23","2023-01-03","2023-07-10","2023-11-02","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"loo_actual":[160.0,142.0,137.0,153.0,129.0,179.0,146.0,157.0,133.0,174.0,158.0,172.0],"loo_predicted":[159.678,155.705,145.356,145.835,137.549,154.337,146.084,141.768,157.131,158.306,158.283,192.978]}},{"biomarker":"Glucose","unit":"mg/dL","ref":{"low":70,"high":99,"optimal_low":72,"optimal_high":85,"unit":"mg/dL","active_source":"curated","sources":{"curated":{"high":99,"low":70,"optimal_high":85,"optimal_low":72},"insidetracker":{"high":99,"low":65,"optimal_high":88,"optimal_low":65},"lab":{"high":99,"low":65,"optimal_high":null,"optimal_low":null}}},"n":17,"dates":["2013-01-10","2018-10-20","2019-01-14","2021-07-22","2021-10-29","2022-09-30","2022-12-23","2023-01-03","2023-07-10","2023-11-02","2023-11-16","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"actual":[95.0,76.0,93.0,92.0,96.0,100.0,94.0,97.0,97.0,102.0,97.0,98.0,104.0,97.0,98.0,95.0,107.0],"model_a":{"intercept":60.621,"slope_age":1.0732,"r2_insample":0.295,"loo_r2":-0.37,"loo_mae":4.591,"loo_predicted":[75.555,94.857,92.792,95.182,94.888,95.787,96.166,97.118,97.118,96.789,97.118,98.199,98.724,99.511,99.398,101.183,99.263],"pred_next":100.33},"model_b":{"predictor_key":"garmin_steps_90d","predictor_label":"Steps 90d avg","predictor_source":"Garmin","partial_r":0.455,"b_intercept":-20.3994,"b_age":2.9469,"b_wearable":0.0013,"r2_insample":0.585,"loo_r2":0.085,"loo_mae":4.334,"n":15,"pred_next":null,"pred_interval":null,"today_predictor":null,"wearable_sign_word":"increases","loo_dates":["2018-10-20","2019-01-14","2021-07-22","2021-10-29","2022-09-30","2022-12-23","2023-01-03","2023-07-10","2023-11-02","2023-11-16","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15"],"loo_actual":[76.0,93.0,92.0,96.0,100.0,94.0,97.0,97.0,102.0,97.0,98.0,104.0,97.0,98.0,95.0],"loo_predicted":[91.547,84.149,94.012,93.357,92.713,93.16,96.174,98.649,99.311,101.834,98.775,97.901,99.124,100.248,101.58]}},{"biomarker":"HDL","unit":"mg/dL","ref":{"low":40,"high":null,"optimal_low":60,"optimal_high":null,"unit":"mg/dL","active_source":"curated","sources":{"curated":{"high":null,"low":40,"optimal_high":null,"optimal_low":60},"insidetracker":{"high":200,"low":40,"optimal_high":77,"optimal_low":54},"lab":{"high":null,"low":40,"optimal_high":null,"optimal_low":null}}},"n":16,"dates":["2013-01-10","2018-09-27","2018-10-20","2019-01-14","2021-10-29","2022-09-30","2022-12-23","2023-01-03","2023-07-10","2023-11-02","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"actual":[64.0,70.0,65.0,60.0,59.0,57.0,56.0,54.0,53.0,61.0,67.0,58.0,53.0,64.0,64.0,61.0],"model_a":{"intercept":75.8399,"slope_age":-0.4677,"r2_insample":0.107,"loo_r2":-0.113,"loo_mae":4.485,"loo_predicted":[65.221,60.914,61.795,62.036,61.01,60.631,60.698,60.364,60.436,59.86,58.793,59.122,59.729,58.395,57.609,58.116],"pred_next":58.53},"model_b":{"predictor_key":"strava_avg_hr_90d","predictor_label":"Avg workout HR 90d (bpm)","predictor_source":"Strava","partial_r":0.469,"b_intercept":19.5357,"b_age":0.0783,"b_wearable":0.299,"r2_insample":0.279,"loo_r2":-0.053,"loo_mae":4.41,"n":15,"pred_next":58.63,"pred_interval":4.41,"today_predictor":121.07,"wearable_sign_word":"increases","loo_dates":["2018-09-27","2018-10-20","2019-01-14","2021-10-29","2022-09-30","2022-12-23","2023-01-03","2023-07-10","2023-11-02","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"loo_actual":[70.0,65.0,60.0,59.0,57.0,56.0,54.0,53.0,61.0,67.0,58.0,53.0,64.0,64.0,61.0],"loo_predicted":[60.969,63.228,62.474,64.572,55.136,56.68,57.489,59.88,64.934,59.826,59.362,60.821,59.022,57.244,58.64]}},{"biomarker":"Testosterone","unit":"ng/dL","ref":{"low":300,"high":1000,"optimal_low":500,"optimal_high":900,"unit":"ng/dL","active_source":"curated","sources":{"curated":{"high":1000,"low":300,"optimal_high":900,"optimal_low":500},"insidetracker":{"high":1100,"low":250,"optimal_high":1100,"optimal_low":549.5},"lab":{"high":1100,"low":250,"optimal_high":null,"optimal_low":null}}},"n":7,"dates":["2021-10-29","2023-07-10","2023-11-02","2025-03-06","2025-06-05","2025-12-04","2026-04-15"],"actual":[725.0,495.0,669.0,570.0,608.0,548.0,583.0],"model_a":{"intercept":1468.881,"slope_age":-24.8333,"r2_insample":0.314,"loo_r2":-0.554,"loo_mae":70.301,"loo_predicted":[582.8,656.614,613.545,576.089,566.683,581.535,531.1],"pred_next":550.05},"model_b":{"predictor_key":"whoop_sleep_hrs_90d","predictor_label":"Sleep hours 90d avg","predictor_source":"WHOOP","partial_r":0.811,"b_intercept":226.4195,"b_age":-29.758,"b_wearable":183.676,"r2_insample":0.765,"loo_r2":-0.107,"loo_mae":58.88,"n":7,"pred_next":702.55,"pred_interval":58.88,"today_predictor":8.59,"wearable_sign_word":"increases","loo_dates":["2021-10-29","2023-07-10","2023-11-02","2025-03-06","2025-06-05","2025-12-04","2026-04-15"],"loo_actual":[725.0,495.0,669.0,570.0,608.0,548.0,583.0],"loo_predicted":[687.555,648.385,646.26,516.814,570.392,644.661,571.864]}},{"biomarker":"AST","unit":"U/L","ref":{"low":10,"high":40,"optimal_low":10,"optimal_high":30,"unit":"U/L","active_source":"curated","sources":{"curated":{"high":40,"low":10,"optimal_high":30,"optimal_low":10},"insidetracker":{"high":40,"low":10,"optimal_high":25,"optimal_low":10},"lab":{"high":40,"low":10,"optimal_high":null,"optimal_low":null}}},"n":17,"dates":["2013-01-10","2018-10-20","2019-01-14","2021-07-22","2021-10-29","2022-09-30","2022-12-23","2023-01-03","2023-07-10","2023-11-02","2023-11-16","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"actual":[25.0,18.0,39.0,30.0,26.0,38.0,24.0,42.0,25.0,31.0,45.0,40.0,43.0,32.0,32.0,26.0,32.0],"model_a":{"intercept":4.4488,"slope_age":0.8346,"r2_insample":0.124,"loo_r2":-0.077,"loo_mae":6.824,"loo_predicted":[23.824,30.758,28.172,31.24,31.534,31.611,32.494,32.221,33.339,32.944,32.024,33.14,33.538,34.774,34.774,36.821,35.861],"pred_next":35.33},"model_b":{"predictor_key":"whoop_spo2_30d","predictor_label":"SpO\u2082 30d avg (%)","predictor_source":"WHOOP","partial_r":0.573,"b_intercept":-1138.9968,"b_age":3.7143,"b_wearable":10.8233,"r2_insample":0.333,"loo_r2":-0.266,"loo_mae":6.734,"n":12,"pred_next":33.2,"pred_interval":6.73,"today_predictor":95.61,"wearable_sign_word":"increases","loo_dates":["2022-09-30","2022-12-23","2023-01-03","2023-07-10","2023-11-02","2023-11-16","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"loo_actual":[38.0,24.0,42.0,25.0,31.0,45.0,40.0,43.0,32.0,32.0,26.0,32.0],"loo_predicted":[25.333,35.444,37.838,31.635,43.113,39.137,32.114,37.025,28.647,31.494,35.783,32.418]}},{"biomarker":"Triglycerides","unit":"mg/dL","ref":{"low":null,"high":150,"optimal_low":null,"optimal_high":80,"unit":"mg/dL","active_source":"curated","sources":{"curated":{"high":150,"low":null,"optimal_high":80,"optimal_low":null},"insidetracker":{"high":150,"low":0.0,"optimal_high":82,"optimal_low":0.0},"lab":{"high":150,"low":null,"optimal_high":null,"optimal_low":null}}},"n":16,"dates":["2013-01-10","2018-09-27","2018-10-20","2019-01-14","2021-10-29","2022-09-30","2022-12-23","2023-01-03","2023-07-10","2023-11-02","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15","2026-10-22"],"actual":[50.0,48.0,74.0,39.0,96.0,68.0,75.0,57.0,67.0,120.0,59.0,80.0,78.0,80.0,75.0,54.0],"model_a":{"intercept":5.0781,"slope_age":1.9636,"r2_insample":0.123,"loo_r2":-0.059,"loo_mae":14.532,"loo_predicted":[54.385,64.495,59.912,67.142,65.849,70.002,69.536,72.909,72.189,68.374,75.133,75.255,75.497,75.255,78.193,81.742],"pred_next":77.73},"model_b":{"predictor_key":"garmin_bb_hi_90d","predictor_label":"Body battery hi 90d avg","predictor_source":"Garmin","partial_r":0.576,"b_intercept":-110.4698,"b_age":1.0673,"b_wearable":1.9874,"r2_insample":0.333,"loo_r2":-0.705,"loo_mae":15.518,"n":10,"pred_next":null,"pred_interval":null,"today_predictor":null,"wearable_sign_word":"increases","loo_dates":["2022-09-30","2022-12-23","2023-01-03","2023-07-10","2023-11-02","2024-11-27","2025-03-06","2025-06-05","2025-12-04","2026-04-15"],"loo_actual":[68.0,75.0,57.0,67.0,120.0,59.0,80.0,78.0,80.0,75.0],"loo_predicted":[87.762,47.54,64.94,100.654,72.388,67.999,75.401,79.198,77.258,76.218]}},{"biomarker":"Vitamin D","unit":"ng/mL","ref":{"low":20,"high":50,"optimal_low":40,"optimal_high":60,"unit":"ng/mL","active_source":"curated","sources":{"curated":{"high":50,"low":20,"optimal_high":60,"optimal_low":40},"insidetracker":{"high":100,"low":30,"optimal_high":100,"optimal_low":32},"lab":{"high":100,"low":30,"optimal_high":null,"optimal_low":null}}},"n":6,"dates":["2021-10-29","2023-07-10","2025-03-06","2025-06-05","2025-12-04","2026-04-15"],"actual":[41.0,37.0,34.4,44.4,29.0,26.0],"model_a":{"intercept":109.4634,"slope_age":-2.1089,"r2_insample":0.305,"loo_r2":-0.278,"loo_mae":5.705,"loo_predicted":[45.117,38.011,33.317,30.693,34.735,34.575],"pred_next":31.43},"model_b":{"predictor_key":"whoop_strain_30d","predictor_label":"Day strain 30d avg","predictor_source":"WHOOP","partial_r":-0.794,"b_intercept":295.4779,"b_age":-5.6676,"b_wearable":-5.5128,"r2_insample":0.744,"loo_r2":-0.706,"loo_mae":7.204,"n":6,"pred_next":22.65,"pred_interval":7.2,"today_predictor":11.45,"wearable_sign_word":"decreases","loo_dates":["2021-10-29","2023-07-10","2025-03-06","2025-06-05","2025-12-04","2026-04-15"],"loo_actual":[41.0,37.0,34.4,44.4,29.0,26.0],"loo_predicted":[53.572,26.707,37.113,33.278,33.223,28.301]}},{"biomarker":"HbA1c","unit":"%","ref":{"low":null,"high":5.7,"optimal_low":null,"optimal_high":5.2,"unit":"%","active_source":"curated","sources":{"curated":{"high":5.7,"low":null,"optimal_high":5.2,"optimal_low":null},"insidetracker":{"high":5.7,"low":3,"optimal_high":5.2,"optimal_low":3},"lab":{"high":5.7,"low":null,"optimal_high":null,"optimal_low":null}}},"n":8,"dates":["2018-10-20","2021-10-29","2022-12-23","2023-07-10","2025-03-06","2025-06-05","2025-12-04","2026-04-15"],"actual":[5.1,5.3,5.5,5.5,6.0,5.7,5.6,5.6],"model_a":{"intercept":2.6784,"slope_age":0.0838,"r2_insample":0.716,"loo_r2":0.535,"loo_mae":0.119,"loo_predicted":[5.123,5.376,5.433,5.531,5.621,5.693,5.717,5.85],"pred_next":5.78},"model_b":{"predictor_key":"whoop_spo2_30d","predictor_label":"SpO\u2082 30d avg (%)","predictor_source":"WHOOP","partial_r":0.781,"b_intercept":-42.8664,"b_age":0.189,"b_wearable":0.4353,"r2_insample":0.706,"loo_r2":-1.689,"loo_mae":0.211,"n":6,"pred_next":5.74,"pred_interval":0.21,"today_predictor":95.61,"wearable_sign_word":"increases","loo_dates":["2022-12-23","2023-07-10","2025-03-06","2025-06-05","2025-12-04","2026-04-15"],"loo_actual":[5.5,5.5,6.0,5.7,5.6,5.6],"loo_predicted":[5.634,5.505,5.433,5.434,5.651,5.839]}}],"today":{"whoop_hrv_30d":49.4710556,"whoop_recovery_30d":59.6,"whoop_rhr_30d":53.8,"whoop_strain_30d":11.450734023333332,"whoop_sleep_hrs_30d":8.73648787037037,"whoop_sleep_perf_30d":86.83333333333333,"whoop_spo2_30d":95.60618233333334,"whoop_resp_30d":13.809472616666666,"whoop_skin_temp_30d":34.353539700000006,"whoop_hrv_90d":50.350973044444444,"whoop_recovery_90d":63.955555555555556,"whoop_rhr_90d":53.18888888888889,"whoop_strain_90d":11.613441009999999,"whoop_sleep_hrs_90d":8.586735648148148,"whoop_sleep_perf_90d":87.17777777777778,"strava_hrs_90d":161.72694444444446,"strava_run_miles_90d":41.4986971947,"strava_run_hrs_90d":8.0125,"strava_ride_hrs_90d":135.42694444444444,"strava_avg_hr_90d":121.07222222222224,"strava_avg_watts_90d":181.9943820224719,"garmin_steps_90d":null,"garmin_stress_90d":null,"garmin_bb_hi_90d":null,"garmin_intensity_90d":null,"age":37,"kids":3,"weight":191.0,"vo2max":65.9},"generated":"2026-11-10"};
+const $ = id => document.getElementById(id);
 
-// Fill summary bar with today's wearable values
+// series identity, used by badges, legends and charts alike
+const C_ACTUAL = 'var(--blue)', C_A = 'var(--orange)', C_B = 'var(--teal)';
+const sw = c => `<span class="sw" style="background:${c}"></span>`;
+
+// Fill summary strip with today's wearable values
 const t = DATA.today;
-const fmt = (v, dp=1) => v !== null && v !== undefined ? v.toFixed(dp) : '—';
-document.getElementById('sv-hrv').textContent    = fmt(t.whoop_hrv_30d,    1);
-document.getElementById('sv-sleep').textContent  = fmt(t.whoop_sleep_hrs_30d, 1);
-document.getElementById('sv-strain').textContent = fmt(t.whoop_strain_30d, 1);
+const fmt = (v, dp = 1) => v !== null && v !== undefined ? v.toFixed(dp) : '—';
+$('sv-hrv').textContent    = fmt(t.whoop_hrv_30d, 1);
+$('sv-sleep').textContent  = fmt(t.whoop_sleep_hrs_30d, 1);
+$('sv-strain').textContent = fmt(t.whoop_strain_30d, 1);
+$('meta').textContent = `${DATA.models.length} biomarkers · LOO cross-validated · max 2 predictors`;
 
 // Status colour from ref ranges
 function refColor(val, ref) {
   if (!ref || val === null || val === undefined) return 'var(--text)';
-  const lo = ref.low, hi = ref.high, olo = ref.optimal_low, ohi = ref.optimal_high;
-  if ((lo !== null && val < lo) || (hi !== null && val > hi)) return 'var(--red)';
-  if ((olo === null || val >= olo) && (ohi === null || val <= ohi)) return 'var(--green)';
-  return 'var(--yellow)';
+  const lo = ref.low ?? null, hi = ref.high ?? null, olo = ref.optimal_low ?? null, ohi = ref.optimal_high ?? null;
+  if ((lo !== null && val < lo) || (hi !== null && val > hi)) return 'var(--bad)';
+  if ((olo === null || val >= olo) && (ohi === null || val <= ohi)) return 'var(--good)';
+  return 'var(--warn)';
 }
-
 function r2Color(r2) {
   if (r2 === null || r2 === undefined) return 'var(--muted)';
-  if (r2 >= 0.6) return 'var(--green)';
-  if (r2 >= 0.3) return 'var(--yellow)';
-  if (r2 >= 0)   return 'var(--orange)';
-  return 'var(--red)';
+  if (r2 >= 0.6) return 'var(--good)';
+  if (r2 >= 0.3) return 'var(--warn)';
+  if (r2 >= 0)   return 'var(--gray)';
+  return 'var(--bad)';
 }
-
 function r2Label(r2) {
   if (r2 === null || r2 === undefined) return '—';
   if (r2 >= 0.7) return 'strong';
@@ -219,99 +150,109 @@ function r2Label(r2) {
   if (r2 >= 0)   return 'near-zero';
   return 'worse than mean';
 }
+function metricRows(pairs) {
+  return '<div>' + pairs.map(([l, v]) =>
+    `<div class="metric-row"><span class="metric-label">${l}</span><span class="metric-val">${v}</span></div>`
+  ).join('') + '</div>';
+}
+function r2Bar(r2) {
+  if (r2 === null || r2 === undefined) return '';
+  const pct = Math.max(0, Math.min(100, Math.round(r2 * 100)));
+  return `<div title="LOO R² = ${r2}">
+    <div class="r2-track"><div class="r2-fill" style="width:${pct}%;background:${r2Color(r2)}"></div></div>
+    <div class="r2-lbl">LOO R² = ${r2.toFixed(2)} (${r2Label(r2)})</div>
+  </div>`;
+}
+const slug = s => 'm-' + s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const hasModelB = m => !!(m.model_b && m.model_b.loo_r2 !== null);
 
-const container = document.getElementById('models-container');
+// ── overview: best-model LOO R² per biomarker ──────────────────────────────
+(function () {
+  const rows = DATA.models.map(m => {
+    const b = hasModelB(m), r2 = b ? m.model_b.loo_r2 : m.model_a.loo_r2;
+    return { m, b, r2 };
+  }).filter(d => d.r2 !== null && d.r2 !== undefined);
+  AR.legend('#r2-legend', [
+    rows.some(d => !d.b) && { name: 'Model A (age only)', color: C_A },
+    rows.some(d => d.b) && { name: 'Model B (age + wearable)', color: C_B }].filter(Boolean));
+  AR.hbarChart('#r2-chart', {
+    labels: rows.map(d => d.m.biomarker), values: rows.map(d => Math.max(-1, d.r2)),
+    labelWidth: 130, rowHeight: 24,
+    colors: (v, i) => rows[i].b ? C_B : C_A,
+    fmt: v => v.toFixed(2),
+    tip: i => {
+      const d = rows[i], A = d.m.model_a, B = d.m.model_b;
+      return `<b>${d.m.biomarker}</b><br>${sw(C_A)}<span class="dim">Model A: age only · LOO R²</span> ${A.loo_r2 !== null ? A.loo_r2.toFixed(2) : '—'}` +
+        (d.b ? `<br>${sw(C_B)}<span class="dim">Model B: +${B.predictor_label} · LOO R²</span> ${B.loo_r2.toFixed(2)}` : '') +
+        `<br><span class="dim">${r2Label(d.r2)}</span>`;
+    },
+  });
+  // hbarChart prints the plotted (clamped) value; show the real one where it was cut off
+  const fix = () => d3.select('#r2-chart').selectAll('.val-label').text((i) => rows[i].r2.toFixed(2));
+  fix(); new ResizeObserver(() => requestAnimationFrame(fix)).observe($('r2-chart'));
+})();
+
+// ── one card per biomarker ─────────────────────────────────────────────────
+const container = $('models-container');
 
 DATA.models.forEach(m => {
   const A = m.model_a;
   const B = m.model_b;
-  const hasB = B && B.loo_r2 !== null;
+  const hasB = hasModelB(m);
 
   const card = document.createElement('div');
-  card.className = 'model-card';
+  card.className = 'metric-card model';
+  card.id = slug(m.biomarker);
 
-  // ---- Header ----
   const latestActual = m.actual[m.actual.length - 1];
   const latestDate   = m.dates[m.dates.length - 1];
-  const col = refColor(latestActual, m.ref);
 
   const badges = [
-    `<span class="badge badge-a">Model A: age only · LOO-R²=${A.loo_r2 !== null ? A.loo_r2.toFixed(2) : '—'}</span>`,
-    hasB ? `<span class="badge badge-b">Model B: +${B.predictor_label} · LOO-R²=${B.loo_r2 !== null ? B.loo_r2.toFixed(2) : '—'}</span>` : '',
-    (A.loo_r2 !== null && A.loo_r2 < 0 && (!hasB || B.loo_r2 < 0)) ? `<span class="badge badge-warn">⚠ predictive power is noise</span>` : '',
+    `<span class="badge">${sw(C_A)}Model A: age only · LOO-R²=${A.loo_r2 !== null ? A.loo_r2.toFixed(2) : '—'}</span>`,
+    hasB ? `<span class="badge">${sw(C_B)}Model B: +${B.predictor_label} · LOO-R²=${B.loo_r2 !== null ? B.loo_r2.toFixed(2) : '—'}</span>` : '',
+    (A.loo_r2 !== null && A.loo_r2 < 0 && (!hasB || B.loo_r2 < 0)) ? `<span class="badge warn">⚠ predictive power is noise</span>` : '',
   ].filter(Boolean).join('');
 
-  card.innerHTML = `
-    <div class="model-header">
-      <div>
-        <div class="model-bm">${m.biomarker} <span class="model-unit">${m.unit}</span></div>
-        <div class="badge-row">${badges}</div>
-      </div>
-      <div style="text-align:right;">
-        <div style="font-size:1.3rem;font-weight:700;color:${col};">${latestActual}</div>
-        <div style="font-size:0.7rem;color:var(--muted);">latest · ${latestDate}</div>
-      </div>
-    </div>
-  `;
-
-  const body = document.createElement('div');
-  body.className = 'model-body';
-
-  // ---- Model columns ----
-  const cols = document.createElement('div');
-  cols.className = 'model-cols';
-
   // Model A column
-  const colA = document.createElement('div');
-  colA.className = 'model-col';
-  colA.innerHTML = `<h4>Model A — Age only (n=${m.n})</h4>`;
-  colA.innerHTML += metricRows([
+  let colA = `<div><div class="sub-title">Model A — Age only (n=${m.n})</div>`;
+  colA += metricRows([
     ['Slope (per year)', A.slope_age > 0 ? `+${A.slope_age.toFixed(3)}` : A.slope_age.toFixed(3)],
     ['In-sample R²',     A.r2_insample !== null ? A.r2_insample.toFixed(3) : '—'],
     ['LOO R²',           A.loo_r2 !== null ? A.loo_r2.toFixed(3) : '—'],
     ['LOO MAE',          A.loo_mae !== null ? `±${A.loo_mae.toFixed(2)} ${m.unit}` : '—'],
     ['Age-only prediction', `${A.pred_next !== undefined ? A.pred_next.toFixed(1) : '—'} ${m.unit}`],
-  ]);
-  colA.innerHTML += r2Bar(A.loo_r2);
-  cols.appendChild(colA);
+  ]) + r2Bar(A.loo_r2) + '</div>';
 
   // Model B column
-  const colB = document.createElement('div');
-  colB.className = 'model-col';
+  let colB;
   if (hasB) {
     const srcBadge = {'WHOOP':'⌚','Strava':'🏃','Life':'⚖️','Fitness':'🫁'}[B.predictor_source] || '';
-    colB.innerHTML = `<h4>Model B — Age + ${srcBadge} ${B.predictor_label} (n=${B.n})</h4>`;
     const bSign = B.b_wearable > 0 ? '+' : '';
-    colB.innerHTML += metricRows([
-      ['Partial r (age-adj)',  B.partial_r > 0 ? `+${B.partial_r.toFixed(3)}` : B.partial_r.toFixed(3)],
-      ['Coeff (wearable)',     `${bSign}${B.b_wearable.toFixed(4)} per unit`],
-      ['In-sample R²',         B.r2_insample !== null ? B.r2_insample.toFixed(3) : '—'],
-      ['LOO R²',               B.loo_r2 !== null ? B.loo_r2.toFixed(3) : '—'],
-      ['LOO MAE',              B.loo_mae !== null ? `±${B.loo_mae.toFixed(2)} ${m.unit}` : '—'],
-    ]);
-    colB.innerHTML += r2Bar(B.loo_r2);
+    colB = `<div><div class="sub-title">Model B — Age + ${srcBadge} ${B.predictor_label} (n=${B.n})</div>` +
+      metricRows([
+        ['Partial r (age-adj)',  B.partial_r > 0 ? `+${B.partial_r.toFixed(3)}` : B.partial_r.toFixed(3)],
+        ['Coeff (wearable)',     `${bSign}${B.b_wearable.toFixed(4)} per unit`],
+        ['In-sample R²',         B.r2_insample !== null ? B.r2_insample.toFixed(3) : '—'],
+        ['LOO R²',               B.loo_r2 !== null ? B.loo_r2.toFixed(3) : '—'],
+        ['LOO MAE',              B.loo_mae !== null ? `±${B.loo_mae.toFixed(2)} ${m.unit}` : '—'],
+      ]) + r2Bar(B.loo_r2) + '</div>';
   } else {
-    colB.innerHTML = `<h4>Model B — no wearable predictor</h4>
-      <p style="color:var(--muted);font-size:0.8rem;margin-top:0.4rem;">
+    colB = `<div><div class="sub-title">Model B — no wearable predictor</div>
+      <p class="no-b">
         Either no wearable covariate met the minimum threshold
         (|partial r| ≥ 0.3, n ≥ 5) or there were insufficient
         overlapping draws for LOO validation.
-      </p>`;
+      </p></div>`;
   }
-  cols.appendChild(colB);
-  body.appendChild(cols);
 
-  // ---- Next draw prediction ----
-  const predModel = hasB ? B : A;
-  const predVal   = hasB ? B.pred_next : A.pred_next;
-  const predMae   = hasB ? B.loo_mae  : A.loo_mae;
+  // Next draw prediction
+  const predVal = hasB ? B.pred_next : A.pred_next;
+  const predMae = hasB ? B.loo_mae  : A.loo_mae;
+  let pred = '';
   if (predVal !== null && predVal !== undefined) {
-    const predBox = document.createElement('div');
-    predBox.className = 'pred-box';
-    const pCol = refColor(predVal, m.ref);
-    predBox.innerHTML = `
-      <h4>Next draw prediction (based on today's covariates)</h4>
-      <div class="pred-val" style="color:${pCol}">${predVal.toFixed(1)} <span style="font-size:0.9rem;font-weight:400;color:var(--muted)">${m.unit}</span></div>
+    pred = `<div class="pred-box">
+      <div class="sub-title">Next draw prediction (based on today's covariates)</div>
+      <div class="pred-val" style="color:${refColor(predVal, m.ref)}">${predVal.toFixed(1)} <span>${m.unit}</span></div>
       ${predMae ? `<div class="pred-range">±${predMae.toFixed(2)} ${m.unit} (±1 LOO-MAE)</div>` : ''}
       ${hasB && B.today_predictor !== null ? `
         <div class="pred-note">
@@ -320,149 +261,53 @@ DATA.models.forEach(m => {
           Higher ${B.predictor_label} ${B.wearable_sign_word} ${m.biomarker}
           (coeff ${B.b_wearable > 0 ? '+':''}${B.b_wearable.toFixed(4)}).
         </div>` : `<div class="pred-note">Age-only prediction — no wearable data available today for this model.</div>`}
-    `;
-    body.appendChild(predBox);
+    </div>`;
   }
 
-  // ---- LOO scatter chart ----
-  const chartDiv = document.createElement('div');
-  chartDiv.innerHTML = '<div style="font-size:0.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;margin-top:0.75rem;">LOO cross-validated: actual vs predicted</div>';
-  const wrap = document.createElement('div');
-  wrap.className = 'chart-wrap';
-  const canvas = document.createElement('canvas');
-  wrap.appendChild(canvas);
-  chartDiv.appendChild(wrap);
-
-  const legRow = document.createElement('div');
-  legRow.className = 'legend-row';
-  legRow.innerHTML = `
-    <div class="legend-item"><div class="legend-swatch" style="background:#60a5fa"></div>Actual</div>
-    <div class="legend-item"><div class="legend-swatch" style="background:#818cf8;opacity:0.7"></div>Model A (age)</div>
-    ${hasB ? `<div class="legend-item"><div class="legend-swatch" style="background:#22c55e;opacity:0.7"></div>Model B (age + wearable)</div>` : ''}
-  `;
-  chartDiv.appendChild(legRow);
-  body.appendChild(chartDiv);
-
-  card.appendChild(body);
+  card.innerHTML = `
+    <div class="metric-card-header">
+      <div>
+        <div class="model-bm">${m.biomarker} <span class="model-unit">${m.unit}</span></div>
+        <div class="badge-row">${badges}</div>
+      </div>
+      <div class="latest">
+        <div class="metric-card-val" style="color:${refColor(latestActual, m.ref)}">${latestActual}</div>
+        <div class="n-lbl">latest · ${latestDate}</div>
+      </div>
+    </div>
+    <div class="model-cols">${colA}${colB}</div>
+    ${pred}
+    <div class="sub-title">LOO cross-validated: actual vs predicted</div>
+    <div class="legend"></div>
+    <div class="chart-area"></div>`;
   container.appendChild(card);
 
-  // Render chart
-  const labels = m.dates;
-  const datasets = [
-    {
-      label: 'Actual',
-      data:  m.actual,
-      borderColor: '#60a5fa',
-      backgroundColor: '#60a5fa',
-      borderWidth: 2,
-      pointRadius: 5,
-      pointHoverRadius: 7,
-      tension: 0.2,
-      fill: false,
-      type: 'line',
-    },
-    {
-      label: 'Model A (LOO)',
-      data: (() => {
-        const pts = new Array(labels.length).fill(null);
-        A.loo_predicted.forEach((v, i) => { pts[m.dates.indexOf(m.dates[i])] = v; });
-        return pts;
-      })(),
-      borderColor: 'rgba(129,140,248,0.7)',
-      backgroundColor: 'transparent',
-      borderWidth: 1.5,
-      borderDash: [4,3],
-      pointRadius: 4,
-      fill: false,
-      type: 'line',
-    },
+  // LOO chart: actual vs each model's held-out prediction
+  const series = [
+    { name: 'Actual', values: m.actual, color: C_ACTUAL, dots: true },
+    { name: 'Model A (age)', values: m.dates.map((d, i) => A.loo_predicted[i] ?? null), color: C_A, dashed: true, width: 1.5, dots: true },
   ];
-
   if (hasB && B.loo_predicted && B.loo_predicted.length > 0) {
     // Model B only covers the wearable-overlap dates
-    const bData = new Array(labels.length).fill(null);
-    B.loo_dates.forEach((d, i) => {
-      const idx = labels.indexOf(d);
-      if (idx >= 0) bData[idx] = B.loo_predicted[i];
-    });
-    datasets.push({
-      label: 'Model B (LOO)',
-      data: bData,
-      borderColor: 'rgba(34,197,94,0.8)',
-      backgroundColor: 'transparent',
-      borderWidth: 1.5,
-      borderDash: [2,2],
-      pointRadius: 4,
-      fill: false,
-      type: 'line',
-    });
+    const byDate = Object.fromEntries(B.loo_dates.map((d, i) => [d, B.loo_predicted[i]]));
+    series.push({ name: 'Model B (age + wearable)', values: m.dates.map(d => byDate[d] ?? null), color: C_B, dashed: true, width: 1.5, dots: true });
   }
-
-  new Chart(canvas, {
-    type: 'line',
-    data: { labels, datasets },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: '#1a1d27',
-          borderColor: '#2e3250',
-          borderWidth: 1,
-          titleColor: '#e2e8f0',
-          bodyColor: '#8892a4',
-          callbacks: { label: ctx => ctx.parsed.y !== null ? ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)} ${m.unit}` : null },
-          filter: item => item.parsed.y !== null,
-        },
-      },
-      scales: {
-        x: { grid: { color: 'rgba(46,50,80,0.6)' }, ticks: { color:'#8892a4', maxRotation:45, font:{size:9} } },
-        y: {
-          grid: { color: 'rgba(46,50,80,0.6)' },
-          ticks: { color:'#8892a4', font:{size:10} },
-        },
-      },
-    },
+  AR.legend(card.querySelector('.legend'), series);
+  AR.lineChart(card.querySelector('.chart-area'), {
+    x: m.dates, series, height: 180,
+    tip: i => `<b>${AR.fmtDate(m.dates[i])}</b><br>` + series.filter(s => s.values[i] != null).map(s =>
+      `${sw(s.color)}<span class="dim">${s.name}</span> ${s.values[i].toFixed(2)} ${m.unit}`).join('<br>'),
   });
 });
 
-// ---- Helpers ----
-function metricRows(pairs) {
-  return '<div>' + pairs.map(([l,v]) =>
-    `<div class="metric-row"><span class="metric-label">${l}</span><span class="metric-val">${v}</span></div>`
-  ).join('') + '</div>';
-}
-
-function r2Bar(r2) {
-  if (r2 === null || r2 === undefined) return '';
-  const pct = Math.max(0, Math.min(100, Math.round(r2 * 100)));
-  const col = r2Color(r2);
-  return `<div class="r2-bar" title="LOO R² = ${r2}">
-    <div class="r2-track"><div class="r2-fill" style="width:${pct}%;background:${col};"></div></div>
-    <div style="font-size:0.68rem;color:${col};margin-top:2px;">LOO R² = ${r2.toFixed(2)} (${r2Label(r2)})</div>
-  </div>`;
-}
-
-function r2Color(r2) {
-  if (r2 === null || r2 === undefined) return 'var(--muted)';
-  if (r2 >= 0.6) return 'var(--green)';
-  if (r2 >= 0.3) return 'var(--yellow)';
-  if (r2 >= 0)   return 'var(--orange)';
-  return 'var(--red)';
-}
-
-function r2Label(r2) {
-  if (r2 >= 0.7) return 'strong';
-  if (r2 >= 0.4) return 'moderate';
-  if (r2 >= 0.1) return 'weak';
-  if (r2 >= 0)   return 'near-zero';
-  return 'worse than mean';
-}
-
-document.getElementById('footer').textContent =
-  `Generated ${DATA.generated} · ${DATA.models.length} biomarkers · LOO cross-validated · max 2 predictors`;
+// sidebar anchors: mark the biomarker being read
+(function () {
+  const links = [...document.querySelectorAll('.nav-item[href^="#"]')];
+  const mark = id => links.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + id));
+  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) mark(e.target.id); }),
+                                      { rootMargin: '-25% 0px -65% 0px' });
+  document.querySelectorAll('.metric-card.model, #overview').forEach(el => io.observe(el));
+})();
 </script>
 </body>
 </html>

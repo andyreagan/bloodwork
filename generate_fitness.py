@@ -30,6 +30,8 @@ import sqlite3
 from datetime import date, datetime, timedelta
 from collections import defaultdict
 
+import shell
+
 HTML_FILE  = os.path.join(os.path.dirname(__file__), "fitness.html")
 
 GARMIN_DB = os.path.expanduser("~/projects/2026/garmin-database/garmin.db")
@@ -398,340 +400,215 @@ def build_scatter_data(garmin: dict, whoop: dict, strava: dict) -> dict:
 def build_html(stats: dict, monthly: list[dict], scatter: dict,
                combined_summary: dict) -> str:
 
+    generated = date.today().isoformat()
     payload = json.dumps({
         "stats":    stats,
         "monthly":  monthly,
         "scatter":  scatter,
         "summary":  combined_summary,
         "blood_draws": BLOOD_DRAW_DATES,
-        "generated": date.today().isoformat(),
+        "generated": generated,
     }, separators=(",", ":"))
 
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Andy — Fitness Sources</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
-<style>
-  :root{{
-    --bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;
-    --border:#2e3250;--text:#e2e8f0;--muted:#8892a4;
-    --green:#22c55e;--yellow:#eab308;--red:#ef4444;
-    --blue:#60a5fa;--accent:#818cf8;--orange:#f97316;
-    --radius:12px;
-  }}
-  *{{box-sizing:border-box;margin:0;padding:0;}}
-  body{{background:var(--bg);color:var(--text);
-       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-       font-size:14px;line-height:1.5;padding:1rem;}}
+    nav = """  <div class="nav-section">
+    <div class="nav-section-title">Fitness Sources</div>
+    <div class="nav-item active" data-section="compare"><span class="icon">⚖️</span> Source Comparison</div>
+    <div class="nav-item" data-section="trends"><span class="icon">📈</span> Combined Trends</div>
+    <div class="nav-item" data-section="coverage"><span class="icon">📅</span> Coverage</div>
+  </div>"""
 
-  header{{display:flex;align-items:center;justify-content:space-between;
-          padding:1.25rem 1.5rem;background:var(--surface);
-          border-radius:var(--radius);border:1px solid var(--border);
-          margin-bottom:1.5rem;flex-wrap:wrap;gap:0.75rem;}}
-  header h1{{font-size:1.3rem;font-weight:700;}}
-  header p{{color:var(--muted);font-size:0.85rem;margin-top:2px;}}
-  .nav-link{{display:inline-flex;align-items:center;gap:0.4rem;
-             background:var(--surface2);border:1px solid var(--border);
-             color:var(--accent);border-radius:6px;padding:0.35rem 0.8rem;
-             font-size:0.8rem;font-weight:600;text-decoration:none;transition:all 0.15s;}}
-  .nav-link:hover{{background:var(--accent);border-color:var(--accent);color:white;}}
+    return shell.head("Andy — Fitness Sources", generated, PAGE_CSS) + f"""<body>
 
-  .tabs{{display:flex;gap:0.5rem;margin-bottom:1.5rem;flex-wrap:wrap;}}
-  .tab-btn{{background:var(--surface);border:1px solid var(--border);
-            color:var(--muted);border-radius:6px;padding:0.4rem 0.85rem;
-            font-size:0.8rem;cursor:pointer;transition:all 0.15s;}}
-  .tab-btn:hover,.tab-btn.active{{background:var(--accent);border-color:var(--accent);color:white;}}
-  .tab-panel{{display:none;}}.tab-panel.active{{display:block;}}
-
-  .section{{margin-bottom:2rem;}}
-  .section>h2{{font-size:1rem;font-weight:700;color:var(--accent);
-               margin-bottom:0.75rem;padding-bottom:0.5rem;
-               border-bottom:1px solid var(--border);}}
-  .section>p.desc{{color:var(--muted);font-size:0.82rem;margin-bottom:1rem;line-height:1.6;}}
-
-  /* Stat grid */
-  .stat-grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0.85rem;margin-bottom:1.5rem;}}
-  .stat-card{{background:var(--surface);border:1px solid var(--border);
-              border-radius:var(--radius);padding:0.85rem 1rem;}}
-  .stat-card .label{{font-size:0.72rem;color:var(--muted);text-transform:uppercase;
-                     letter-spacing:0.04em;margin-bottom:0.3rem;}}
-  .stat-card .value{{font-size:1.25rem;font-weight:700;}}
-  .stat-card .sub{{font-size:0.72rem;color:var(--muted);margin-top:2px;}}
-
-  /* Source comparison table */
-  .compare-table{{width:100%;border-collapse:collapse;font-size:0.82rem;}}
-  .compare-table th{{padding:7px 10px;font-weight:600;color:var(--muted);
-                     text-align:left;border-bottom:1px solid var(--border);}}
-  .compare-table td{{padding:7px 10px;border-bottom:1px solid rgba(46,50,80,0.4);}}
-  .compare-table tr:nth-child(even){{background:rgba(255,255,255,0.02);}}
-  .verdict-good{{color:var(--green);font-weight:700;}}
-  .verdict-ok{{color:var(--yellow);font-weight:700;}}
-  .verdict-poor{{color:var(--red);font-weight:700;}}
-
-  /* Source legend pills */
-  .src-pill{{display:inline-block;font-size:0.65rem;font-weight:700;
-             padding:1px 5px;border-radius:4px;margin-left:4px;}}
-  .src-whoop{{background:rgba(34,197,94,0.2);color:#22c55e;}}
-  .src-garmin{{background:rgba(96,165,250,0.2);color:#60a5fa;}}
-  .src-strava{{background:rgba(249,115,22,0.2);color:#f97316;}}
-
-  /* Charts */
-  .charts-grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem;}}
-  .chart-card{{background:var(--surface);border:1px solid var(--border);
-               border-radius:var(--radius);padding:1rem;}}
-  .chart-header{{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:0.5rem;}}
-  .chart-title{{font-size:0.82rem;font-weight:700;}}
-  .chart-meta{{text-align:right;font-size:0.7rem;color:var(--muted);}}
-  .chart-wrap{{height:160px;position:relative;}}
-  .full-card{{grid-column:1/-1;}}
-  .tall-wrap{{height:220px;position:relative;}}
-
-  .legend-row{{display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:0.4rem;}}
-  .legend-item{{display:flex;align-items:center;gap:4px;font-size:0.65rem;color:var(--muted);}}
-  .legend-swatch{{width:12px;height:8px;border-radius:2px;}}
-
-  /* Coverage summary */
-  .coverage-grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:0.75rem;}}
-  .cov-card{{background:var(--surface);border:1px solid var(--border);
-             border-radius:var(--radius);padding:0.85rem 1rem;}}
-  .cov-metric{{font-size:0.82rem;font-weight:700;margin-bottom:0.4rem;}}
-  .cov-bar-track{{height:6px;background:rgba(255,255,255,0.08);border-radius:3px;margin:3px 0;}}
-  .cov-bar-fill{{height:6px;border-radius:3px;}}
-  .cov-note{{font-size:0.72rem;color:var(--muted);line-height:1.5;margin-top:4px;}}
-
-  footer{{text-align:center;color:var(--muted);font-size:0.75rem;
-          padding:1rem 0;border-top:1px solid var(--border);margin-top:2rem;}}
-  @media(max-width:600px){{.charts-grid{{grid-template-columns:1fr;}}}}
-</style>
-</head>
-<body>
-
-<header>
-  <div>
-    <h1>📊 Fitness Sources</h1>
-    <p>Garmin Connect · WHOOP · Strava — comparison, coverage &amp; combined signals</p>
+{shell.sidebar("fitness.html", nav)}
+<div class="main">
+  <div class="topbar">
+    <div>
+      <h1 id="section-title">Source Comparison</h1>
+      <div class="subtitle">Garmin Connect · WHOOP · Strava — comparison, coverage &amp; combined signals</div>
+    </div>
   </div>
-  <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-    <a href="correlations.html" class="nav-link">🔬 Correlations</a>
-    <a href="models.html"       class="nav-link">📐 Models</a>
-    <a href="index.html"        class="nav-link">← Dashboard</a>
-  </div>
-</header>
 
-<div class="tabs" id="tabs"></div>
-<div id="panels"></div>
-<footer id="footer"></footer>
+  <div class="content">
+    <div class="section active" id="section-compare"></div>
+    <div class="section" id="section-trends"></div>
+    <div class="section" id="section-coverage"></div>
+  </div>
+</div>
 
 <script>
-const DATA = {payload};
+""" + PAGE_JS.replace("__DATA__", payload) + """</script>
+</body>
+</html>
+"""
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-const tabsEl   = document.getElementById('tabs');
-const panelsEl = document.getElementById('panels');
-let firstTab   = true;
 
-function addTab(label, id, buildFn) {{
-  const btn = document.createElement('button');
-  btn.className = 'tab-btn' + (firstTab ? ' active' : '');
-  btn.textContent = label;
-  btn.addEventListener('click', () => {{
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('panel-'+id).classList.add('active');
-  }});
-  tabsEl.appendChild(btn);
-  const panel = document.createElement('div');
-  panel.className = 'tab-panel' + (firstTab ? ' active' : '');
-  panel.id = 'panel-'+id;
-  buildFn(panel);
-  panelsEl.appendChild(panel);
-  firstTab = false;
-}}
+# Page-local styles: only what the kit (ar.css) lacks.
+PAGE_CSS = """<style>
+.desc { color: var(--muted); font-size: 0.82rem; line-height: 1.6; margin: -4px 0 14px; max-width: 80ch; }
+.block { margin-bottom: 28px; }
+.kpi-strip.wide-tiles { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+.kpi-card .badge { margin-top: 8px; }
+/* three-up chart grid steps down to two before the kit's single-column break */
+@media (max-width: 1250px) { .metric-grid.three { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 900px)  { .metric-grid.three { grid-template-columns: minmax(0, 1fr); } }
+/* source pill: neutral badge + identity-colour dot */
+.src-pill { display: inline-flex; align-items: center; gap: 5px; margin-right: 4px; }
+.src-pill .sw { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+td.wrap { white-space: normal; min-width: 240px; color: var(--muted); }
+.legend-item .sw.dash { height: 0; width: 14px; border-top: 1px dashed var(--muted); border-radius: 0; }
+.legend-item .sw.ramp { width: 44px; background: linear-gradient(90deg, var(--blue), var(--orange)); }
+.cov-row + .cov-row { margin-top: 10px; }
+.cov-label { font-size: 0.75rem; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+.cov-label .sw { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+</style>"""
 
-function mkSection(title, desc) {{
+# Page script.  Plain string (not an f-string): __DATA__ is replaced with the
+# JSON payload.  All charts are d3 via the kit's AR.* helpers.
+PAGE_JS = r"""const DATA = __DATA__;
+const $ = id => document.getElementById(id);
+
+// Source identity colours
+const SRC = {
+  garmin: { name: 'Garmin', color: 'var(--blue)' },
+  whoop:  { name: 'WHOOP',  color: 'var(--pink)' },
+  strava: { name: 'Strava', color: 'var(--orange)' },
+  either: { name: 'either', color: null },
+};
+const srcPill = k => `<span class="badge src-pill">${SRC[k].color ? `<span class="sw" style="background:${SRC[k].color}"></span>` : ''}${SRC[k].name}</span>`;
+
+// ── NAV ───────────────────────────────────────────────────────────────────
+const TITLES = { compare: 'Source Comparison', trends: 'Combined Trends', coverage: 'Coverage' };
+function show(id) {
+  if (!TITLES[id]) id = 'compare';
+  document.querySelectorAll('.nav-item[data-section]').forEach(n =>
+    n.classList.toggle('active', n.dataset.section === id));
+  document.querySelectorAll('.section').forEach(s =>
+    s.classList.toggle('active', s.id === 'section-' + id));
+  $('section-title').textContent = TITLES[id];
+  if (location.hash.slice(1) !== id) history.replaceState(null, '', '#' + id);
+  window.scrollTo(0, 0);
+}
+document.querySelectorAll('.nav-item[data-section]').forEach(n =>
+  n.addEventListener('click', () => show(n.dataset.section)));
+window.addEventListener('hashchange', () => show(location.hash.slice(1)));
+
+// ── HELPERS ───────────────────────────────────────────────────────────────
+function mkSection(parent, title, desc) {
   const sec = document.createElement('div');
-  sec.className = 'section';
-  sec.innerHTML = `<h2>${{title}}</h2>` + (desc ? `<p class="desc">${{desc}}</p>` : '');
+  sec.className = 'block';
+  sec.innerHTML = `<div class="section-heading">${title}</div>` + (desc ? `<p class="desc">${desc}</p>` : '');
+  parent.appendChild(sec);
   return sec;
-}}
+}
 
-function chartCard(title, meta, height, full) {{
+function chartCard(grid, title, sub) {
   const card = document.createElement('div');
-  card.className = 'chart-card' + (full ? ' full-card' : '');
-  card.innerHTML = `<div class="chart-header">
-    <div class="chart-title">${{title}}</div>
-    <div class="chart-meta">${{meta||''}}</div>
-  </div>`;
-  const wrap = document.createElement('div');
-  wrap.className = height > 160 ? 'tall-wrap' : 'chart-wrap';
-  wrap.style.height = height + 'px';
-  const canvas = document.createElement('canvas');
-  wrap.appendChild(canvas);
-  card.appendChild(wrap);
-  return {{card, canvas}};
-}}
+  card.className = 'metric-card';
+  card.innerHTML = `
+    <div class="metric-card-header"><div class="metric-card-title">${title}</div></div>
+    <div class="metric-card-sub">${sub || ''}</div>
+    <div class="chart-area"></div>`;
+  grid.appendChild(card);
+  return card;
+}
 
-function scatterChart(canvas, pts, xLabel, yLabel, color) {{
-  if (!pts || pts.length === 0) return;
-  const years = pts.map(p => parseInt(p.date.substring(0,4)));
-  const minYr = Math.min(...years), maxYr = Math.max(...years);
-  const colors = pts.map(p => {{
-    const t = maxYr===minYr ? 0.5 : (parseInt(p.date.substring(0,4))-minYr)/(maxYr-minYr);
-    return `rgba(${{Math.round(96+t*(249-96))}},${{Math.round(165+t*(115-165))}},${{Math.round(250+t*(22-250))}},0.8)`;
-  }});
+// Scatter of weekly means, coloured blue (early) → orange (recent) by date,
+// with a least-squares line.  The ramp is a CSS color-mix of two kit tokens,
+// so it follows the theme without a redraw.
+function scatterChart(card, pts, xLabel, yLabel) {
+  if (!pts || pts.length === 0) {
+    card.querySelector('.chart-area').innerHTML = '<div class="empty">No data</div>';
+    return;
+  }
+  const t0 = AR.parseDate(pts[0].date), t1 = AR.parseDate(pts[pts.length - 1].date);
+  const ramp = p => {
+    const t = t1 > t0 ? (AR.parseDate(p.date) - t0) / (t1 - t0) : 0.5;
+    return `color-mix(in srgb, var(--orange) ${Math.round(t * 100)}%, var(--blue))`;
+  };
   // regression line
-  const n = pts.length, xs = pts.map(p=>p.x), ys = pts.map(p=>p.y);
-  const mx=xs.reduce((a,b)=>a+b,0)/n, my=ys.reduce((a,b)=>a+b,0)/n;
-  const num=xs.reduce((s,x,i)=>s+(x-mx)*(ys[i]-my),0);
-  const den=xs.reduce((s,x)=>s+(x-mx)**2,0);
-  const b = den>0 ? num/den : 0, a = my-b*mx;
-  const xMin=Math.min(...xs), xMax=Math.max(...xs);
-  const r = den>0 ? num/(den**0.5 * ys.reduce((s,y)=>s+(y-my)**2,0)**0.5) : 0;
+  const n = pts.length, xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+  const mx = xs.reduce((a, b) => a + b, 0) / n, my = ys.reduce((a, b) => a + b, 0) / n;
+  const num = xs.reduce((s, x, i) => s + (x - mx) * (ys[i] - my), 0);
+  const den = xs.reduce((s, x) => s + (x - mx) ** 2, 0);
+  const b = den > 0 ? num / den : 0, a = my - b * mx;
+  const r = den > 0 ? num / (den ** 0.5 * ys.reduce((s, y) => s + (y - my) ** 2, 0) ** 0.5) : 0;
 
-  new Chart(canvas, {{
-    type: 'scatter',
-    data: {{datasets:[
-      {{label:'data', data:pts.map(p=>({{x:p.x,y:p.y}})),
-        backgroundColor:colors, borderColor:colors, borderWidth:1.5,
-        pointRadius:4, pointHoverRadius:6}},
-      {{label:'trend', data:[{{x:xMin,y:a+b*xMin}},{{x:xMax,y:a+b*xMax}}],
-        type:'line', borderColor:'rgba(129,140,248,0.5)', borderWidth:1.5,
-        borderDash:[4,3], pointRadius:0, fill:false}},
-    ]}},
-    options:{{
-      responsive:true, maintainAspectRatio:false,
-      plugins:{{
-        legend:{{display:false}},
-        tooltip:{{backgroundColor:'#1a1d27',borderColor:'#2e3250',borderWidth:1,
-                 titleColor:'#e2e8f0',bodyColor:'#8892a4',
-                 callbacks:{{
-                   title:items=>pts[items[0].dataIndex]?.date||'',
-                   label:ctx=>`${{xLabel}}: ${{ctx.parsed.x}}, ${{yLabel}}: ${{ctx.parsed.y}}`,
-                 }},
-                 filter:item=>item.dataset.label==='data'}},
-      }},
-      scales:{{
-        x:{{title:{{display:true,text:xLabel,color:'#8892a4',font:{{size:9}}}},
-            grid:{{color:'rgba(46,50,80,0.6)'}},ticks:{{color:'#8892a4',font:{{size:9}}}}}},
-        y:{{title:{{display:true,text:yLabel,color:'#8892a4',font:{{size:9}}}},
-            grid:{{color:'rgba(46,50,80,0.6)'}},ticks:{{color:'#8892a4',font:{{size:9}}}}}},
-      }},
-    }},
-  }});
-  // annotate r on card title area
-  const titleEl = canvas.closest('.chart-card')?.querySelector('.chart-meta');
-  if (titleEl) titleEl.textContent = `r = ${{r.toFixed(3)}} · n=${{n}}`;
-}}
+  AR.scatter(card.querySelector('.chart-area'), {
+    points: pts.map(p => ({ x: p.x, y: p.y, label: 'Week of ' + AR.fmtDate(p.date), color: ramp(p) })),
+    height: 230, r: 4, xLabel, yLabel,
+    fit: { slope: b, intercept: a },
+    tip: p => `<b>${p.label}</b><br><span class="dim">${xLabel}</span> ${p.x}<br><span class="dim">${yLabel}</span> ${p.y}`,
+  });
+  card.querySelector('.metric-card-sub').textContent = `r = ${r.toFixed(3)} · n=${n}`;
+}
 
-function bloodDrawPlugin(labels) {{
-  return {{
-    id:'bloodDraws',
-    afterDraw(chart) {{
-      const {{ctx, chartArea:{{top,bottom}}, scales:{{x}}}} = chart;
-      if (!x) return;
-      DATA.blood_draws.forEach(dd => {{
-        const idx = labels.indexOf(dd);
-        if (idx < 0) return;
-        const xPx = x.getPixelForValue(idx);
-        ctx.save();
-        ctx.beginPath(); ctx.moveTo(xPx,top); ctx.lineTo(xPx,bottom);
-        ctx.strokeStyle='rgba(234,179,8,0.4)';ctx.lineWidth=1;
-        ctx.setLineDash([3,3]);ctx.stroke();ctx.restore();
-      }});
-    }},
-  }};
-}}
+const SCATTER_LEGEND = `<div class="legend">
+  <span class="legend-item">earlier <span class="sw ramp"></span> recent</span>
+  <span class="legend-item"><span class="sw dash"></span>least-squares fit</span>
+</div>`;
 
-const CHARTCFG = {{
-  responsive:true, maintainAspectRatio:false,
-  interaction:{{mode:'index',intersect:false}},
-  plugins:{{
-    legend:{{display:false}},
-    tooltip:{{backgroundColor:'#1a1d27',borderColor:'#2e3250',borderWidth:1,
-             titleColor:'#e2e8f0',bodyColor:'#8892a4'}},
-  }},
-  scales:{{
-    x:{{grid:{{color:'rgba(46,50,80,0.6)'}},ticks:{{color:'#8892a4',maxRotation:45,maxTicksLimit:24,font:{{size:9}}}}}},
-    y:{{grid:{{color:'rgba(46,50,80,0.6)'}},ticks:{{color:'#8892a4',font:{{size:10}}}}}},
-  }},
-}};
-
-// ---------------------------------------------------------------------------
-// Tab 1: Source Comparison
-// ---------------------------------------------------------------------------
-addTab('⚖️ Source Comparison', 'compare', panel => {{
+// ── SOURCE COMPARISON ─────────────────────────────────────────────────────
+(function () {
+  const panel = $('section-compare');
   const s = DATA.stats;
 
   // Summary stat cards
-  const secStats = mkSection('Head-to-Head: Garmin vs WHOOP Overlap',
-    `${{s.overlap_days}} days with both devices worn (${{s.overlap_start}} – ${{s.overlap_end}}).
+  const secStats = mkSection(panel, 'Head-to-Head: Garmin vs WHOOP Overlap',
+    `${s.overlap_days} days with both devices worn (${s.overlap_start} – ${s.overlap_end}).
      Pearson r and mean absolute difference computed per daily value.`);
 
+  const verdict = r => r >= 0.7 ? 'good' : r >= 0.4 ? 'ok' : 'poor';
+  const VERDICT = {
+    good: { color: 'var(--good)', cls: 'good', label: 'Good agreement' },
+    ok:   { color: 'var(--warn)', cls: 'warn', label: 'OK agreement' },
+    poor: { color: 'var(--bad)',  cls: 'bad',  label: 'Poor agreement' },
+  };
   const cards = [
-    ['Sleep hours', `r = ${{s.sleep.pearson_r}}`, `Avg diff: ${{s.sleep.avg_abs_diff}}h · Garmin: ${{s.sleep.garmin_avg}}h vs WHOOP: ${{s.sleep.whoop_avg}}h`, s.sleep.pearson_r >= 0.7 ? 'good' : s.sleep.pearson_r >= 0.4 ? 'ok' : 'poor'],
-    ['Resting HR', `r = ${{s.rhr.pearson_r}}`, `Avg diff: ${{s.rhr.avg_abs_diff}} bpm · Garmin: ${{s.rhr.garmin_avg}} vs WHOOP: ${{s.rhr.whoop_avg}}`, s.rhr.pearson_r >= 0.7 ? 'good' : s.rhr.pearson_r >= 0.4 ? 'ok' : 'poor'],
-    ['Respiration', `r = ${{s.respiration.pearson_r}}`, `Garmin: ${{s.respiration.garmin_avg}} vs WHOOP: ${{s.respiration.whoop_avg}} br/min`, s.respiration.pearson_r >= 0.7 ? 'good' : s.respiration.pearson_r >= 0.4 ? 'ok' : 'poor'],
+    ['Sleep hours', `r = ${s.sleep.pearson_r}`, `Avg diff: ${s.sleep.avg_abs_diff}h · Garmin: ${s.sleep.garmin_avg}h vs WHOOP: ${s.sleep.whoop_avg}h`, verdict(s.sleep.pearson_r)],
+    ['Resting HR', `r = ${s.rhr.pearson_r}`, `Avg diff: ${s.rhr.avg_abs_diff} bpm · Garmin: ${s.rhr.garmin_avg} vs WHOOP: ${s.rhr.whoop_avg}`, verdict(s.rhr.pearson_r)],
+    ['Respiration', `r = ${s.respiration.pearson_r}`, `Garmin: ${s.respiration.garmin_avg} vs WHOOP: ${s.respiration.whoop_avg} br/min`, verdict(s.respiration.pearson_r)],
   ];
-  const statGrid = document.createElement('div');
-  statGrid.className = 'stat-grid';
-  cards.forEach(([label, val, sub, verdict]) => {{
-    const c = document.createElement('div');
-    c.className = 'stat-card';
-    const col = {{good:'var(--green)',ok:'var(--yellow)',poor:'var(--red)'}}[verdict];
-    c.innerHTML = `<div class="label">${{label}}</div>
-                   <div class="value" style="color:${{col}}">${{val}}</div>
-                   <div class="sub">${{sub}}</div>`;
-    statGrid.appendChild(c);
-  }});
-  secStats.appendChild(statGrid);
-  panel.appendChild(secStats);
+  secStats.insertAdjacentHTML('beforeend', `<div class="kpi-strip wide-tiles">${cards.map(([label, val, sub, v]) => `
+    <div class="kpi-card" style="--kpi-color:${VERDICT[v].color}">
+      <div class="kpi-label">${label}</div>
+      <div class="kpi-value" style="color:${VERDICT[v].color}">${val}</div>
+      <div class="kpi-sub">${sub}</div>
+      <span class="badge ${VERDICT[v].cls}">${VERDICT[v].label}</span>
+    </div>`).join('')}</div>`);
 
   // Coverage table
-  const secCov = mkSection('Signal Coverage by Source', null);
-  const cGrid = document.createElement('div');
-  cGrid.className = 'coverage-grid';
+  const secCov = mkSection(panel, 'Signal Coverage by Source', null);
   const coverage = [
-    {{metric:'HRV (rMSSD)', garmin:false, whoop:true,  strava:false, note:'WHOOP only — no Garmin HRV in this DB', winner:'whoop'}},
-    {{metric:'Sleep hours', garmin:true,  whoop:true,  strava:false, note:'Both; WHOOP preferred (r='+s.sleep.pearson_r+' agreement, WHOOP avoids watch-on-wrist artifact)', winner:'whoop'}},
-    {{metric:'Resting HR',  garmin:true,  whoop:true,  strava:false, note:'Both; WHOOP preferred (dedicated overnight measurement)', winner:'whoop'}},
-    {{metric:'SpO₂',        garmin:true,  whoop:true,  strava:false, note:'Both (sparse on Garmin); WHOOP preferred', winner:'whoop'}},
-    {{metric:'Respiration', garmin:true,  whoop:true,  strava:false, note:'Both agree well (r='+s.respiration.pearson_r+')', winner:'either'}},
-    {{metric:'Recovery',    garmin:false, whoop:true,  strava:false, note:'WHOOP only (0–100 score)', winner:'whoop'}},
-    {{metric:'Strain',      garmin:false, whoop:true,  strava:false, note:'WHOOP only (0–21 score)', winner:'whoop'}},
-    {{metric:'Steps',       garmin:true,  whoop:false, strava:false, note:'Garmin only — back to 2015, WHOOP has none', winner:'garmin'}},
-    {{metric:'Stress',      garmin:true,  whoop:false, strava:false, note:'Garmin only (0–100, HRV-derived)', winner:'garmin'}},
-    {{metric:'Body battery',garmin:true,  whoop:false, strava:false, note:'Garmin only (0–100 energy reserve)', winner:'garmin'}},
-    {{metric:'Training hrs',garmin:false, whoop:false, strava:true,  note:'Strava: sport breakdown, power, pace', winner:'strava'}},
-    {{metric:'Skin temp',   garmin:false, whoop:true,  strava:false, note:'WHOOP only', winner:'whoop'}},
+    {metric:'HRV (rMSSD)', garmin:false, whoop:true,  strava:false, note:'WHOOP only — no Garmin HRV in this DB', winner:'whoop'},
+    {metric:'Sleep hours', garmin:true,  whoop:true,  strava:false, note:'Both; WHOOP preferred (r='+s.sleep.pearson_r+' agreement, WHOOP avoids watch-on-wrist artifact)', winner:'whoop'},
+    {metric:'Resting HR',  garmin:true,  whoop:true,  strava:false, note:'Both; WHOOP preferred (dedicated overnight measurement)', winner:'whoop'},
+    {metric:'SpO₂',        garmin:true,  whoop:true,  strava:false, note:'Both (sparse on Garmin); WHOOP preferred', winner:'whoop'},
+    {metric:'Respiration', garmin:true,  whoop:true,  strava:false, note:'Both agree well (r='+s.respiration.pearson_r+')', winner:'either'},
+    {metric:'Recovery',    garmin:false, whoop:true,  strava:false, note:'WHOOP only (0–100 score)', winner:'whoop'},
+    {metric:'Strain',      garmin:false, whoop:true,  strava:false, note:'WHOOP only (0–21 score)', winner:'whoop'},
+    {metric:'Steps',       garmin:true,  whoop:false, strava:false, note:'Garmin only — back to 2015, WHOOP has none', winner:'garmin'},
+    {metric:'Stress',      garmin:true,  whoop:false, strava:false, note:'Garmin only (0–100, HRV-derived)', winner:'garmin'},
+    {metric:'Body battery',garmin:true,  whoop:false, strava:false, note:'Garmin only (0–100 energy reserve)', winner:'garmin'},
+    {metric:'Training hrs',garmin:false, whoop:false, strava:true,  note:'Strava: sport breakdown, power, pace', winner:'strava'},
+    {metric:'Skin temp',   garmin:false, whoop:true,  strava:false, note:'WHOOP only', winner:'whoop'},
   ];
-  coverage.forEach(c => {{
-    const card = document.createElement('div');
-    card.className = 'cov-card';
-    const srcBadge = src => `<span class="src-pill src-${{src}}">${{src}}</span>`;
-    const avail = [c.garmin?'garmin':null, c.whoop?'whoop':null, c.strava?'strava':null].filter(Boolean);
-    card.innerHTML = `
-      <div class="cov-metric">${{c.metric}} — winner: ${{srcBadge(c.winner)}}</div>
-      <div style="display:flex;gap:0.3rem;flex-wrap:wrap;margin-bottom:4px;">
-        ${{avail.map(s=>srcBadge(s)).join('')}}${{avail.length===0?'<span style="color:var(--muted);font-size:0.72rem;">none</span>':''}}
-      </div>
-      <div class="cov-note">${{c.note}}</div>
-    `;
-    cGrid.appendChild(card);
-  }});
-  secCov.appendChild(cGrid);
-  panel.appendChild(secCov);
+  secCov.insertAdjacentHTML('beforeend', `<div class="metric-card"><div class="table-wrap"><table>
+    <thead><tr><th>Metric</th><th>Available from</th><th>Winner</th><th>Note</th></tr></thead>
+    <tbody>${coverage.map(c => {
+      const avail = ['garmin', 'whoop', 'strava'].filter(k => c[k]);
+      return `<tr><td><b>${c.metric}</b></td>
+        <td>${avail.map(srcPill).join('') || '<span class="dim">none</span>'}</td>
+        <td>${srcPill(c.winner)}</td>
+        <td class="wrap">${c.note}</td></tr>`;
+    }).join('')}</tbody></table></div></div>`);
 
   // Scatter plots: Garmin vs WHOOP
-  const secScatter = mkSection('Daily Scatter: Garmin vs WHOOP (last 2 years)',
-    'Each point = one day. Blue (early) → orange (recent). Regression line shows agreement direction.');
+  const secScatter = mkSection(panel, 'Weekly Scatter: Garmin vs WHOOP (last 2 years)',
+    'Each point = one week (mean of the daily values). Blue (early) → orange (recent). Regression line shows agreement direction.');
+  secScatter.insertAdjacentHTML('beforeend', SCATTER_LEGEND);
   const sg = document.createElement('div');
-  sg.className = 'charts-grid';
+  sg.className = 'metric-grid three';
+  secScatter.appendChild(sg);
 
   [
     ['sleep_garmin_vs_whoop', 'Garmin sleep (hrs)', 'WHOOP sleep (hrs)'],
@@ -740,181 +617,123 @@ addTab('⚖️ Source Comparison', 'compare', panel => {{
     ['bb_vs_recovery',        'Garmin body battery hi', 'WHOOP recovery score'],
     ['garmin_stress_vs_whoop_recovery', 'Garmin stress', 'WHOOP recovery score'],
     ['steps_vs_strain',       'Garmin steps',       'WHOOP strain'],
-  ].forEach(([key, xl, yl]) => {{
-    const pts = DATA.scatter[key] || [];
-    const {{card, canvas}} = chartCard(`${{xl}} vs ${{yl}}`, '', 160);
-    sg.appendChild(card);
-    scatterChart(canvas, pts, xl, yl);
-  }});
-  secScatter.appendChild(sg);
-  panel.appendChild(secScatter);
+  ].forEach(([key, xl, yl]) => {
+    scatterChart(chartCard(sg, `${xl} vs ${yl}`, ''), DATA.scatter[key] || [], xl, yl);
+  });
 
   // Strava vs WHOOP strain
-  const secStrain = mkSection('WHOOP Strain vs Strava Training Hours', null);
+  const secStrain = mkSection(panel, 'WHOOP Strain vs Strava Training Hours', null);
   const sg2 = document.createElement('div');
-  sg2.className = 'charts-grid';
-  const {{card:sc, canvas:sCanvas}} = chartCard('Strava training hrs vs WHOOP strain', '', 160);
-  sg2.appendChild(sc);
-  scatterChart(sCanvas, DATA.scatter['strain_vs_strava_hrs']||[], 'Training hours', 'WHOOP strain');
+  sg2.className = 'metric-grid three';
   secStrain.appendChild(sg2);
-  panel.appendChild(secStrain);
-}});
+  scatterChart(chartCard(sg2, 'Strava training hrs vs WHOOP strain', ''),
+    DATA.scatter['strain_vs_strava_hrs'] || [], 'Training hours', 'WHOOP strain');
+})();
 
-// ---------------------------------------------------------------------------
-// Tab 2: Combined Monthly Trends
-// ---------------------------------------------------------------------------
-addTab('📈 Combined Trends', 'trends', panel => {{
+// ── COMBINED MONTHLY TRENDS ───────────────────────────────────────────────
+// Each pair of related signals sits side by side as two charts on a shared
+// time axis (one y-scale per chart), with blood-draw dates as dashed markers.
+(function () {
+  const panel = $('section-trends');
   const months = DATA.monthly;
   const labels = months.map(m => m.month);
-  const bdPlugin = bloodDrawPlugin(labels);
+  const markers = DATA.blood_draws.map(d => ({ x: d, label: 'Blood draw ' + d }));
 
-  function trendCard(title, datasets, yLabel, yLabel2, height, full) {{
-    const {{card, canvas}} = chartCard(title, '', height||180, full);
-    const scales = {{
-      x: CHARTCFG.scales.x,
-      y: {{...CHARTCFG.scales.y, title:{{display:!!yLabel, text:yLabel||'', color:'#8892a4', font:{{size:9}}}}}},
-    }};
-    if (yLabel2) scales.y2 = {{position:'right', grid:{{display:false}},
-      title:{{display:true,text:yLabel2,color:'#8892a4',font:{{size:9}}}},
-      ticks:{{color:'#8892a4',font:{{size:10}}}}}};
-    new Chart(canvas, {{
-      type:'line', plugins:[bdPlugin],
-      data:{{labels, datasets}},
-      options:{{...CHARTCFG, scales}},
-    }});
-    return card;
-  }}
-
-  function ds(label, field, color, yAxisID, fill) {{
-    return {{
-      label, yAxisID: yAxisID||'y',
-      data: months.map(m => m[field]),
-      borderColor: color, backgroundColor: fill ? color.replace(')',',0.12)').replace('rgb','rgba') : 'transparent',
-      borderWidth:2, pointRadius:2, tension:0.3, fill:!!fill, spanGaps:true,
-    }};
-  }}
-
+  panel.innerHTML = `<div class="note">Monthly averages of the combined daily signal.
+    Dashed vertical lines = blood draw dates.</div>`;
   const grid = document.createElement('div');
-  grid.className = 'charts-grid';
-  grid.style.gridTemplateColumns = '1fr';
-
-  // 1. Steps + training hours
-  grid.appendChild(trendCard('Daily Steps (monthly avg) + Training Hours',
-    [ds('Steps', 'steps', '#60a5fa', 'y', true),
-     ds('Training hrs', 'train_hrs', '#f97316', 'y2')],
-    'Steps', 'Training hrs/day', 200, true));
-
-  // 2. Sleep: WHOOP vs Garmin
-  grid.appendChild(trendCard('Sleep Hours — combined (WHOOP preferred, Garmin fallback)',
-    [ds('Sleep hrs', 'sleep_hrs', '#a855f7', 'y', true),
-     ds('Sleep score', 'sleep_score', '#818cf8', 'y2')],
-    'Hours', 'Score (0–100)', 180, true));
-
-  // 3. HRV + Recovery
-  grid.appendChild(trendCard('WHOOP: HRV & Recovery Score',
-    [ds('HRV (ms)', 'hrv_ms', '#22c55e', 'y'),
-     ds('Recovery', 'whoop_recovery', '#60a5fa', 'y2')],
-    'HRV rMSSD (ms)', 'Recovery (0–100)', 180, true));
-
-  // 4. RHR + Strain
-  grid.appendChild(trendCard('Resting HR (WHOOP) + WHOOP Strain',
-    [ds('RHR (bpm)', 'rhr', '#ef4444', 'y'),
-     ds('Strain', 'whoop_strain', '#f97316', 'y2')],
-    'RHR (bpm)', 'Strain (0–21)', 180, true));
-
-  // 5. Garmin stress + body battery
-  grid.appendChild(trendCard('Garmin: Stress + Body Battery',
-    [ds('Stress (0–100)', 'garmin_stress', '#eab308', 'y'),
-     ds('Body battery high', 'body_battery_hi', '#22c55e', 'y2')],
-    'Stress', 'Body battery', 180, true));
-
-  // 6. SpO2 + resp rate
-  grid.appendChild(trendCard('SpO₂ & Respiration Rate',
-    [ds('SpO₂ (%)', 'spo2', '#60a5fa', 'y', true),
-     ds('Resp (br/min)', 'resp_rate', '#eab308', 'y2')],
-    'SpO₂ (%)', 'Breaths/min', 180, true));
-
+  grid.className = 'metric-grid';
   panel.appendChild(grid);
 
-  // Legend note
-  const note = document.createElement('p');
-  note.style.cssText = 'color:var(--muted);font-size:0.75rem;margin-top:0.5rem;';
-  note.innerHTML = '⚡ Dashed yellow vertical lines = blood draw dates.';
-  panel.appendChild(note);
-}});
+  function trendCard(title, field, color, unit, decimals) {
+    const values = months.map(m => m[field]);
+    let last = values.length - 1;
+    while (last >= 0 && values[last] == null) last--;
+    const fmt = v => d3.format(',')(+v.toFixed(decimals));
+    const card = document.createElement('div');
+    card.className = 'metric-card';
+    card.innerHTML = `
+      <div class="metric-card-header"><div class="metric-card-title">${title}</div></div>
+      <div class="metric-card-val" style="color:${color}">${last >= 0 ? fmt(values[last]) : '—'}</div>
+      <div class="metric-card-sub">${unit}${last >= 0 ? ' · ' + AR.fmtDate(labels[last]) + ' avg' : ''}</div>
+      <div class="chart-area"></div>`;
+    grid.appendChild(card);
+    AR.lineChart(card.querySelector('.chart-area'), {
+      x: labels, y: values, color, height: 170, markers,
+      yFmt: v => d3.format('~s')(+v.toFixed(2)),
+      tip: i => `<b>${AR.fmtDate(labels[i])}</b><br>${fmt(values[i])} <span class="dim">${unit}</span>`,
+    });
+  }
 
-// ---------------------------------------------------------------------------
-// Tab 3: Source Coverage
-// ---------------------------------------------------------------------------
-addTab('📅 Coverage', 'coverage', panel => {{
+  // 1. Steps + training hours
+  trendCard('Daily Steps (monthly avg)', 'steps', 'var(--blue)', 'steps/day', 0);
+  trendCard('Training Hours', 'train_hrs', 'var(--orange)', 'training hrs/day', 2);
+  // 2. Sleep
+  trendCard('Sleep Hours — combined (WHOOP preferred, Garmin fallback)', 'sleep_hrs', 'var(--purple)', 'hours', 2);
+  trendCard('Sleep Score', 'sleep_score', 'var(--pink)', 'score (0–100)', 1);
+  // 3. HRV + Recovery
+  trendCard('WHOOP: HRV', 'hrv_ms', 'var(--teal)', 'HRV rMSSD (ms)', 1);
+  trendCard('WHOOP: Recovery Score', 'whoop_recovery', 'var(--blue)', 'recovery (0–100)', 1);
+  // 4. RHR + Strain
+  trendCard('Resting HR (WHOOP)', 'rhr', 'var(--red)', 'RHR (bpm)', 1);
+  trendCard('WHOOP Strain', 'whoop_strain', 'var(--orange)', 'strain (0–21)', 1);
+  // 5. Garmin stress + body battery
+  trendCard('Garmin: Stress', 'garmin_stress', 'var(--yellow)', 'stress (0–100)', 1);
+  trendCard('Garmin: Body Battery', 'body_battery_hi', 'var(--green)', 'body battery high', 1);
+  // 6. SpO2 + resp rate
+  trendCard('SpO₂', 'spo2', 'var(--blue)', 'SpO₂ (%)', 1);
+  trendCard('Respiration Rate', 'resp_rate', 'var(--yellow)', 'breaths/min', 1);
+})();
+
+// ── SOURCE COVERAGE ───────────────────────────────────────────────────────
+(function () {
+  const panel = $('section-coverage');
   const months = DATA.monthly;
   const labels = months.map(m => m.month);
 
-  const sec = mkSection('Data Coverage by Source Over Time',
+  const sec = mkSection(panel, 'Data Coverage by Source Over Time',
     'Shows how many days per month have data from each source. Identifies gaps and source transitions.');
 
-  const grid = document.createElement('div');
-  grid.className = 'charts-grid';
-  grid.style.gridTemplateColumns = '1fr';
-
-  const {{card, canvas}} = chartCard('Monthly data coverage (days/month with data)', '', 250, true);
-  grid.appendChild(card);
-
-  new Chart(canvas, {{
-    type: 'bar',
-    data: {{
-      labels,
-      datasets: [
-        {{label:'WHOOP (HRV)',     data:months.map(m=>m['_n_hrv_ms']||0),     backgroundColor:'rgba(34,197,94,0.7)', stack:'s'}},
-        {{label:'WHOOP (sleep)',   data:months.map(m=>m['_n_sleep_hrs']||0),   backgroundColor:'rgba(34,197,94,0.35)',stack:'s2'}},
-        {{label:'Garmin (steps)', data:months.map(m=>m['_n_steps']||0),       backgroundColor:'rgba(96,165,250,0.6)', stack:'s3'}},
-        {{label:'Strava',         data:months.map(m=>m['_n_train_hrs']||0),   backgroundColor:'rgba(249,115,22,0.6)', stack:'s4'}},
-      ],
-    }},
-    options:{{
-      responsive:true, maintainAspectRatio:false,
-      interaction:{{mode:'index',intersect:false}},
-      plugins:{{
-        legend:{{display:true,labels:{{color:'#8892a4',font:{{size:10}}}}}},
-        tooltip:{{backgroundColor:'#1a1d27',borderColor:'#2e3250',borderWidth:1,
-                 titleColor:'#e2e8f0',bodyColor:'#8892a4'}},
-      }},
-      scales:{{
-        x:{{grid:{{color:'rgba(46,50,80,0.6)'}},ticks:{{color:'#8892a4',maxRotation:45,maxTicksLimit:24,font:{{size:9}}}}}},
-        y:{{grid:{{color:'rgba(46,50,80,0.6)'}},ticks:{{color:'#8892a4',font:{{size:10}}}},title:{{display:true,text:'Days with data',color:'#8892a4',font:{{size:9}}}}}},
-      }},
-    }},
-  }});
-
-  sec.appendChild(grid);
-  panel.appendChild(sec);
+  // One row per source on the same month axis (small multiples).
+  const rows = [
+    ['WHOOP (HRV)',            '_n_hrv_ms',    'var(--pink)'],
+    ['Sleep (WHOOP or Garmin)', '_n_sleep_hrs', 'var(--purple)'],
+    ['Garmin (steps)',         '_n_steps',     'var(--blue)'],
+    ['Strava',                 '_n_train_hrs', 'var(--orange)'],
+  ];
+  sec.insertAdjacentHTML('beforeend', `<div class="metric-grid wide"><div class="metric-card">
+    <div class="metric-card-header"><div class="metric-card-title">Monthly data coverage (days/month with data)</div></div>
+    ${rows.map(([name, , color], i) => `<div class="cov-row">
+      <div class="cov-label"><span class="sw" style="background:${color}"></span>${name}</div>
+      <div class="chart-area" id="cov-chart-${i}"></div></div>`).join('')}
+  </div></div>`);
+  rows.forEach(([name, key, color], i) => {
+    const values = months.map(m => m[key] || 0);
+    AR.barChart('#cov-chart-' + i, {
+      labels, values, color, height: 96, yTicks: 3,
+      yFmt: v => v,
+      tip: j => `<b>${AR.fmtDate(labels[j])}</b><br><span class="dim">${name}</span> ${values[j]} days`,
+    });
+  });
 
   // Summary stats
-  const sumSec = mkSection('Summary', null);
-  const sg = document.createElement('div');
-  sg.className = 'stat-grid';
+  const sumSec = mkSection(panel, 'Summary', null);
   const sm = DATA.summary;
-  [
+  sumSec.insertAdjacentHTML('beforeend', `<div class="kpi-strip wide-tiles">${[
     ['Garmin steps', sm.garmin_step_days + ' days', '2015 – today'],
     ['WHOOP HRV',    sm.whoop_hrv_days + ' days',   '2020-10 – today'],
     ['Strava',       sm.strava_days + ' days',       '2011 – today'],
     ['Blood draws',  DATA.blood_draws.length + ' draws', '2013 – today'],
     ['Full overlap (all 3)', sm.full_overlap_days + ' days', 'WHOOP + Garmin + Strava'],
-  ].forEach(([l,v,s]) => {{
-    const c = document.createElement('div');
-    c.className = 'stat-card';
-    c.innerHTML = `<div class="label">${{l}}</div><div class="value" style="color:var(--accent)">${{v}}</div><div class="sub">${{s}}</div>`;
-    sg.appendChild(c);
-  }});
-  sumSec.appendChild(sg);
-  panel.appendChild(sumSec);
-}});
+  ].map(([l, v, sub]) => `
+    <div class="kpi-card" style="--kpi-color:var(--accent)">
+      <div class="kpi-label">${l}</div>
+      <div class="kpi-value">${v}</div>
+      <div class="kpi-sub">${sub}</div>
+    </div>`).join('')}</div>`);
+})();
 
-document.getElementById('footer').textContent =
-  `Generated ${{DATA.generated}} · Garmin + WHOOP + Strava unified fitness dashboard`;
-</script>
-</body>
-</html>
+show(location.hash.slice(1) || 'compare');
 """
 
 
