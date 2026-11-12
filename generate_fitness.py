@@ -30,6 +30,8 @@ import sqlite3
 from datetime import date, datetime, timedelta
 from collections import defaultdict
 
+import yaml
+
 import shell
 
 HTML_FILE  = os.path.join(os.path.dirname(__file__), "fitness.html")
@@ -40,12 +42,14 @@ STRAVA_DB = os.path.expanduser("~/projects/2026/strava-database/strava.db")
 
 BIRTH_YEAR = 1989
 
-BLOOD_DRAW_DATES = [
-    "2013-01-10","2018-09-27","2018-10-10","2019-01-14",
-    "2021-07-22","2021-08-10","2021-10-29","2022-09-30","2022-12-23",
-    "2023-01-03","2023-07-10","2023-11-02","2023-11-16",
-    "2024-11-27","2025-03-06","2025-06-05","2025-12-04",
-]
+BLOODWORK_FILE = os.path.join(os.path.dirname(__file__), "bloodwork_data.yaml")
+
+
+def load_blood_draw_dates(path: str = BLOODWORK_FILE) -> list[str]:
+    """Draw dates come from bloodwork_data.yaml, the same file index.html uses."""
+    with open(path) as f:
+        draws = yaml.safe_load(f)["draws"]
+    return sorted({str(d["date"]) for d in draws})
 
 
 # ---------------------------------------------------------------------------
@@ -406,7 +410,7 @@ def build_html(stats: dict, monthly: list[dict], scatter: dict,
         "monthly":  monthly,
         "scatter":  scatter,
         "summary":  combined_summary,
-        "blood_draws": BLOOD_DRAW_DATES,
+        "blood_draws": load_blood_draw_dates(),
         "generated": generated,
     }, separators=(",", ":"))
 
@@ -583,7 +587,7 @@ const SCATTER_LEGEND = `<div class="legend">
     {metric:'Sleep hours', garmin:true,  whoop:true,  strava:false, note:'Both; WHOOP preferred (r='+s.sleep.pearson_r+' agreement, WHOOP avoids watch-on-wrist artifact)', winner:'whoop'},
     {metric:'Resting HR',  garmin:true,  whoop:true,  strava:false, note:'Both; WHOOP preferred (dedicated overnight measurement)', winner:'whoop'},
     {metric:'SpO₂',        garmin:true,  whoop:true,  strava:false, note:'Both (sparse on Garmin); WHOOP preferred', winner:'whoop'},
-    {metric:'Respiration', garmin:true,  whoop:true,  strava:false, note:'Both agree well (r='+s.respiration.pearson_r+')', winner:'either'},
+    {metric:'Respiration', garmin:true,  whoop:true,  strava:false, note:'Both; '+VERDICT[verdict(s.respiration.pearson_r)].label.toLowerCase()+' (r='+s.respiration.pearson_r+')', winner:'either'},
     {metric:'Recovery',    garmin:false, whoop:true,  strava:false, note:'WHOOP only (0–100 score)', winner:'whoop'},
     {metric:'Strain',      garmin:false, whoop:true,  strava:false, note:'WHOOP only (0–21 score)', winner:'whoop'},
     {metric:'Steps',       garmin:true,  whoop:false, strava:false, note:'Garmin only — back to 2015, WHOOP has none', winner:'garmin'},

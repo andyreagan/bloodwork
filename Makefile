@@ -20,7 +20,7 @@ update: all
 index.html: generate.py ranges.py bloodwork_data.yaml fitness_data.yaml $(STRAVA_DB)
 	$(PYTHON) generate.py
 
-fitness.html: generate_fitness.py fitness_data.yaml $(DBS)
+fitness.html: generate_fitness.py bloodwork_data.yaml fitness_data.yaml $(DBS)
 	$(PYTHON) generate_fitness.py
 
 correlations.html: generate_correlations.py bloodwork_data.yaml fitness_data.yaml $(DBS)
